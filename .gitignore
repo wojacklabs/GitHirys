@@ -1,0 +1,46 @@
+/node_modules
+/.idea
+/.history
+/.next
+
+# Build and cache directories
+.next/
+out/
+build/
+dist/
+
+# Next.js build cache
+.next/cache/
+.next/static/
+.next/server/
+
+# Webpack cache
+.cache/
+cache/
+.webpack/
+*.cache
+
+# TypeScript
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Yarn v4+ cache and temporary files
+.yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# IDE and editor files
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
