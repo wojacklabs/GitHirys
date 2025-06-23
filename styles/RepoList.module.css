@@ -1,0 +1,248 @@
+/* RepoList.module.css */
+
+.loading {
+  font-size: 14px;
+  color: #6b7280;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f9fafb;
+  border-radius: 4px;
+}
+
+.error {
+  color: #dc2626;
+  padding: 16px;
+  background-color: #fee2e2;
+  border-radius: 6px;
+  margin-top: 16px;
+}
+
+.errorButton {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
+
+.debugInfo {
+  margin-top: 16px;
+}
+
+.debugSummary {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.debugContent {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  max-height: 300px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+}
+
+.debugLine {
+  margin-bottom: 4px;
+}
+
+.debugLineError {
+  color: #dc2626;
+}
+
+.debugLineSuccess {
+  color: #16a34a;
+}
+
+.debugLineWarning {
+  color: #f59e0b;
+}
+
+.debugLineInfo {
+  color: #4b5563;
+}
+
+.noReposMessage {
+  color: #6b7280;
+  font-size: 14px;
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.noReposTitle {
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.noReposItem {
+  margin: 4px 0;
+}
+
+.noReposCode {
+  background-color: #fff;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: monospace;
+}
+
+.noReposDetails {
+  margin-top: 16px;
+  padding: 20px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+}
+
+.noReposDetailsTitle {
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.noReposDetailsText {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.repoGrid {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.repoCard {
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.repoHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.repoHeaderLeft {
+  flex: 1;
+}
+
+.repoTitle {
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repoNameButton {
+  background: none;
+  border: none;
+  text-decoration: none;
+  color: #333;
+  font-weight: 600;
+  padding: 0;
+  font-size: inherit;
+}
+
+.repoBranchCount {
+  font-size: 12px;
+  color: #6b7280;
+  background-color: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.repoMutableBadge {
+  font-size: 11px;
+  color: #059669;
+  background-color: #d1fae5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.repoBranchSelector {
+  margin-bottom: 8px;
+}
+
+.repoBranchLabel {
+  font-size: 12px;
+  color: #4b5563;
+  margin-right: 8px;
+}
+
+.repoBranchSelect {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.repoMeta {
+  font-size: 11px;
+  color: #9ca3af;
+}
+.repoMetaRow {
+  display: flex;
+  justify-content: space-between;
+  word-break: break-all;
+}
+.repoMetaRow + .repoMetaRow {
+  margin-top: 4px;
+}
+.repoMetaTitle {
+  min-width: 100px;
+}
+.repoMetaCode {
+  font-family: monospace;
+}
+
+.repoTimestamp {
+  text-align: right;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.repoTimestampRelative {
+  margin-bottom: 2px;
+}
+
+.repoTimestampAbsolute {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.repoActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.repoViewButton {
+  font-size: 12px;
+  padding: 6px 12px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
+
+.repoCloneButton {
+  font-size: 12px;
+  padding: 6px 12px;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}

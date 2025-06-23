@@ -1,0 +1,454 @@
+/* 프로필 페이지 스타일 */
+
+.notConnectedSection {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #92400e;
+}
+
+.notConnectedTitle {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.notConnectedDescription {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+.profile_main {
+  max-width: 460px;
+  width: 100%;
+  margin: 40px auto auto;
+}
+
+.message_top_success {
+  padding: 12px;
+  background-color: #dcfce7;
+  border: 1px solid #16a34a;
+  border-radius: 6px;
+  color: #166534;
+  margin-bottom: 20px;
+}
+
+.message_top_error {
+  padding: 12px;
+  background-color: #fee2e2;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  color: #991b1b;
+  margin-bottom: 20px;
+}
+.area_form {
+  margin-bottom: 24px;
+}
+.title_form {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.area_input_image {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.image {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+.imageInput {
+  display: none;
+}
+.button_image {
+  text-decoration: underline;
+  font-size: 16px;
+  padding: 8px 0;
+  line-height: 20px;
+}
+.guide_image {
+  font-size: 14px;
+  line-height: 18px;
+  color: #6b7280;
+}
+.url_example {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 18px;
+  color: #333;
+}
+.area_input_nickname {
+  position: relative;
+}
+.formInput {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+.formInputError {
+  border: 1px solid #dc2626;
+}
+.formInputNormal {
+  border: 1px solid #d1d5db;
+}
+.inputStatus {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 12px;
+}
+.inputStatusChecking {
+  color: #6b7280;
+}
+.inputStatusAvailable {
+  color: #16a34a;
+}
+.inputStatusUnavailable {
+  color: #dc2626;
+}
+.error_message {
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 18px;
+  margin-top: 6px;
+}
+
+/* 업로드 비용 정보 스타일 */
+.costInfo {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.costEstimate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.costEstimate:last-child {
+  margin-bottom: 0;
+}
+
+.costLabel {
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.costValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.freeIndicator {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.costHelp {
+  margin-top: 8px;
+}
+
+.costHelpText {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.submitButtonActive {
+  background-color: #333;
+  color: white;
+}
+.submitButtonDisabled {
+  background-color: #9ca3af;
+  color: white;
+  cursor: not-allowed;
+}
+
+.currentProfileSection {
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+.currentProfileTitle {
+  margin-bottom: 12px;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.currentProfileInfo {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.currentProfileMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #6b7280;
+}
+
+.loadingText {
+  padding: 20px;
+  text-align: center;
+}
+
+/* Fund Popup Styles */
+.fundPopupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.fundPopup {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.fundPopupTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1f2937;
+}
+
+.fundPopupMessage {
+  font-size: 16px;
+  margin-bottom: 20px;
+  color: #4b5563;
+}
+
+.fundPopupInfo {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.fundPopupInfo p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.fundPopupNote {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.fundPopupQuestion {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: #1f2937;
+}
+
+.fundPopupWarning {
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 24px;
+}
+
+.fundPopupWarningText {
+  font-size: 13px;
+  color: #92400e;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.fundPopupButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.fundPopupButton {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.fundPopupButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.fundPopupButtonPrimary {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.fundPopupButtonPrimary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.fundPopupButtonSecondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.fundPopupButtonSecondary:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+/* CLI Instructions Styles */
+.cliInstructions {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.cliInstructionsTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.8rem 0;
+  color: #333;
+}
+
+.cliCommandList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cliCommand {
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 0.5rem 0.8rem;
+}
+
+.cliCommand code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9rem;
+  color: #495057;
+  background: none;
+  padding: 0;
+  border: none;
+  font-weight: 500;
+}
+
+/* Fund Amount Input Styles */
+.fundAmountInput {
+  margin: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fundAmountInput label {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.fundAmountInput input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  background-color: #fff;
+  transition: border-color 0.3s ease;
+}
+
+.fundAmountInput input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.fundAmountInput input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+/* Fund Popup Error */
+.fundPopupError {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: #c00;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Balance Info */
+.balanceInfo {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: #f0f4f8;
+  border: 1px solid #d1dce5;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.balanceInfo p {
+  margin: 0;
+  color: #555;
+}
+
+.balanceInfo strong {
+  color: #333;
+  font-weight: 600;
+}

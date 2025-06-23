@@ -1,0 +1,1281 @@
+/* RepoDetail.module.css */
+
+.repoHeader {
+  margin: 40px 0 20px;
+}
+.repoLoading {
+  margin-top: 12px;
+}
+.repoTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.repoSubRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.repoTitle {
+  margin: 0;
+  flex: 1;
+}
+
+.shareButton {
+  padding: 8px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+  position: relative;
+}
+
+.shareButton:hover {
+  background-color: #1a202c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.shareButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.branchSelectorContainer {
+  margin-right: 16px;
+}
+
+.branchLabel {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.branchSelect {
+  width: 100%;
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: white;
+}
+
+.visibilityToggleContainer {
+  margin-left: auto;
+}
+
+.repoMeta {
+  font-size: 14px;
+  color: #6b7280;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.repoMetaRow {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  justify-content: space-between;
+}
+
+.repoMetaRow + .repoMetaRow {
+  margin-top: 8px;
+}
+
+.repoMetaTitle {
+  flex-shrink: 0;
+  padding-right: 16px;
+}
+
+.repoMetaCode {
+  font-size: 12px;
+  background-color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  word-break: break-all;
+}
+
+.cloneSection {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.cloneTitle {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.cloneCommandContainer {
+  display: flex;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.cloneCommand {
+  padding: 4px 8px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  flex-grow: 1;
+  font-family: inherit;
+  word-break: break-all;
+}
+
+.cloneButton {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.contentContainer {
+  display: flex;
+  gap: 20px;
+  height: 600px;
+}
+
+.fileTree {
+  width: 300px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.fileTreeHeader {
+  padding: 12px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+}
+
+.breadcrumbContainer {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.breadcrumbButton {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 14px;
+}
+
+.breadcrumbPath {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.fileItem {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+}
+
+.fileItemSelected {
+  background-color: #e0f2fe;
+}
+
+.fileItemHover:hover {
+  background-color: #f8fafc;
+}
+
+.fileItemIcon {
+  flex-shrink: 0;
+}
+
+.fileItemName {
+  font-size: 14px;
+  flex: 1;
+}
+
+.fileItemSize {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: auto;
+}
+
+.fileContent {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.fileContentHeader {
+  padding: 12px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+}
+
+.fileContentBody {
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+/* 미디어 컨테이너 */
+.mediaContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* 이미지 컨테이너 */
+.imageContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.imagePreview {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 비디오 컨테이너 */
+.videoContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.videoPreview {
+  max-width: 100%;
+  max-height: 500px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: black;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 오디오 컨테이너 */
+.audioContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.audioPreview {
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 문서 컨테이너 */
+.documentContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.documentPreview {
+  width: 100%;
+  height: 500px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 바이너리 파일 컨테이너 */
+.binaryContainer {
+  width: 100%;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.binaryInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.binaryHeader {
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.binaryDetails {
+  background-color: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.binaryDetails p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.binaryDetails strong {
+  color: #374151;
+}
+
+.downloadSection {
+  margin-top: 16px;
+}
+
+.downloadButton {
+  padding: 12px 24px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+/* 미디어 정보 공통 스타일 */
+.mediaInfo {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.textContent {
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: monospace;
+  white-space: pre-wrap;
+  background-color: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* 저장소 설명 섹션 스타일 */
+.descriptionSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.descriptionTitle {
+  margin: 0 0 16px 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.descriptionDisplay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.descriptionText {
+  padding: 16px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  line-height: 1.6;
+  color: #374151;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  min-height: 60px;
+}
+
+.descriptionPlaceholder {
+  padding: 16px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #9ca3af;
+  font-size: 14px;
+  font-style: italic;
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.areaeditDescriptionButton {
+  margin-top: 12px;
+  text-align: right;
+}
+.editDescriptionButton {
+  padding: 8px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  align-self: flex-end;
+}
+
+.descriptionEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.descriptionTextarea {
+  padding: 16px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+}
+
+.descriptionTextarea:focus {
+  outline: none;
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.descriptionActions {
+  display: flex;
+  gap: 12px;
+  align-self: flex-end;
+}
+
+.saveDescriptionButton {
+  padding: 8px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.saveDescriptionButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cancelDescriptionButton {
+  padding: 8px 16px;
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancelDescriptionButton:hover {
+  background-color: #4b5563;
+}
+
+.cancelDescriptionButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* 저장소 멤버 섹션 스타일 */
+.membersSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.membersTitle {
+  margin: 0 0 16px 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.membersContainer {
+  display: flex;
+  gap: 20px;
+}
+
+.authorGroup {
+  width: 150px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 16px;
+}
+.memberGroupTitle {
+  font-size: 14px;
+  line-height: 30px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.authorItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+.authorItem:hover {
+  background-color: #f3f4f6;
+}
+.memberGroup {
+  overflow: hidden;
+  flex-grow: 1;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 16px;
+}
+.memberItem {
+  display: flex;
+  width: 116px;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+.memberItem:hover {
+  background-color: #f3f4f6;
+}
+
+.memberAvatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+.memberAvatarPlaceholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e5e7eb;
+  font-size: 16px;
+  color: #6b7280;
+}
+.memberInfo {
+  flex: 1;
+}
+.memberName {
+  font-weight: 500;
+  color: #374151;
+  margin: 16px 0 8px;
+  font-size: 14px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memberAddress {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: monospace;
+  margin-bottom: 8px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memberTwitter {
+  font-size: 12px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contributorsList {
+  overflow: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* 반응형 디자인 개선 */
+@media (max-width: 768px) {
+  .contentContainer {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .fileTree {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 200px;
+  }
+
+  .fileContent {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 300px;
+  }
+
+  .membersSection {
+    padding: 16px;
+  }
+
+  .membersContainer {
+    gap: 16px;
+  }
+
+  .memberGroup {
+    padding: 12px;
+  }
+
+  .memberItem {
+    padding: 8px;
+  }
+
+  .authorGroup {
+    width: 125px;
+  }
+
+  .memberAvatar,
+  .memberAvatarPlaceholder {
+    width: 50px;
+    height: 50px;
+  }
+
+  .memberName {
+    font-size: 13px;
+  }
+
+  .memberAddress {
+    font-size: 11px;
+  }
+
+  .memberTwitter {
+    font-size: 11px;
+  }
+}
+
+/* 편집 권한 관리 버튼 스타일 */
+.memberGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.managePermissionButton {
+  margin-top: 4px;
+  width: 100%;
+  padding: 10px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+/* Contributor가 없을 때 메시지 */
+.noContributorsMessage {
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  padding: 20px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+/* 모달 스타일 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 80vw;
+  max-height: 90vh;
+  overflow: auto;
+  position: relative;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  border-radius: 8px 8px 0 0;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.modalCloseButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6b7280;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.modalCloseButton:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.modalBody {
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 반응형 모달 */
+@media (max-width: 768px) {
+  .modalHeader {
+    padding: 16px 20px;
+  }
+
+  .modalTitle {
+    font-size: 16px;
+  }
+
+  .modalCloseButton {
+    font-size: 18px;
+  }
+}
+
+/* Issues Section */
+.issuesSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.issuesHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.issuesTitle {
+  margin: 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.createIssueButton {
+  padding: 8px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.createIssueButton:hover {
+  background-color: #1a202c;
+}
+
+.issuesLoading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.noIssues {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.issuesContainer {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.issuesContainer::-webkit-scrollbar {
+  height: 8px;
+}
+
+.issuesContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.issuesContainer::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 4px;
+}
+
+.issuesContainer::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+.issueCard {
+  flex: 0 0 300px;
+  max-width: 300px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s;
+}
+
+.issueCard:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.issueHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.issueTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.issueAuthor {
+  font-size: 12px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.issueContent {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
+  overflow: hidden;
+  max-height: 72px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.issueFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.issueDate {
+  font-size: 12px;
+  color: #6b7280;
+}
+.issueDetailDate {
+  margin-top: 8px;
+  text-align: right;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.viewMoreButton {
+  padding: 4px 8px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.viewMoreButton:hover {
+  background-color: #e5e7eb;
+}
+
+/* Issue Detail Modal */
+.issueDetail {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.issueDetailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.issueDetailContent {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.issueDetailDate {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.issueActions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionButton {
+  padding: 4px 8px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.deleteButton {
+  padding: 4px 8px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+/* Comments Section */
+.commentsSection {
+  padding: 20px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.commentsTitle {
+  margin: 0 0 16px 0;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.commentsLoading {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.commentCard {
+  padding: 16px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.commentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.commentAuthor {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.commentDate {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.commentActions {
+  display: flex;
+  gap: 8px;
+}
+
+.commentContent {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.addCommentForm {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+/* Form Styles */
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.formInput {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.formInput:focus {
+  outline: none;
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.formTextarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.formTextarea:focus {
+  outline: none;
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.formActions {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.primaryButton {
+  padding: 8px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.primaryButton:hover {
+  background-color: #1a202c;
+}
+
+.primaryButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  padding: 8px 16px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.secondaryButton:hover {
+  background-color: #e5e7eb;
+}
+
+.secondaryButton:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.editForm {
+  padding: 16px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+/* Responsive Design for Issues */
+@media (max-width: 768px) {
+  .issuesSection {
+    padding: 16px;
+  }
+
+  .issuesHeader {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .issueCard {
+    flex: 0 0 280px;
+  }
+
+  .modalContent {
+    margin: 10px;
+    overflow-y: auto;
+  }
+
+  .formActions {
+    flex-direction: column;
+  }
+}
+
+/* Skeleton Loading Styles */
+.descriptionSkeleton,
+.issueSkeleton {
+  padding: 16px 0;
+}
+
+.skeletonLine {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  height: 16px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.issuesLoading {
+  padding: 24px 0;
+}
+
+.issueSkeleton {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.issueSkeleton:last-child {
+  margin-bottom: 0;
+}

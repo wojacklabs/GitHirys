@@ -1,0 +1,213 @@
+/* Universe Scene Styles */
+.universeContainer {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Tooltip Styles */
+.fixedTooltip {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  backdrop-filter: blur(15px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90vw;
+}
+
+.tooltipContent {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profileImage {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.tooltipInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltipTitle {
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.tooltipSubtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.tooltipAddress {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.tooltipActions {
+  display: flex;
+  gap: 8px;
+}
+
+.visitButton {
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.visitButton:hover {
+  background: rgba(59, 130, 246, 1);
+}
+
+.closeButton {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.closeButton:hover {
+  background: rgba(255, 0, 0, 0.2);
+}
+
+/* Tracking Indicator */
+.trackingIndicator {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(10px);
+  color: white;
+  font-size: 14px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.trackingHint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .searchContainer {
+    top: 10px;
+    right: 10px;
+    width: 180px;
+  }
+
+  .searchInput {
+    font-size: 14px; /* Prevent zoom on iOS */
+    padding: 6px 10px;
+    padding-right: 28px;
+  }
+
+  .clearButton {
+    right: 6px;
+    font-size: 12px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .searchSpinner {
+    right: 22px;
+    font-size: 10px;
+  }
+
+  .fixedTooltip {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+    max-width: none;
+    width: auto;
+  }
+
+  .tooltipContent {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .tooltipActions {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .searchContainer {
+    width: 160px;
+  }
+
+  .searchResults {
+    max-height: 150px;
+  }
+
+  .resultInfo {
+    gap: 0px;
+  }
+
+  .resultDisplayName {
+    font-size: 10px;
+  }
+
+  .resultWalletAddress,
+  .resultTwitter {
+    font-size: 8px;
+  }
+
+  .resultAvatar {
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+  }
+
+  .searchResultItem {
+    padding: 6px 8px;
+  }
+}

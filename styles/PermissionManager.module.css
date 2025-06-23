@@ -1,0 +1,304 @@
+/* 권한 관리 컴포넌트 스타일 */
+
+.permissionSection {
+  padding: 20px;
+}
+
+.permissionTitle {
+  margin: 0 0 16px 0;
+  color: #374151;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ownerOnlyMessage {
+  padding: 12px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.contributorsList {
+  margin-bottom: 20px;
+}
+
+.contributorsTitle {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #374151;
+}
+
+.contributorItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.contributorInfo {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+  gap: 12px;
+  flex: 1;
+}
+
+.contributorAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+.contributorAvatarPlaceholder {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e5e7eb;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.contributorDetails {
+  overflow: hidden;
+  flex: 1;
+}
+
+.contributorName {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 2px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.contributorAddress {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: monospace;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.contributorTwitter {
+  font-size: 12px;
+  margin-top: 2px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ownerBadge {
+  font-size: 11px;
+  color: #fff;
+  background-color: #333;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 5px;
+  display: inline-block;
+  vertical-align: top;
+  margin-top: 1px;
+}
+
+.removeButton {
+  padding: 4px 8px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.removeButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.addUserSection {
+  padding: 16px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.addUserTitle {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.searchContainer {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+
+.searchResults {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.searchResultItem {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchResultItem:hover {
+  background-color: #f9fafb;
+}
+
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+
+.searchResultAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.searchResultDetails {
+  flex: 1;
+}
+
+.searchResultName {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.searchResultInfo {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.noResultsMessage {
+  padding: 12px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.searchingMessage {
+  padding: 12px;
+  text-align: center;
+  color: #2563eb;
+  font-size: 14px;
+}
+
+.saveSection {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.saveButton {
+  padding: 8px 16px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.saveButton:hover {
+  background-color: #1d4ed8;
+}
+
+.saveButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cancelButton:hover {
+  background-color: #e5e7eb;
+}
+
+.statusMessage {
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.successMessage {
+  background-color: #dcfce7;
+  border: 1px solid #16a34a;
+  color: #166534;
+}
+
+.errorMessage {
+  background-color: #fee2e2;
+  border: 1px solid #dc2626;
+  color: #991b1b;
+}
+
+.loadingSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+} 

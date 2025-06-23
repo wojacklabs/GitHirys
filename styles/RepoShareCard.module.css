@@ -1,0 +1,355 @@
+/* 팝업 오버레이 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+/* 모달 컨테이너 */
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+/* 모달 헤더 */
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #718096;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.closeButton:hover {
+  background: #f7fafc;
+  color: #2d3748;
+}
+
+/* 카드 컨테이너 */
+.cardContainer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+/* 저장소 카드 */
+.card {
+  width: 400px;
+  min-height: 280px;
+  background-image: url('/card_background.png');
+  background-size: cover;
+  background-position: center center;
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.1), transparent);
+  border-radius: 0 0 0 100px;
+}
+
+/* 카드 헤더 */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.brandName {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+}
+
+/* 카드 콘텐츠 */
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.repoSection {
+  margin-bottom: 8px;
+}
+
+.repoName {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repoDescription {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.infoSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 12px;
+  min-height: 24px;
+}
+
+.infoLabel {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.userAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.userName {
+  color: white;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.contributorsInfo {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.contributorsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.contributorItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.contributorAvatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.contributorName {
+  color: white;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.moreContributors {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.noContributors {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  text-align: right;
+}
+
+.lastUpdated {
+  color: white;
+  font-weight: 500;
+  font-size: 11px;
+  text-align: right;
+}
+
+.cardFooter {
+  text-align: center;
+  margin-top: auto;
+}
+
+.repoUrl {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+/* 버튼 컨테이너 */
+.buttonContainer {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.copyButton,
+.shareButton {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.copyButton {
+  background: #333;
+  color: white;
+}
+
+.copyButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.copyButton:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.shareButton {
+  background: #1da1f2;
+  color: white;
+}
+
+.shareButton:hover {
+  transform: translateY(-2px);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 640px) {
+  .modal {
+    width: 95%;
+    padding: 16px;
+  }
+
+  .card {
+    width: 350px;
+    height: 260px;
+    padding: 16px;
+  }
+
+  .buttonContainer {
+    flex-direction: column;
+  }
+
+  .copyButton,
+  .shareButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .card {
+    width: 320px;
+    height: 240px;
+    padding: 14px;
+  }
+
+  .repoName {
+    font-size: 18px;
+  }
+
+  .brandName {
+    font-size: 14px;
+  }
+
+  .cardContent {
+    padding: 12px;
+  }
+}
