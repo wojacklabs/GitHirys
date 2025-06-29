@@ -1,0 +1,425 @@
+.header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 2000;
+}
+
+.headerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  position: relative;
+}
+
+.logo {
+  text-decoration: none;
+  color: #1f2937;
+  font-weight: bold;
+  font-size: 1.5rem;
+  transition: color 0.2s;
+}
+
+.logo h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.nav {
+  display: flex;
+  gap: 1.5rem;
+  margin-left: 2rem;
+}
+
+.navLink {
+  text-decoration: none;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+  padding: 0.5rem 0;
+}
+
+.navLink:hover {
+  color: #1f2937;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.connectButton {
+  background-color: #333;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.connectButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.profileSection {
+  position: relative;
+}
+
+.profileButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.profileButton:hover {
+  transform: scale(1.05);
+}
+
+.profileImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+  object-fit: cover;
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  min-width: 240px;
+  z-index: 1001;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownContent {
+  padding: 8px 0 4px;
+}
+
+.dropdownHeader {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+.dropdownProfileImage {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.walletInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.walletAddress {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.dropdownDivider {
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 4px 0;
+}
+
+.dropdownMenu {
+  padding: 4px 0;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  text-decoration: none;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  border: none;
+  background: none;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dropdownItem:hover {
+  background-color: #f3f4f6;
+}
+
+.dropdownIcon {
+  font-size: 1rem;
+  width: 16px;
+  text-align: center;
+}
+
+.disconnectButton {
+  color: #dc2626;
+}
+
+.disconnectButton:hover {
+  background-color: #fef2f2;
+}
+
+/* 검색 섹션 스타일 */
+.searchSection {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  z-index: 100;
+}
+
+.searchContainer {
+  display: flex;
+  gap: 8px;
+}
+
+.searchTypeSelect {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  min-width: 60px;
+}
+
+.searchTypeSelect:focus {
+  outline: none;
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.searchTypeSelect:disabled {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #333;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.searchButton {
+  padding: 8px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.searchButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.searchError {
+  color: #dc2626;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.searchResultItem {
+  padding: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.searchResultItem:hover {
+  background-color: #f3f4f6;
+}
+
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+
+.profileResult {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profileImage {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profileInfo {
+  flex: 1;
+}
+
+.profileName {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.profileTwitter {
+  color: #6b7280;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.profileAddress {
+  color: #9ca3af;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.walletResult {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.walletName {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.repoResult {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repoName {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.repoOwner {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .headerContent {
+    padding: 0 16px;
+  }
+
+  .logo h1 {
+    font-size: 1.25rem;
+  }
+
+  .dropdown {
+    min-width: 200px;
+  }
+
+  .connectButton {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+  }
+
+  .searchSection {
+    width: 300px;
+  }
+
+  .searchTypeSelect {
+    font-size: 12px;
+    padding: 6px 8px;
+    min-width: 70px;
+  }
+
+  .searchInput {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .searchButton {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .headerContent {
+    padding: 0 12px;
+  }
+
+  .dropdown {
+    right: -8px;
+    min-width: 180px;
+  }
+
+  .connectButton {
+    font-size: 0.7rem;
+    padding: 5px 10px;
+  }
+
+  .searchSection {
+    display: none;
+  }
+}

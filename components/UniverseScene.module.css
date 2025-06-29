@@ -1,0 +1,634 @@
+.universeContainer {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 200px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  line-height: 1.4;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.tooltip h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.tooltip p {
+  margin: 4px 0;
+  color: #cccccc;
+}
+
+.tooltip p:first-of-type {
+  color: #ff6b6b;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #000428 0%, #000000 100%);
+  color: white;
+  font-size: 18px;
+}
+
+.errorContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #000428 0%, #000000 100%);
+  color: #ff6b6b;
+  font-size: 18px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.universeOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.universeUI {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: white;
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+.universeUI h2 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+  font-weight: 300;
+  color: #00d4ff;
+}
+
+.universeUI p {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.navigationHint {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.navigationHint kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.universeStats {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 14px;
+  text-align: right;
+  pointer-events: auto;
+}
+
+.universeStats .stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  min-width: 150px;
+}
+
+.universeStats .statLabel {
+  opacity: 0.7;
+  margin-right: 12px;
+}
+
+.universeStats .statValue {
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+
+/* Search UI Styles */
+.searchContainer {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 1000;
+  width: 220px;
+}
+
+.searchInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px;
+  padding-right: 32px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.searchInput:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.searchInput:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+.clearButton {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.clearButton:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.searchSpinner {
+  position: absolute;
+  right: 28px;
+  color: rgba(59, 130, 246, 0.6);
+  animation: spin 1s linear infinite;
+  font-size: 12px;
+}
+
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Search Results */
+.searchResults {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-top: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.searchResultItem {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+
+.searchResultItem:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.resultAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.resultInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resultDisplayName {
+  color: white;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.resultWalletAddress {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 9px;
+  font-family: monospace;
+}
+
+.resultTwitter {
+  color: rgba(29, 161, 242, 0.7);
+  font-size: 9px;
+}
+
+.noResults {
+  padding: 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Custom scrollbar for search results */
+.searchResults::-webkit-scrollbar {
+  width: 3px;
+}
+
+.searchResults::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.searchResults::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.searchResults::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .searchContainer {
+    top: 10px;
+    right: 10px;
+    width: 180px;
+  }
+
+  .searchInput {
+    font-size: 14px; /* Prevent zoom on iOS */
+    padding: 6px 10px;
+    padding-right: 28px;
+  }
+
+  .clearButton {
+    right: 6px;
+    font-size: 12px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .searchSpinner {
+    right: 22px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .searchContainer {
+    width: 160px;
+  }
+
+  .searchResults {
+    max-height: 150px;
+  }
+
+  .resultInfo {
+    gap: 0px;
+  }
+
+  .resultDisplayName {
+    font-size: 10px;
+  }
+
+  .resultWalletAddress,
+  .resultTwitter {
+    font-size: 8px;
+  }
+
+  .resultAvatar {
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+  }
+
+  .searchResultItem {
+    padding: 6px 8px;
+  }
+}
+
+
+/* Fixed bottom tooltip styles */
+.fixedTooltip {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.95);
+  border-top: 1px solid rgba(0, 212, 255, 0.3);
+  backdrop-filter: blur(15px);
+  z-index: 1000;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.tooltipContent {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.profileImage {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #00d4ff;
+  flex-shrink: 0;
+}
+
+.tooltipInfo {
+  flex: 1;
+  color: white;
+}
+
+.tooltipTitle {
+  font-size: 24px;
+  font-weight: bold;
+  color: #00d4ff;
+  margin-bottom: 6px;
+}
+
+.tooltipSubtitle {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 4px;
+}
+
+.tooltipAddress {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: monospace;
+}
+
+.tooltipActions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.visitButton {
+  padding: 12px 24px;
+  background: #00d4ff;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.visitButton:hover {
+  background: #00b8e6;
+  transform: translateY(-1px);
+}
+
+.closeButton {
+  padding: 12px 20px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  color: white;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+  .tooltipContent {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+
+  .profileImage {
+    width: 50px;
+    height: 50px;
+  }
+
+  .tooltipTitle {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .tooltipSubtitle {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .tooltipAddress {
+    font-size: 12px;
+  }
+
+  .tooltipActions {
+    justify-content: center;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .visitButton,
+  .closeButton {
+    flex: 1;
+    max-width: 140px;
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+}
+
+/* Mobile phones and very small screens */
+@media (max-width: 480px) {
+  .tooltipContent {
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .profileImage {
+    width: 40px;
+    height: 40px;
+    border-width: 2px;
+  }
+
+  .tooltipTitle {
+    font-size: 18px;
+    margin-bottom: 3px;
+  }
+
+  .tooltipSubtitle {
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  .tooltipAddress {
+    font-size: 11px;
+  }
+
+  .tooltipActions {
+    gap: 8px;
+  }
+
+  .visitButton,
+  .closeButton {
+    max-width: 120px;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .visitButton {
+    font-weight: 600;
+  }
+}
+
+/* Extra small screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+  .fixedTooltip {
+    border-top-width: 1px;
+  }
+
+  .tooltipContent {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .profileImage {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tooltipTitle {
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  .tooltipSubtitle {
+    font-size: 12px;
+    margin-bottom: 1px;
+  }
+
+  .tooltipAddress {
+    font-size: 10px;
+  }
+
+  .visitButton,
+  .closeButton {
+    max-width: 100px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .tooltipContent {
+    flex-direction: row;
+    text-align: left;
+    padding: 12px 20px;
+    gap: 16px;
+  }
+
+  .profileImage {
+    width: 45px;
+    height: 45px;
+  }
+
+  .tooltipActions {
+    flex-direction: column;
+    width: auto;
+    min-width: 120px;
+  }
+
+  .visitButton,
+  .closeButton {
+    max-width: none;
+    width: 100%;
+  }
+}
