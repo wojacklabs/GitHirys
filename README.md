@@ -185,3 +185,5 @@ This project is distributed under the MIT License.
 - [Solana Wallet Adapter](https://github.com/solana-labs/wallet-adapter)
 
 ---
+
+**GitHirys** presents a new way of code storage for the Web3 era. 🚀 
