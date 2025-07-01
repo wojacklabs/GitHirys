@@ -1,5 +1,6 @@
 // components/RepoList.tsx
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { searchRepositories, testIrysConnection } from '../lib/irys';
 
@@ -19,6 +20,7 @@ export default function RepoList({
   uploader: any; // New Irys uploader type
   owner: string;
 }) {
+  const router = useRouter();
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,15 @@ export default function RepoList({
   const addDebugInfo = (message: string) => {
     setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
     setSearchProgress(message);
+  };
+
+  const handleRepoClick = (repo: Repo) => {
+    const repoName = repo.name;
+    // repo 데이터를 sessionStorage에 저장
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('selectedRepo', JSON.stringify(repo));
+    }
+    router.push(`/${repoName}`);
   };
 
   useEffect(() => {
@@ -254,84 +265,64 @@ export default function RepoList({
               marginBottom: '8px'
             }}>
               <div>
-                <h4 style={{ margin: '0 0 4px 0' }}>
-                  📁 <Link href={`/${repo.name}`} style={{ 
-                    textDecoration: 'none', 
-                    color: '#2563eb',
-                    fontWeight: '600'
-                  }}>
-                    {repo.name}
-                  </Link>
+                <h4 style={{margin: '0 0 4px 0'}}>
+                  📁 <button 
+                    onClick={() => handleRepoClick(repo)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      textDecoration: 'none',
+                      color: '#2563eb',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      padding: '0',
+                      fontSize: 'inherit'
+                    }}
+                  >
+                    저장소명 : {repo.tags?.[1]?.value || repo.name}
+                  </button>
                 </h4>
-                <p style={{ 
-                  margin: '0 0 4px 0', 
-                  fontSize: '12px', 
-                  color: '#6b7280',
-                  fontFamily: 'monospace' 
+                <p style={{
+                  margin: '0',
+                  fontSize: '11px',
+                  color: '#9ca3af',
+                  fontFamily: 'monospace'
                 }}>
-                  CID: {repo.cid}
+                  브랜치: {repo.tags?.[2]?.value || 'main'}
                 </p>
-                {repo.address && (
-                  <p style={{ 
-                    margin: '0', 
-                    fontSize: '11px', 
-                    color: '#9ca3af',
-                    fontFamily: 'monospace' 
-                  }}>
-                    소유자: {repo.address}
-                  </p>
-                )}
+                <p style={{
+                  margin: '0',
+                  fontSize: '11px',
+                  color: '#9ca3af',
+                  fontFamily: 'monospace'
+                }}>
+                  소유자: {repo.tags?.[8]?.value || '알 수 없음'}
+                </p>
+                <p style={{
+                  margin: '0',
+                  fontSize: '11px',
+                  color: '#9ca3af',
+                  fontFamily: 'monospace'
+                }}>
+                  작성자: {repo.tags?.[5]?.value || '알 수 없음'}
+                </p>
               </div>
-              <div style={{ 
-                textAlign: 'right', 
-                fontSize: '12px', 
-                color: '#6b7280' 
+              <div style={{
+                textAlign: 'right',
+                fontSize: '12px',
+                color: '#6b7280'
               }}>
-                {repo.size && repo.size > 0 && <div>{formatSize(repo.size)}</div>}
-                {repo.timestamp && <div>{formatDate(repo.timestamp)}</div>}
+                <div>시간 : {repo.tags?.[6]?.value || '알 수 없음'}</div>
               </div>
             </div>
-            
-            {repo.tags && repo.tags.length > 0 && (
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>
-                  태그:
-                </div>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  {repo.tags.slice(0, 3).map((tag, idx) => (
-                    <span key={idx} style={{
-                      fontSize: '10px',
-                      padding: '2px 6px',
-                      backgroundColor: '#e0f2fe',
-                      color: '#0c4a6e',
-                      borderRadius: '4px',
-                      fontFamily: 'monospace'
-                    }}>
-                      {tag.name}: {tag.value}
-                    </span>
-                  ))}
-                  {repo.tags.length > 3 && (
-                    <span style={{
-                      fontSize: '10px',
-                      padding: '2px 6px',
-                      backgroundColor: '#f3f4f6',
-                      color: '#6b7280',
-                      borderRadius: '4px'
-                    }}>
-                      +{repo.tags.length - 3}개 더
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            <div style={{ 
-              display: 'flex', 
-              gap: '8px', 
-              flexWrap: 'wrap' 
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap'
             }}>
-              <Link href={`/${repo.name}`}>
-                <button style={{
+              <button 
+                onClick={() => handleRepoClick(repo)}
+                style={{
                   fontSize: '12px',
                   padding: '4px 8px',
                   backgroundColor: '#2563eb',
@@ -339,12 +330,12 @@ export default function RepoList({
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer'
-                }}>
-                  저장소 보기
-                </button>
-              </Link>
+                }}
+              >
+                저장소 보기
+              </button>
               <button 
-                onClick={() => navigator.clipboard.writeText(`igit clone irys://${repo.name}`)}
+                onClick={() => navigator.clipboard.writeText(`igit clone irys://${repo.tags?.[1]?.value || repo.name}`)}
                 style={{
                   fontSize: '12px',
                   padding: '4px 8px',

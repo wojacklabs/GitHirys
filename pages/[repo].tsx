@@ -5,10 +5,21 @@ import RepoDetail from "../components/RepoDetail";
 import ConnectWallet from "../components/ConnectWallet";
 import Link from "next/link";
 
+// RepoList의 Repo 인터페이스와 동일하게 정의
+interface Repo { 
+  name: string; 
+  cid: string; 
+  size?: number;
+  timestamp?: number;
+  address?: string;
+  tags?: any[];
+}
+
 export default function RepoPage() {
     const { repo } = useRouter().query;
     const wallet = useWallet();
     const [publicKey, setPublicKey] = useState('');
+    const [selectedRepo, setSelectedRepo] = useState<Repo | null>(null);
 
     useEffect(() => {
         if (wallet.connected && wallet.publicKey) {
@@ -17,6 +28,23 @@ export default function RepoPage() {
             setPublicKey('');
         }
     }, [wallet.connected, wallet.publicKey]);
+
+    useEffect(() => {
+        // sessionStorage에서 선택된 repo 데이터 가져오기
+        if (typeof window !== 'undefined') {
+            const storedRepo = sessionStorage.getItem('selectedRepo');
+            if (storedRepo) {
+                try {
+                    const parsedRepo = JSON.parse(storedRepo);
+                    setSelectedRepo(parsedRepo);
+                    // 사용 후 정리
+                    sessionStorage.removeItem('selectedRepo');
+                } catch (error) {
+                    console.warn('저장된 repo 데이터 파싱 실패:', error);
+                }
+            }
+        }
+    }, []);
 
     if (typeof repo !== "string") return <p>잘못된 경로입니다.</p>;
 
@@ -34,7 +62,7 @@ export default function RepoPage() {
             
             {!wallet.connected ? (
                 <div>
-                    <h2>{repo}</h2>
+                    <h2>{selectedRepo?.tags?.[1]?.value || repo}</h2>
                     <div style={{
                         padding: '20px',
                         backgroundColor: '#fef3c7',
@@ -57,7 +85,11 @@ export default function RepoPage() {
                     </div>
                 </div>
             ) : (
-                <RepoDetail repoName={repo} owner={publicKey} />
+                <RepoDetail 
+                    repoName={repo} 
+                    owner={publicKey} 
+                    repo={selectedRepo}
+                />
             )}
         </div>
     );

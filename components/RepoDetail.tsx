@@ -10,12 +10,24 @@ interface FileInfo {
   isDirectory: boolean;
 }
 
+// RepoList의 Repo 인터페이스와 동일하게 정의
+interface Repo { 
+  name: string; 
+  cid: string; 
+  size?: number;
+  timestamp?: number;
+  address?: string;
+  tags?: any[];
+}
+
 export default function RepoDetail({ 
   repoName, 
-  owner 
+  owner,
+  repo 
 }: { 
   repoName: string;
   owner?: string;
+  repo?: Repo; // 선택적 repo 데이터
 }) {
   const [transaction, setTransaction] = useState<any>(null);
   const [files, setFiles] = useState<FileInfo[]>([]);
@@ -30,12 +42,19 @@ export default function RepoDetail({
       try {
         setLoading(true);
         setError(null);
-        console.log('저장소 상세 정보 로딩:', { repoName, owner });
+        console.log('저장소 상세 정보 로딩:', { repoName, owner, repo });
         
         let transactionId = repoName;
+        let repoData = repo; // 전달받은 repo 데이터 사용
         
+        // 전달받은 repo 데이터가 있으면 바로 사용
+        if (repo && repo.cid) {
+          console.log('전달받은 repo 데이터 사용:', repo);
+          transactionId = repo.cid;
+          repoData = repo;
+        }
         // If it's not a direct transaction ID, search for it by repository name
-        if (!repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
+        else if (!repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
           console.log('저장소 이름으로 검색:', repoName);
           
           if (!owner) {
@@ -48,10 +67,10 @@ export default function RepoDetail({
           if (repos.length === 0) {
             throw new Error(`연결된 지갑 '${owner}'에서 저장소를 찾을 수 없습니다.`);
           }
-          
+
           // Find repository by name
-          const targetRepo = repos.find(repo => 
-            repo.name === repoName || 
+          const targetRepo = repos.find(repo =>
+            repo.tags?.[1]?.value === repoName ||
             repo.cid === repoName ||
             repo.name.toLowerCase() === repoName.toLowerCase()
           );
@@ -61,6 +80,7 @@ export default function RepoDetail({
           }
           
           transactionId = targetRepo.cid;
+          repoData = targetRepo;
           console.log('찾은 트랜잭션 ID:', transactionId);
         }
         
@@ -128,7 +148,7 @@ export default function RepoDetail({
     if (repoName) {
       loadRepoDetails();
     }
-  }, [repoName, owner]);
+  }, [repoName, owner, repo]);
 
   const handleFileClick = (file: FileInfo) => {
     if (file.isDirectory) {
@@ -220,17 +240,25 @@ export default function RepoDetail({
   return (
     <div>
       <div style={{ marginBottom: '20px' }}>
-        <h2>{repoName}</h2>
+        <h2>📁 {repo?.tags?.[1]?.value}</h2>
         <div style={{ 
           fontSize: '14px', 
           color: '#6b7280',
           marginBottom: '12px'
         }}>
           <p>트랜잭션 ID: <code style={{ fontFamily: 'monospace' }}>{transaction.id}</code></p>
-          {owner && (
-            <p>소유자: <code style={{ fontFamily: 'monospace' }}>{owner}</code></p>
+          {(repo?.tags?.[8]?.value || owner) && (
+            <p>소유자: <code style={{ fontFamily: 'monospace' }}>{repo?.tags?.[8]?.value || owner}</code></p>
           )}
-          {transaction.timestamp && (
+          {repo?.tags?.[2]?.value && (
+            <p>브랜치: <code style={{ fontFamily: 'monospace' }}>{repo.tags[2].value}</code></p>
+          )}
+          {repo?.tags?.[5]?.value && (
+            <p>작성자: <code style={{ fontFamily: 'monospace' }}>{repo.tags[5].value}</code></p>
+          )}
+          {repo?.tags?.[6]?.value ? (
+            <p>업로드 시간: {repo.tags[6].value}</p>
+          ) : transaction.timestamp && (
             <p>업로드 시간: {new Date(transaction.timestamp * 1000).toLocaleString('ko-KR')}</p>
           )}
         </div>

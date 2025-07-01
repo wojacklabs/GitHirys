@@ -77,32 +77,18 @@ export async function searchRepositories(owner: string): Promise<any[]> {
       name: 'irys-git 태그로 검색',
       endpoint: 'https://uploader.irys.xyz/graphql',
       query: `
-        query getTagsWithAnd {
-    transactions(
-        tags: [{ name: "Content-Type", values: ["image/jpg"] }]
-  ) {
-      edges {
-        node {
-          tags {
-            name
-            value
-          }
-        }
-      }
-    }
-  }
-      `
-    },
-    {
-      name: '모든 트랜잭션 검색 (Irys)',
-      endpoint: 'https://uploader.irys.xyz/graphql',
-      query: `
-        query getByOwner($owners: [String!]!) {
-          transactions(tags: [{ name: "Content-Type", values: ["image/png"] }]) {
+        query getTagsWithAnd($owners: [String!]!) {
+          transactions(
+            tags: [{ name: "App-Name", values: ["irys-git"] }, { name: "git-owner", values: $owners }],
+        ) {
             edges {
               node {
                 id
-                address
+                tags {
+                  name
+                  value
+                }
+                timestamp
               }
             }
           }
