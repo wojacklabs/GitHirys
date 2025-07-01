@@ -1,6 +1,6 @@
 // components/RepoDetail.tsx
 import { useEffect, useState } from 'react';
-import { getTransactionById, downloadData, searchRepositoriesByName } from '../lib/irys';
+import { getTransactionById, downloadData, searchRepositories } from '../lib/irys';
 import JSZip from 'jszip';
 
 interface FileInfo {
@@ -10,7 +10,13 @@ interface FileInfo {
   isDirectory: boolean;
 }
 
-export default function RepoDetail({ repoName }: { repoName: string }) {
+export default function RepoDetail({ 
+  repoName, 
+  owner 
+}: { 
+  repoName: string;
+  owner?: string;
+}) {
   const [transaction, setTransaction] = useState<any>(null);
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,20 +30,37 @@ export default function RepoDetail({ repoName }: { repoName: string }) {
       try {
         setLoading(true);
         setError(null);
-        console.log('저장소 상세 정보 로딩:', { repoName });
+        console.log('저장소 상세 정보 로딩:', { repoName, owner });
         
         let transactionId = repoName;
         
-        // If it's not a direct transaction ID, search for it
+        // If it's not a direct transaction ID, search for it by repository name
         if (!repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
           console.log('저장소 이름으로 검색:', repoName);
-          const repos = await searchRepositoriesByName(repoName);
           
-          if (repos.length === 0) {
-            throw new Error(`저장소 '${repoName}'을 찾을 수 없습니다.`);
+          if (!owner) {
+            throw new Error('연결된 지갑 정보가 없습니다. 지갑을 연결해주세요.');
           }
           
-          transactionId = repos[0].cid;
+          // Search repositories by owner (connected wallet)
+          const repos = await searchRepositories(owner);
+          
+          if (repos.length === 0) {
+            throw new Error(`연결된 지갑 '${owner}'에서 저장소를 찾을 수 없습니다.`);
+          }
+          
+          // Find repository by name
+          const targetRepo = repos.find(repo => 
+            repo.name === repoName || 
+            repo.cid === repoName ||
+            repo.name.toLowerCase() === repoName.toLowerCase()
+          );
+          
+          if (!targetRepo) {
+            throw new Error(`저장소 '${repoName}'을 찾을 수 없습니다. 사용 가능한 저장소: ${repos.map(r => r.name).join(', ')}`);
+          }
+          
+          transactionId = targetRepo.cid;
           console.log('찾은 트랜잭션 ID:', transactionId);
         }
         
@@ -105,7 +128,7 @@ export default function RepoDetail({ repoName }: { repoName: string }) {
     if (repoName) {
       loadRepoDetails();
     }
-  }, [repoName]);
+  }, [repoName, owner]);
 
   const handleFileClick = (file: FileInfo) => {
     if (file.isDirectory) {
@@ -177,7 +200,8 @@ export default function RepoDetail({ repoName }: { repoName: string }) {
           <p style={{ fontSize: '14px', marginTop: '8px' }}>
             • 저장소 이름이 올바른지 확인해주세요<br/>
             • 저장소가 Irys에 업로드되었는지 확인해주세요<br/>
-            • 연결된 지갑에 업로드 권한이 있는지 확인해주세요
+            • 연결된 지갑에 업로드 권한이 있는지 확인해주세요<br/>
+            {owner && <span>• 연결된 지갑: <code>{owner}</code></span>}
           </p>
         </div>
       </div>
@@ -203,7 +227,9 @@ export default function RepoDetail({ repoName }: { repoName: string }) {
           marginBottom: '12px'
         }}>
           <p>트랜잭션 ID: <code style={{ fontFamily: 'monospace' }}>{transaction.id}</code></p>
-          <p>소유자: <code style={{ fontFamily: 'monospace' }}>{transaction.owner.address}</code></p>
+          {owner && (
+            <p>소유자: <code style={{ fontFamily: 'monospace' }}>{owner}</code></p>
+          )}
           {transaction.timestamp && (
             <p>업로드 시간: {new Date(transaction.timestamp * 1000).toLocaleString('ko-KR')}</p>
           )}

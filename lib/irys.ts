@@ -43,7 +43,7 @@ export async function testIrysConnection(): Promise<boolean> {
   `;
 
   try {
-    const response = await fetch('https://arweave.mainnet.irys.xyz/graphql', {
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,34 +60,34 @@ export async function testIrysConnection(): Promise<boolean> {
   }
 }
 
-// GraphQL query to search for repositories by owner using Irys endpoint
+// Search repositories by connected wallet address using correct Irys syntax
 export async function searchRepositories(owner: string): Promise<any[]> {
   console.log('🔍 저장소 검색 시작:', owner);
   
   // Test Irys connection first
   const canConnect = await testIrysConnection();
   if (!canConnect) {
-    console.warn('⚠️ Irys GraphQL 연결 실패, Arweave 엔드포인트로 시도');
+    console.warn('⚠️ Irys GraphQL 연결 실패');
   }
 
-  // Try multiple search strategies
+  // Try multiple search strategies with correct Irys syntax
   const searchStrategies = [
     {
       name: 'irys-git 태그로 검색',
-      endpoint: 'https://arweave.mainnet.irys.xyz/graphql',
+      endpoint: 'https://uploader.irys.xyz/graphql',
       query: `
-        query($owner: String!) {
+        query getByOwnerAndTags($owners: [String!]!) {
           transactions(
-            owners: [$owner]
             tags: [
-              { name: "Application", values: ["irys-git"] }
+              { name: "Application", values: ["irys-git"] }, { name: "git-owner", values: $owners }
             ]
-            first: 100
+            limit: 100
           ) {
             edges {
               node {
                 id
                 address
+                token
                 tags {
                   name
                   value
@@ -97,93 +97,9 @@ export async function searchRepositories(owner: string): Promise<any[]> {
             }
           }
         }
-      `
+      `,
+      variables: { owners: [owner] }
     },
-    {
-      name: '모든 트랜잭션 검색 (Irys)',
-      endpoint: 'https://arweave.mainnet.irys.xyz/graphql',
-      query: `
-        query($owner: String!) {
-          transactions(
-            owners: [$owner]
-            first: 100
-          ) {
-            edges {
-              node {
-                id
-                address
-                tags {
-                  name
-                  value
-                }
-                timestamp
-              }
-            }
-          }
-        }
-      `
-    },
-    {
-      name: 'git 관련 태그로 검색 (Arweave)',
-      endpoint: 'https://arweave.net/graphql',
-      query: `
-        query($owner: String!) {
-          transactions(
-            owners: [$owner]
-            tags: [
-              { name: "Application", values: ["git", "irys-git", "arweave-git"] }
-            ]
-            first: 100
-          ) {
-            edges {
-              node {
-                id
-                owner {
-                  address
-                }
-                tags {
-                  name
-                  value
-                }
-                data {
-                  size
-                }
-                timestamp
-              }
-            }
-          }
-        }
-      `
-    },
-    {
-      name: '모든 트랜잭션 검색 (Arweave)',
-      endpoint: 'https://arweave.net/graphql',
-      query: `
-        query($owner: String!) {
-          transactions(
-            owners: [$owner]
-            first: 50
-          ) {
-            edges {
-              node {
-                id
-                owner {
-                  address
-                }
-                tags {
-                  name
-                  value
-                }
-                data {
-                  size
-                }
-                timestamp
-              }
-            }
-          }
-        }
-      `
-    }
   ];
 
   for (const strategy of searchStrategies) {
@@ -197,7 +113,7 @@ export async function searchRepositories(owner: string): Promise<any[]> {
         },
         body: JSON.stringify({
           query: strategy.query,
-          variables: { owner }
+          variables: strategy.variables
         })
       });
 
@@ -222,7 +138,8 @@ export async function searchRepositories(owner: string): Promise<any[]> {
           const node = edge.node;
           console.log(`📄 트랜잭션 ${idx + 1}:`, {
             id: node.id,
-            address: node.address || node.owner?.address,
+            address: node.address,
+            token: node.token,
             tags: node.tags,
             timestamp: node.timestamp
           });
@@ -243,7 +160,7 @@ export async function searchRepositories(owner: string): Promise<any[]> {
           let repoName = repoNameTag?.value || node.id;
           
           // If it's a git-related application, use a more descriptive name
-          if (applicationTag && ['git', 'irys-git', 'arweave-git'].includes(applicationTag.value)) {
+          if (applicationTag && ['git', 'irys-git'].includes(applicationTag.value)) {
             const nameFromTags = node.tags?.find((tag: any) => 
               ['repository', 'repo'].some(keyword => 
                 tag.name.toLowerCase().includes(keyword)
@@ -257,9 +174,10 @@ export async function searchRepositories(owner: string): Promise<any[]> {
           return {
             name: repoName,
             cid: node.id,
-            size: node.data?.size || 0,
+            size: 0, // Irys GraphQL doesn't provide size in basic query
             timestamp: node.timestamp,
-            address: node.address || node.owner?.address,
+            address: node.address,
+            token: node.token,
             tags: node.tags || []
           };
         });
@@ -276,93 +194,80 @@ export async function searchRepositories(owner: string): Promise<any[]> {
   return [];
 }
 
-// Enhanced function to get transaction details
+// Get transaction details by ID with correct Irys syntax
 export async function getTransactionById(transactionId: string): Promise<any | null> {
   console.log('🔍 트랜잭션 상세 정보 조회:', transactionId);
 
-  const endpoints = [
-    'https://arweave.mainnet.irys.xyz/graphql',
-    'https://arweave.net/graphql'
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      const query = endpoint.includes('irys') ? `
-        query($id: ID!) {
-          transaction(id: $id) {
-            id
-            address
-            tags {
-              name
-              value
+  const strategy = {
+    name: 'Irys GraphQL',
+    endpoint: 'https://uploader.irys.xyz/graphql',
+    query:
+        `
+      query getByIds {
+        transactions(ids: ["${transactionId}"]) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
             }
-            timestamp
           }
         }
-      ` : `
-        query($id: ID!) {
-          transaction(id: $id) {
-            id
-            owner {
-              address
-            }
-            tags {
-              name
-              value
-            }
-            data {
-              size
-            }
-            timestamp
-          }
-        }
-      `;
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { id: transactionId }
-        })
-      });
-
-      if (!response.ok) continue;
-
-      const result = await response.json();
-      
-      if (result.errors) {
-        console.warn('GraphQL 오류:', result.errors);
-        continue;
       }
+    `,
+  };
 
-      if (result.data?.transaction) {
-        console.log('✅ 트랜잭션 발견:', endpoint);
-        const tx = result.data.transaction;
-        return {
-          ...tx,
-          owner: tx.owner || { address: tx.address }
-        };
-      }
-    } catch (error) {
-      console.error(`엔드포인트 ${endpoint} 오류:`, error);
+  try {
+    console.log(`🔍 ${strategy.name} 시도 중...`);
+    
+    const response = await fetch(strategy.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: strategy.query
+      })
+    });
+
+    if (!response.ok) {
+      console.warn(`❌ ${strategy.name} HTTP 오류:`, response.statusText);
+      return null;
     }
+
+    const result = await response.json();
+    
+    if (result.errors) {
+      console.warn(`❌ ${strategy.name} GraphQL 오류:`, result.errors);
+      return null;
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+    if (transactions.length > 0) {
+      console.log(`✅ ${strategy.name}에서 트랜잭션 발견`);
+      const tx = transactions[0].node;
+      return {
+        ...tx,
+        owner: { address: tx.address }
+      };
+    }
+  } catch (error) {
+    console.error(`❌ ${strategy.name} 오류:`, error);
   }
 
   console.log('❌ 트랜잭션을 찾을 수 없음');
   return null;
 }
 
-// Download data from multiple gateways
+// Download data from Irys gateway
 export async function downloadData(transactionId: string): Promise<ArrayBuffer | null> {
   console.log('📥 데이터 다운로드 시작:', transactionId);
 
   const gateways = [
     `https://gateway.irys.xyz/${transactionId}`,
-    `https://arweave.net/${transactionId}`,
-    `https://ar-io.dev/${transactionId}`
   ];
 
   for (const gateway of gateways) {
@@ -384,109 +289,4 @@ export async function downloadData(transactionId: string): Promise<ArrayBuffer |
 
   console.log('❌ 모든 게이트웨이에서 다운로드 실패');
   return null;
-}
-
-// Search repositories by name with enhanced logic
-export async function searchRepositoriesByName(name: string, owner?: string): Promise<any[]> {
-  console.log('🔍 이름으로 저장소 검색:', name, owner ? `(소유자: ${owner})` : '');
-
-  const endpoints = [
-    'https://arweave.mainnet.irys.xyz/graphql',
-    'https://arweave.net/graphql'
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      const query = endpoint.includes('irys') ? `
-        query($name: String!, $owner: String) {
-          transactions(
-            ${owner ? `owners: ["${owner}"]` : ''}
-            tags: [
-              { name: "Repository-Name", values: ["${name}"] }
-            ]
-            first: 10
-          ) {
-            edges {
-              node {
-                id
-                address
-                tags {
-                  name
-                  value
-                }
-                timestamp
-              }
-            }
-          }
-        }
-      ` : `
-        query($name: String!, $owner: String) {
-          transactions(
-            ${owner ? `owners: ["${owner}"]` : ''}
-            tags: [
-              { name: "Repository-Name", values: ["${name}"] }
-            ]
-            first: 10
-          ) {
-            edges {
-              node {
-                id
-                owner {
-                  address
-                }
-                tags {
-                  name
-                  value
-                }
-                data {
-                  size
-                }
-                timestamp
-              }
-            }
-          }
-        }
-      `;
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { name, owner }
-        })
-      });
-
-      if (!response.ok) continue;
-
-      const result = await response.json();
-      
-      if (result.errors) {
-        console.warn('GraphQL 오류:', result.errors);
-        continue;
-      }
-
-      const transactions = result.data?.transactions?.edges || [];
-      
-      if (transactions.length > 0) {
-        console.log(`✅ ${endpoint}에서 ${transactions.length}개 저장소 발견`);
-        
-        return transactions.map((edge: any) => ({
-          name: edge.node.tags?.find((tag: any) => tag.name === 'Repository-Name')?.value || edge.node.id,
-          cid: edge.node.id,
-          size: edge.node.data?.size || 0,
-          timestamp: edge.node.timestamp,
-          address: edge.node.address || edge.node.owner?.address,
-          tags: edge.node.tags || []
-        }));
-      }
-    } catch (error) {
-      console.error(`엔드포인트 ${endpoint} 오류:`, error);
-    }
-  }
-
-  console.log('❌ 저장소를 찾을 수 없음');
-  return [];
 }
