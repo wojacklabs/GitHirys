@@ -70,29 +70,39 @@ export async function searchRepositories(owner: string): Promise<any[]> {
     console.warn('⚠️ Irys GraphQL 연결 실패');
   }
 
+
   // Try multiple search strategies with correct Irys syntax
   const searchStrategies = [
     {
       name: 'irys-git 태그로 검색',
       endpoint: 'https://uploader.irys.xyz/graphql',
       query: `
-        query getByOwnerAndTags($owners: [String!]!) {
-          transactions(
-            tags: [
-              { name: "Application", values: ["irys-git"] }, { name: "git-owner", values: $owners }
-            ]
-            limit: 100
-          ) {
+        query getTagsWithAnd {
+    transactions(
+        tags: [{ name: "Content-Type", values: ["image/jpg"] }]
+  ) {
+      edges {
+        node {
+          tags {
+            name
+            value
+          }
+        }
+      }
+    }
+  }
+      `
+    },
+    {
+      name: '모든 트랜잭션 검색 (Irys)',
+      endpoint: 'https://uploader.irys.xyz/graphql',
+      query: `
+        query getByOwner($owners: [String!]!) {
+          transactions(tags: [{ name: "Content-Type", values: ["image/png"] }]) {
             edges {
               node {
                 id
                 address
-                token
-                tags {
-                  name
-                  value
-                }
-                timestamp
               }
             }
           }
