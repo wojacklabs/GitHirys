@@ -5,21 +5,22 @@ import RepoDetail from "../components/RepoDetail";
 import ConnectWallet from "../components/ConnectWallet";
 import Link from "next/link";
 
-// RepoList의 Repo 인터페이스와 동일하게 정의
-interface Repo { 
+// RepoDetail과 호환되는 확장된 레포 데이터 인터페이스
+interface RepoData { 
   name: string; 
   cid: string; 
-  size?: number;
-  timestamp?: number;
-  address?: string;
   tags?: any[];
+  timestamp?: number;
+  owner?: string;
+  repository?: any;
+  selectedBranch?: any;
 }
 
 export default function RepoPage() {
     const { repo } = useRouter().query;
     const wallet = useWallet();
     const [publicKey, setPublicKey] = useState('');
-    const [selectedRepo, setSelectedRepo] = useState<Repo | null>(null);
+    const [selectedRepo, setSelectedRepo] = useState<RepoData | undefined>(undefined);
 
     useEffect(() => {
         if (wallet.connected && wallet.publicKey) {
@@ -62,7 +63,7 @@ export default function RepoPage() {
             
             {!wallet.connected ? (
                 <div>
-                    <h2>{selectedRepo?.tags?.[1]?.value || repo}</h2>
+                    <h2>{selectedRepo?.name || repo}</h2>
                     <div style={{
                         padding: '20px',
                         backgroundColor: '#fef3c7',
