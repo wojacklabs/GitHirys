@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
+import styles from './ConnectWallet.module.css';
+
 export default function ConnectWallet({
   onConnect,
 }: {
@@ -38,24 +40,21 @@ export default function ConnectWallet({
   };
 
   return wallet.connected ? (
-    <div className="wallet-status">
-      <div>✅ Wallet Connected: <code>{wallet.publicKey?.toBase58()}</code></div>
-      <button 
-        onClick={handleDisconnect}
-        style={{ 
-          marginTop: '8px', 
-          backgroundColor: '#dc2626',
-          fontSize: '12px',
-          padding: '8px 16px'
-        }}
-      >
-        Disconnect
-      </button>
-    </div>
+      <>
+        <button
+            type="button"
+            className={styles.button}
+            onClick={handleDisconnect}
+        >
+          Disconnect
+        </button>
+      </>
   ) : (
-    <button 
-      onClick={handleConnect}
-      disabled={isConnecting}
+      <button
+          type="button"
+          className={styles.button}
+          onClick={handleConnect}
+          disabled={isConnecting}
     >
       {isConnecting ? 'Connecting...' : 'Connect Solana Wallet'}
     </button>

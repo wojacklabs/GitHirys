@@ -1,0 +1,32 @@
+# Build outputs
+.next
+dist
+build
+
+# Dependencies
+node_modules
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Git
+.git
+
+# Other
+*.min.js
+*.min.css
+coverage
+.nyc_output
+yarn.lock
+package-lock.json 

@@ -1,0 +1,197 @@
+/* 프로필 페이지 스타일 */
+
+.header_profile {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  max-width: 1024px;
+  box-sizing: border-box;
+  margin: 0 auto;
+  height: 76px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fff;
+  z-index: 10;
+}
+.link_back {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  font-size: 16px;
+  line-height: 20px;
+  padding: 10px 0;
+}
+.title_page {
+  font-size: 20px;
+  line-height: 24px;
+}
+.notConnectedSection {
+  margin-top: 110px;
+  padding: 20px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #92400e;
+}
+
+.notConnectedTitle {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.notConnectedDescription {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+.profile_main {
+  max-width: 460px;
+  width: 100%;
+  margin: 110px auto auto;
+}
+
+.message_top_success {
+  padding: 12px;
+  background-color: #dcfce7;
+  border: 1px solid #16a34a;
+  border-radius: 6px;
+  color: #166534;
+  margin-bottom: 20px;
+}
+
+.message_top_error {
+  padding: 12px;
+  background-color: #fee2e2;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  color: #991b1b;
+  margin-bottom: 20px;
+}
+.area_form {
+  margin-bottom: 24px;
+}
+.title_form {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.area_input_image {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.image {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+.imageInput {
+  display: none;
+}
+.button_image {
+  text-decoration: underline;
+  font-size: 16px;
+  padding: 8px 0;
+  line-height: 20px;
+}
+.guide_image {
+  font-size: 14px;
+  line-height: 18px;
+  color: #6b7280;
+}
+.url_example {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 18px;
+  color: #333;
+}
+.area_input_nickname {
+  position: relative;
+}
+.formInput {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+.formInputError {
+  border: 1px solid #dc2626;
+}
+.formInputNormal {
+  border: 1px solid #d1d5db;
+}
+.inputStatus {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 12px;
+}
+.inputStatusChecking {
+  color: #6b7280;
+}
+.inputStatusAvailable {
+  color: #16a34a;
+}
+.inputStatusUnavailable {
+  color: #dc2626;
+}
+.error_message {
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 18px;
+  margin-top: 6px;
+}
+.submitButton {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.submitButtonActive {
+  background-color: #333;
+  color: white;
+}
+.submitButtonDisabled {
+  background-color: #9ca3af;
+  color: white;
+  cursor: not-allowed;
+}
+.currentProfileSection {
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+.currentProfileTitle {
+  margin-bottom: 12px;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.currentProfileInfo {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.currentProfileMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #6b7280;
+}
+
+.loadingText {
+  padding: 20px;
+  text-align: center;
+} 

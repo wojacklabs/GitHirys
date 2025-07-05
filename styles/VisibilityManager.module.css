@@ -1,0 +1,224 @@
+/* styles/VisibilityManager.module.css */
+.visibilityManager {
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.title {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.currentStatus {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.statusLabel {
+  margin: 0;
+  font-weight: 500;
+  color: #374151;
+}
+
+.statusBadge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  border: 1px solid;
+}
+
+.statusBadge.public {
+  background-color: #d1fae5;
+  color: #065f46;
+  border-color: #10b981;
+}
+
+.statusBadge.private {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-color: #f59e0b;
+}
+
+.description {
+  margin-bottom: 8px;
+}
+
+.descriptionText {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.successMessage {
+  padding: 12px;
+  background-color: #d1fae5;
+  border: 1px solid #10b981;
+  border-radius: 6px;
+  color: #065f46;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.errorMessage {
+  padding: 12px;
+  background-color: #fee2e2;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 150px;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.publicButton {
+  background-color: #10b981;
+  color: white;
+}
+
+.publicButton:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.publicButton:disabled {
+  background-color: #6b7280;
+}
+
+.privateButton {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.privateButton:hover:not(:disabled) {
+  background-color: #d97706;
+}
+
+.privateButton:disabled {
+  background-color: #6b7280;
+}
+
+.info {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 6px;
+}
+
+.infoTitle {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0369a1;
+}
+
+.infoList {
+  margin: 0;
+  padding-left: 20px;
+  color: #0369a1;
+}
+
+.infoList li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.infoList li:last-child {
+  margin-bottom: 0;
+}
+
+.technicalInfo {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.technicalTitle {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.technicalText {
+  margin: 4px 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.code {
+  font-family: 'Courier New', monospace;
+  background-color: #e2e8f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #334155;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .visibilityManager {
+    padding: 16px;
+  }
+  
+  .actions {
+    flex-direction: column;
+  }
+  
+  .button {
+    min-width: auto;
+  }
+  
+  .currentStatus {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+} 

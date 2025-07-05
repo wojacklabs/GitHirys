@@ -8,74 +8,39 @@ body {
   color: #333;
 }
 
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+li,
+input,
+button {
+  padding: 0;
+  margin: 0;
+}
+
 * {
   box-sizing: border-box;
 }
 
 .container {
-  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  max-width: 1024px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 0 20px 30px;
   background-color: white;
   min-height: 100vh;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-h1 {
-  color: #2563eb;
-  margin-bottom: 24px;
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-h2 {
-  color: #374151;
-  margin-bottom: 16px;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-h3 {
-  color: #4b5563;
-  margin-bottom: 12px;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-h4 {
-  color: #374151;
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  box-sizing: border-box;
 }
 
 button {
-  background-color: #2563eb;
-  color: white;
+  background-color: transparent;
   border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-button:hover {
-  background-color: #1d4ed8;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-button:disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-button:active {
-  transform: translateY(0);
 }
 
 code {
@@ -87,43 +52,16 @@ code {
   font-size: 0.875em;
 }
 
-ul {
+ul,
+ol {
   list-style: none;
-  padding: 0;
-}
-
-li {
-  padding: 12px;
-  margin: 8px 0;
-  background-color: #f9fafb;
-  border-radius: 6px;
-  border-left: 4px solid #2563eb;
-  transition: background-color 0.2s ease;
-}
-
-li:hover {
-  background-color: #f1f5f9;
 }
 
 a {
-  color: #2563eb;
-  text-decoration: none;
-  transition: color 0.2s ease;
+  color: #333;
+  cursor: pointer;
 }
 
-a:hover {
-  color: #1d4ed8;
-  text-decoration: underline;
-}
-
-.wallet-status {
-  padding: 16px;
-  margin: 16px 0;
-  background-color: #ecfdf5;
-  border: 1px solid #d1fae5;
-  border-radius: 8px;
-  color: #047857;
-}
 
 .loading {
   color: #6b7280;
@@ -207,34 +145,6 @@ a:hover {
   border-color: #2563eb;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
   transform: translateY(-2px);
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .container {
-    padding: 16px;
-  }
-  
-  h1 {
-    font-size: 1.75rem;
-  }
-  
-  h2 {
-    font-size: 1.25rem;
-  }
-  
-  .file-tree {
-    font-size: 13px;
-  }
-  
-  .code-viewer {
-    font-size: 13px;
-  }
-  
-  button {
-    padding: 10px 20px;
-    font-size: 13px;
-  }
 }
 
 /* Smooth scrollbar */

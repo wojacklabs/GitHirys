@@ -1,0 +1,127 @@
+/* Custom404.module.css */
+
+.container {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.errorCode {
+  font-size: 72px;
+  margin: 0;
+  color: #dc2626;
+}
+
+.errorTitle {
+  margin: 16px 0;
+  color: #374151;
+}
+
+.changeNotice {
+  padding: 20px;
+  background-color: #e0f2fe;
+  border: 1px solid #0ea5e9;
+  border-radius: 8px;
+  margin: 32px 0;
+  color: #0c4a6e;
+}
+
+.changeNoticeTitle {
+  margin: 0 0 16px 0;
+}
+
+.currentPath {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
+.currentPathCode {
+  background-color: #bae6fd;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.urlStructure {
+  text-align: left;
+  margin: 16px 0;
+}
+
+.urlStructureTitle {
+  margin: 8px 0;
+  font-weight: 500;
+}
+
+.urlStructureList {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.urlStructureNote {
+  margin: 16px 0 0 0;
+  font-size: 14px;
+}
+
+.buttonContainer {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.homeButton {
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: #2563eb;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.backButton {
+  padding: 12px 24px;
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.helpSection {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.helpTitle {
+  margin-top: 0;
+  color: #374151;
+}
+
+.helpList {
+  color: #6b7280;
+  line-height: 1.6;
+  padding-left: 20px;
+  margin: 12px 0;
+}
+
+.exampleSection {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.exampleCode {
+  font-family: monospace;
+  background-color: #fef3c7;
+  padding: 2px 4px;
+  border-radius: 3px;
+} 

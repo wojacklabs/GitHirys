@@ -1,0 +1,422 @@
+import type { NextPage } from 'next';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
+import { useWallet } from '@solana/wallet-adapter-react';
+import Link from 'next/link';
+import ConnectWallet from '../components/ConnectWallet';
+import {
+  createIrysUploader,
+  getProfileByAddress,
+  checkNicknameAvailability,
+  uploadProfile,
+  ProfileUtils,
+  UserProfile,
+} from '../lib/irys';
+import styles from '../styles/ProfilePage.module.css';
+
+const ProfilePage: NextPage = () => {
+  const router = useRouter();
+  const wallet = useWallet();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 지갑 관련 상태
+  const [publicKey, setPublicKey] = useState('');
+  const [uploader, setUploader] = useState<any>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // 프로필 관련 상태
+  const [existingProfile, setExistingProfile] = useState<UserProfile | null>(
+    null
+  );
+  const [nickname, setNickname] = useState('');
+  const [twitterHandle, setTwitterHandle] = useState('');
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+
+  // UI 상태
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // 닉네임 검증 상태
+  const [nicknameChecking, setNicknameChecking] = useState(false);
+  const [nicknameAvailable, setNicknameAvailable] = useState<boolean | null>(
+    null
+  );
+
+  // 지갑 연결 처리
+  useEffect(() => {
+    if (wallet.connected && wallet.publicKey) {
+      setPublicKey(wallet.publicKey.toBase58());
+    } else {
+      setPublicKey('');
+    }
+  }, [wallet.connected, wallet.publicKey]);
+
+  // Irys 업로더 초기화
+  useEffect(() => {
+    const initUploader = async () => {
+      if (!wallet || !wallet.connected) {
+        setUploader(null);
+        return;
+      }
+
+      try {
+        setIsConnecting(true);
+        const newUploader = await createIrysUploader(wallet);
+        setUploader(newUploader);
+      } catch (error) {
+        console.error('Irys 업로더 생성 실패:', error);
+        setUploader(null);
+      } finally {
+        setIsConnecting(false);
+      }
+    };
+
+    initUploader();
+  }, [wallet]);
+
+  // 기존 프로필 로드
+  useEffect(() => {
+    const loadExistingProfile = async () => {
+      if (!publicKey) return;
+
+      setIsLoadingProfile(true);
+      try {
+        const profile = await getProfileByAddress(publicKey);
+        if (profile) {
+          setExistingProfile(profile);
+          setNickname(profile.nickname);
+          setTwitterHandle(profile.twitterHandle);
+          if (profile.profileImageUrl) {
+            setPreviewUrl(profile.profileImageUrl);
+          }
+        }
+      } catch (error) {
+        console.error('프로필 로드 오류:', error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadExistingProfile();
+  }, [publicKey]);
+
+  // 닉네임 중복 검사 (디바운스)
+  useEffect(() => {
+    if (!nickname || nickname === existingProfile?.nickname) {
+      setNicknameAvailable(null);
+      return;
+    }
+
+    if (!ProfileUtils.isValidNickname(nickname)) {
+      setNicknameAvailable(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setNicknameChecking(true);
+      try {
+        const available = await checkNicknameAvailability(nickname);
+        setNicknameAvailable(available);
+      } catch (error) {
+        console.error('닉네임 중복 검사 오류:', error);
+        setNicknameAvailable(false);
+      } finally {
+        setNicknameChecking(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [nickname, existingProfile]);
+
+  // 파일 선택 처리
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 파일 타입 검증
+    if (!file.type.startsWith('image/')) {
+      setErrors(prev => ({
+        ...prev,
+        image: '이미지 파일만 업로드할 수 있습니다.',
+      }));
+      return;
+    }
+
+    // 파일 크기 검증 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({
+        ...prev,
+        image: '파일 크기는 5MB 이하여야 합니다.',
+      }));
+      return;
+    }
+
+    // 이미지 크기 검증 (400x400)
+    const isValidSize = await ProfileUtils.validateImageSize(file);
+    if (!isValidSize) {
+      setErrors(prev => ({
+        ...prev,
+        image: '이미지 크기는 정확히 400x400 픽셀이어야 합니다.',
+      }));
+      return;
+    }
+
+    setProfileImage(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setErrors(prev => ({ ...prev, image: '' }));
+  };
+
+  // 폼 검증
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!nickname) {
+      newErrors.nickname = '닉네임을 입력해주세요.';
+    } else if (!ProfileUtils.isValidNickname(nickname)) {
+      newErrors.nickname =
+        '닉네임은 3-20자의 영문자, 숫자, 언더스코어만 사용할 수 있습니다.';
+    } else if (
+      nickname !== existingProfile?.nickname &&
+      nicknameAvailable === false
+    ) {
+      newErrors.nickname = '이미 사용 중인 닉네임입니다.';
+    }
+
+    if (twitterHandle && !ProfileUtils.isValidTwitterHandle(twitterHandle)) {
+      newErrors.twitter =
+        '올바른 트위터 핸들 형식이 아닙니다. (1-15자, 영문자/숫자/언더스코어)';
+    }
+
+    // 프로필 이미지는 선택사항 (기존 프로필이 없고 새 이미지도 없으면 기본 이미지 생성)
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // 프로필 저장
+  const handleSave = async () => {
+    if (!validateForm() || !uploader) return;
+
+    setIsSaving(true);
+    setSuccessMessage('');
+
+    try {
+      const profileData = {
+        nickname,
+        twitterHandle,
+        accountAddress: publicKey,
+        profileImage: profileImage || undefined,
+        existingRootTxId: existingProfile?.rootTxId,
+        existingProfileImageUrl:
+          !profileImage && existingProfile?.profileImageUrl
+            ? existingProfile.profileImageUrl
+            : undefined,
+      };
+
+      const result = await uploadProfile(uploader, profileData);
+
+      if (result.success) {
+        setSuccessMessage('Profile Saved!');
+        // 프로필 정보 새로고침
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setErrors({ general: result.error || 'Failed to save Profile.' });
+      }
+    } catch (error) {
+      console.error('프로필 저장 오류:', error);
+      setErrors({ general: 'Failed to save Profile.' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!wallet.connected) {
+    return (
+      <div className="container">
+        <div className={styles.header_profile}>
+          <h1 className={styles.title_page}>Set Profile</h1>
+          <Link href="/" className={styles.link_back}>
+            ← Back
+          </Link>
+        </div>
+        <div className={styles.notConnectedSection}>
+          <p className={styles.notConnectedTitle}>
+            ⚠️ Connect wallet to create profile
+          </p>
+          <ConnectWallet onConnect={() => {}} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <div className={styles.header_profile}>
+        <h1 className={styles.title_page}>Set Profile</h1>
+        <Link href="/" className={styles.link_back}>
+          ← Back
+        </Link>
+      </div>
+      {isLoadingProfile ? (
+        <div className={styles.loadingText}>
+          <p>Fetching data...</p>
+        </div>
+      ) : (
+        <div className={styles.profile_main}>
+          {/* 성공 메시지 */}
+          {successMessage && (
+            <div className={styles.message_top_success}>
+              ✅ {successMessage}
+            </div>
+          )}
+
+          {/* 일반 오류 메시지 */}
+          {errors.general && (
+            <div className={styles.message_top_error}>❌ {errors.general}</div>
+          )}
+
+          {/* 프로필 이미지 */}
+          <div className={styles.area_form}>
+            <label className={styles.title_form}>Profile Image</label>
+            <div className={styles.area_input_image}>
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="프로필 미리보기"
+                  className={styles.image}
+                />
+              )}
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className={styles.imageInput}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className={styles.button_image}
+                >
+                  Upload image
+                </button>
+                <p className={styles.guide_image}>
+                  · 400x400 size
+                  <br />· 5MB max
+                </p>
+              </div>
+            </div>
+            {errors.image && (
+              <p className={styles.error_message}>{errors.image}</p>
+            )}
+          </div>
+
+          {/* 닉네임 */}
+          <div className={styles.area_form}>
+            <label className={styles.title_form}>Nickname *</label>
+            <div className={styles.area_input_nickname}>
+              <input
+                type="text"
+                value={nickname}
+                onChange={e => setNickname(e.target.value)}
+                placeholder="3-20 english letter, number, underscore"
+                className={`${styles.formInput} ${errors.nickname ? styles.formInputError : styles.formInputNormal}`}
+              />
+              {nicknameChecking && (
+                <div
+                  className={`${styles.inputStatus} ${styles.inputStatusChecking}`}
+                >
+                  <span>Checking...</span>
+                </div>
+              )}
+              {!nicknameChecking &&
+                nickname &&
+                nickname !== existingProfile?.nickname &&
+                nicknameAvailable !== null && (
+                  <div
+                    className={`${styles.inputStatus} ${nicknameAvailable ? styles.inputStatusAvailable : styles.inputStatusUnavailable}`}
+                  >
+                    <span>
+                      {nicknameAvailable ? '✅ Available' : '❌ Not Available'}
+                    </span>
+                  </div>
+                )}
+            </div>
+            {errors.nickname && (
+              <p className={styles.error_message}>{errors.nickname}</p>
+            )}
+            {nickname && (
+              <p className={styles.url_example}>
+                Profile URL: <code>githirys.xyz/{nickname}</code>
+              </p>
+            )}
+          </div>
+          {/* 트위터 핸들 */}
+          <div className={styles.area_form}>
+            <label className={styles.title_form}>X Handle (Optional)</label>
+            <input
+              type="text"
+              value={twitterHandle}
+              onChange={e => setTwitterHandle(e.target.value)}
+              placeholder="@username or username"
+              className={`${styles.formInput} ${errors.twitter ? styles.formInputError : styles.formInputNormal}`}
+            />
+            {errors.twitter && (
+              <p className={styles.error_message}>{errors.twitter}</p>
+            )}
+          </div>
+
+          {/* 저장 버튼 */}
+          <div className={styles.area_form}>
+            <button
+              onClick={handleSave}
+              disabled={
+                isSaving ||
+                !uploader ||
+                (nickname !== existingProfile?.nickname &&
+                  nicknameAvailable === false)
+              }
+              className={`${styles.submitButton} ${isSaving ? styles.submitButtonDisabled : styles.submitButtonActive}`}
+            >
+              {isSaving
+                ? 'Saving...'
+                : existingProfile
+                  ? 'Update Profile'
+                  : 'Create Profile'}
+            </button>
+          </div>
+
+          {/* 현재 프로필 정보 */}
+          {existingProfile && (
+            <div className={styles.currentProfileSection}>
+              <h3 className={styles.currentProfileTitle}>Current Profile</h3>
+              <p className={styles.currentProfileInfo}>
+                Nickname: <strong>{existingProfile.nickname}</strong>
+              </p>
+              {existingProfile.twitterHandle && (
+                <p className={styles.currentProfileInfo}>
+                  X handle: <strong>@{existingProfile.twitterHandle}</strong>
+                </p>
+              )}
+              <p className={styles.currentProfileMeta}>
+                Last Update:{' '}
+                {new Date(existingProfile.timestamp * 1000).toLocaleString(
+                  'en-US'
+                )}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProfilePage;

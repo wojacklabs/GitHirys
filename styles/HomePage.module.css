@@ -1,0 +1,231 @@
+/* 홈페이지 스타일 */
+
+.header_home {
+  padding-top: 24px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+}
+.title_page {
+  font-size: 24px;
+}
+.area_header_right {
+  width: 200px;
+  text-align: right;
+}
+.area_button_header {
+  margin-top: 5px;
+  text-align: right;
+}
+.button_header {
+  display: block;
+  font-size: 14px;
+  line-height: 18px;
+  padding: 5px 20px;
+  text-decoration: underline;
+}
+.area_dashboard {
+  padding-top: 30px;
+  margin-top: auto;
+}
+.title_dashboard {
+  color: #374151;
+  font-size: 20px;
+  text-align: center;
+}
+.list_stats {
+  display: flex;
+  margin-top: 10px;
+  justify-content: space-evenly;
+}
+.item_stats {
+  padding: 16px 0;
+  border-radius: 8px;
+  text-align: center;
+}
+.stats_number {
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: bold;
+  color: #666;
+}
+.stats_name {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 18px;
+}
+.area_search {
+  margin-top: 5vh;
+}
+.area_input {
+  margin-bottom: 16px;
+}
+.area_input_search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+.input_search {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 18px;
+  outline: none;
+}
+.button_search {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+}
+.searchButtonActive {
+  background-color: #333;
+}
+.searchButtonDisabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+.area_search_type {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.searchTypeInput {
+  margin-right: 8px;
+}
+.searchTypeLabel {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.searchError {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #fee2e2;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 14px;
+}
+.searchResults {
+  margin-top: 25px;
+  padding-top: 25px;
+  border-top: 1px solid #e5e7eb
+}
+.searchResultsTitle {
+  margin-bottom: 12px;
+  font-size: 16px;
+  line-height: 20px;
+  color: #374151;
+}
+.searchResultsGrid {
+  display: flex;
+  flex-direction: column;
+}
+.searchResultItem {
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.searchResultItem + .searchResultItem {
+  margin-top: 8px;
+}
+.searchResultItem:hover {
+  background-color: #f3f4f6;
+  border-color: #333;
+}
+.profileResult {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profileImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.profileInfo {
+  flex: 1;
+}
+.profileNickname {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.profileNicknameText {
+  margin-right: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.profileTwitter {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.profileWallet {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.walletResult {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.walletDisplayName {
+  font-weight: 500;
+  color: #333;
+}
+
+.walletType {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 1px;
+}
+
+.repoResult {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repoName {
+  font-weight: 500;
+  color: #333;
+}
+
+.repoOwner {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.repoBranches {
+  font-size: 12px;
+  color: #6b7280;
+}
+.connectedText {
+  margin: 0 0 12px 0;
+}
+
+.connectingCard {
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+}
+
+.errorCard {
+  background-color: #fee2e2;
+  border: 1px solid #dc2626;
+  color: #991b1b;
+}

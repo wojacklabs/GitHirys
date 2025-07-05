@@ -1,0 +1,340 @@
+/* RepoDetail.module.css */
+
+.repoHeader {
+  margin-bottom: 20px;
+}
+
+.repoTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.repoTitle {
+  margin: 0;
+}
+
+.branchSelectorContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.branchLabel {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.branchSelect {
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: white;
+  cursor: pointer;
+}
+
+.repoMeta {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.repoMetaRow {
+  margin-bottom: 4px;
+}
+
+.repoMetaCode {
+  font-family: monospace;
+  background-color: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.cloneSection {
+  padding: 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.cloneTitle {
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.cloneCommandContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.cloneCommand {
+  padding: 4px 8px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  flex: 1;
+  font-family: inherit;
+}
+
+.cloneButton {
+  padding: 4px 8px;
+  background-color: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.contentContainer {
+  display: flex;
+  gap: 20px;
+  height: 600px;
+}
+
+.fileTree {
+  width: 300px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.fileTreeHeader {
+  padding: 12px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+}
+
+.breadcrumbContainer {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.breadcrumbButton {
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.breadcrumbPath {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.fileItem {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+}
+
+.fileItemSelected {
+  background-color: #e0f2fe;
+}
+
+.fileItemHover:hover {
+  background-color: #f8fafc;
+}
+
+.fileItemIcon {
+  flex-shrink: 0;
+}
+
+.fileItemName {
+  font-size: 14px;
+  flex: 1;
+}
+
+.fileItemSize {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: auto;
+}
+
+.fileContent {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.fileContentHeader {
+  padding: 12px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+}
+
+.fileContentBody {
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+/* 미디어 컨테이너 */
+.mediaContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* 이미지 컨테이너 */
+.imageContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.imagePreview {
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 비디오 컨테이너 */
+.videoContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.videoPreview {
+  max-width: 100%;
+  max-height: 500px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: black;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 오디오 컨테이너 */
+.audioContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.audioPreview {
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 문서 컨테이너 */
+.documentContainer {
+  text-align: center;
+  width: 100%;
+}
+
+.documentPreview {
+  width: 100%;
+  height: 500px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 바이너리 파일 컨테이너 */
+.binaryContainer {
+  width: 100%;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.binaryInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.binaryHeader {
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.binaryDetails {
+  background-color: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.binaryDetails p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.binaryDetails strong {
+  color: #374151;
+}
+
+.downloadSection {
+  margin-top: 16px;
+}
+
+.downloadButton {
+  padding: 12px 24px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.downloadButton:hover {
+  background-color: #2563eb;
+}
+
+.downloadButton:active {
+  background-color: #1d4ed8;
+}
+
+/* 미디어 정보 공통 스타일 */
+.mediaInfo {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.textContent {
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: monospace;
+  white-space: pre-wrap;
+  background-color: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  max-height: 500px;
+  overflow-y: auto;
+}
