@@ -2,3 +2,11 @@
 /.idea
 /.history
 /.next
+
+# Yarn v4+ cache and temporary files
+.yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
