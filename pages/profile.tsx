@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useWallet } from '@solana/wallet-adapter-react';
 import Link from 'next/link';
-import ConnectWallet from '../components/ConnectWallet';
+import Head from 'next/head';
 import {
   createIrysUploader,
   getProfileByAddress,
@@ -15,14 +15,12 @@ import {
 import styles from '../styles/ProfilePage.module.css';
 
 const ProfilePage: NextPage = () => {
-  const router = useRouter();
   const wallet = useWallet();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 지갑 관련 상태
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
 
   // 프로필 관련 상태
   const [existingProfile, setExistingProfile] = useState<UserProfile | null>(
@@ -63,14 +61,11 @@ const ProfilePage: NextPage = () => {
       }
 
       try {
-        setIsConnecting(true);
         const newUploader = await createIrysUploader(wallet);
         setUploader(newUploader);
       } catch (error) {
         console.error('Irys 업로더 생성 실패:', error);
         setUploader(null);
-      } finally {
-        setIsConnecting(false);
       }
     };
 
@@ -142,7 +137,7 @@ const ProfilePage: NextPage = () => {
     if (!file.type.startsWith('image/')) {
       setErrors(prev => ({
         ...prev,
-        image: '이미지 파일만 업로드할 수 있습니다.',
+        image: 'Upload only image file.',
       }));
       return;
     }
@@ -151,7 +146,7 @@ const ProfilePage: NextPage = () => {
     if (file.size > 5 * 1024 * 1024) {
       setErrors(prev => ({
         ...prev,
-        image: '파일 크기는 5MB 이하여야 합니다.',
+        image: 'Image should be smaller than 5MB.',
       }));
       return;
     }
@@ -161,7 +156,7 @@ const ProfilePage: NextPage = () => {
     if (!isValidSize) {
       setErrors(prev => ({
         ...prev,
-        image: '이미지 크기는 정확히 400x400 픽셀이어야 합니다.',
+        image: 'Image should be 400x400(pixel) size',
       }));
       return;
     }
@@ -176,20 +171,20 @@ const ProfilePage: NextPage = () => {
     const newErrors: { [key: string]: string } = {};
 
     if (!nickname) {
-      newErrors.nickname = '닉네임을 입력해주세요.';
+      newErrors.nickname = 'Nickname missing.';
     } else if (!ProfileUtils.isValidNickname(nickname)) {
       newErrors.nickname =
-        '닉네임은 3-20자의 영문자, 숫자, 언더스코어만 사용할 수 있습니다.';
+        'Nickname must be 3-20 characters long and can only contain letters, numbers, and underscores.';
     } else if (
       nickname !== existingProfile?.nickname &&
       nicknameAvailable === false
     ) {
-      newErrors.nickname = '이미 사용 중인 닉네임입니다.';
+      newErrors.nickname = 'Nickname already exists.';
     }
 
     if (twitterHandle && !ProfileUtils.isValidTwitterHandle(twitterHandle)) {
       newErrors.twitter =
-        '올바른 트위터 핸들 형식이 아닙니다. (1-15자, 영문자/숫자/언더스코어)';
+        'Twitter handle must be 1-15 characters long and can only contain letters, numbers, and underscores.';
     }
 
     // 프로필 이미지는 선택사항 (기존 프로필이 없고 새 이미지도 없으면 기본 이미지 생성)
@@ -239,183 +234,183 @@ const ProfilePage: NextPage = () => {
 
   if (!wallet.connected) {
     return (
-      <div className="container">
-        <div className={styles.header_profile}>
-          <h1 className={styles.title_page}>Set Profile</h1>
-          <Link href="/" className={styles.link_back}>
-            ← Back
-          </Link>
+      <>
+        <Head>
+          <title>Profile - GitHirys</title>
+        </Head>
+        <div className="container">
+          <div className={styles.notConnectedSection}>
+            <p className={styles.notConnectedTitle}>
+              ⚠️ Connect wallet to create profile
+            </p>
+            <p>Please connect your wallet using the header button.</p>
+          </div>
         </div>
-        <div className={styles.notConnectedSection}>
-          <p className={styles.notConnectedTitle}>
-            ⚠️ Connect wallet to create profile
-          </p>
-          <ConnectWallet onConnect={() => {}} />
-        </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="container">
-      <div className={styles.header_profile}>
-        <h1 className={styles.title_page}>Set Profile</h1>
-        <Link href="/" className={styles.link_back}>
-          ← Back
-        </Link>
-      </div>
-      {isLoadingProfile ? (
-        <div className={styles.loadingText}>
-          <p>Fetching data...</p>
-        </div>
-      ) : (
-        <div className={styles.profile_main}>
-          {/* 성공 메시지 */}
-          {successMessage && (
-            <div className={styles.message_top_success}>
-              ✅ {successMessage}
-            </div>
-          )}
-
-          {/* 일반 오류 메시지 */}
-          {errors.general && (
-            <div className={styles.message_top_error}>❌ {errors.general}</div>
-          )}
-
-          {/* 프로필 이미지 */}
-          <div className={styles.area_form}>
-            <label className={styles.title_form}>Profile Image</label>
-            <div className={styles.area_input_image}>
-              {previewUrl && (
-                <img
-                  src={previewUrl}
-                  alt="프로필 미리보기"
-                  className={styles.image}
-                />
-              )}
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className={styles.imageInput}
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className={styles.button_image}
-                >
-                  Upload image
-                </button>
-                <p className={styles.guide_image}>
-                  · 400x400 size
-                  <br />· 5MB max
-                </p>
-              </div>
-            </div>
-            {errors.image && (
-              <p className={styles.error_message}>{errors.image}</p>
-            )}
+    <>
+      <Head>
+        <title>Profile - GitHirys</title>
+      </Head>
+      <div className="container">
+        {isLoadingProfile ? (
+          <div className={styles.loadingText}>
+            <p>Fetching data...</p>
           </div>
+        ) : (
+          <div className={styles.profile_main}>
+            {/* 성공 메시지 */}
+            {successMessage && (
+              <div className={styles.message_top_success}>
+                ✅ {successMessage}
+              </div>
+            )}
 
-          {/* 닉네임 */}
-          <div className={styles.area_form}>
-            <label className={styles.title_form}>Nickname *</label>
-            <div className={styles.area_input_nickname}>
-              <input
-                type="text"
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                placeholder="3-20 english letter, number, underscore"
-                className={`${styles.formInput} ${errors.nickname ? styles.formInputError : styles.formInputNormal}`}
-              />
-              {nicknameChecking && (
-                <div
-                  className={`${styles.inputStatus} ${styles.inputStatusChecking}`}
-                >
-                  <span>Checking...</span>
-                </div>
-              )}
-              {!nicknameChecking &&
-                nickname &&
-                nickname !== existingProfile?.nickname &&
-                nicknameAvailable !== null && (
-                  <div
-                    className={`${styles.inputStatus} ${nicknameAvailable ? styles.inputStatusAvailable : styles.inputStatusUnavailable}`}
+            {/* 일반 오류 메시지 */}
+            {errors.general && (
+              <div className={styles.message_top_error}>{errors.general}</div>
+            )}
+
+            {/* 프로필 이미지 */}
+            <div className={styles.area_form}>
+              <label className={styles.title_form}>Profile Image</label>
+              <div className={styles.area_input_image}>
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="프로필 미리보기"
+                    className={styles.image}
+                  />
+                )}
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className={styles.imageInput}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={styles.button_image}
                   >
-                    <span>
-                      {nicknameAvailable ? '✅ Available' : '❌ Not Available'}
-                    </span>
+                    Upload image
+                  </button>
+                  <p className={styles.guide_image}>
+                    · 400x400(pixel) size
+                    <br />· 5MB max
+                  </p>
+                </div>
+              </div>
+              {errors.image && (
+                <p className={styles.error_message}>{errors.image}</p>
+              )}
+            </div>
+
+            {/* 닉네임 */}
+            <div className={styles.area_form}>
+              <label className={styles.title_form}>Nickname *</label>
+              <div className={styles.area_input_nickname}>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={e => setNickname(e.target.value)}
+                  placeholder="3-20 english letter, number, underscore"
+                  className={`${styles.formInput} ${errors.nickname ? styles.formInputError : styles.formInputNormal}`}
+                />
+                {nicknameChecking && (
+                  <div
+                    className={`${styles.inputStatus} ${styles.inputStatusChecking}`}
+                  >
+                    <span>Checking...</span>
                   </div>
                 )}
-            </div>
-            {errors.nickname && (
-              <p className={styles.error_message}>{errors.nickname}</p>
-            )}
-            {nickname && (
-              <p className={styles.url_example}>
-                Profile URL: <code>githirys.xyz/{nickname}</code>
-              </p>
-            )}
-          </div>
-          {/* 트위터 핸들 */}
-          <div className={styles.area_form}>
-            <label className={styles.title_form}>X Handle (Optional)</label>
-            <input
-              type="text"
-              value={twitterHandle}
-              onChange={e => setTwitterHandle(e.target.value)}
-              placeholder="@username or username"
-              className={`${styles.formInput} ${errors.twitter ? styles.formInputError : styles.formInputNormal}`}
-            />
-            {errors.twitter && (
-              <p className={styles.error_message}>{errors.twitter}</p>
-            )}
-          </div>
-
-          {/* 저장 버튼 */}
-          <div className={styles.area_form}>
-            <button
-              onClick={handleSave}
-              disabled={
-                isSaving ||
-                !uploader ||
-                (nickname !== existingProfile?.nickname &&
-                  nicknameAvailable === false)
-              }
-              className={`${styles.submitButton} ${isSaving ? styles.submitButtonDisabled : styles.submitButtonActive}`}
-            >
-              {isSaving
-                ? 'Saving...'
-                : existingProfile
-                  ? 'Update Profile'
-                  : 'Create Profile'}
-            </button>
-          </div>
-
-          {/* 현재 프로필 정보 */}
-          {existingProfile && (
-            <div className={styles.currentProfileSection}>
-              <h3 className={styles.currentProfileTitle}>Current Profile</h3>
-              <p className={styles.currentProfileInfo}>
-                Nickname: <strong>{existingProfile.nickname}</strong>
-              </p>
-              {existingProfile.twitterHandle && (
-                <p className={styles.currentProfileInfo}>
-                  X handle: <strong>@{existingProfile.twitterHandle}</strong>
+                {!nicknameChecking &&
+                  nickname &&
+                  nickname !== existingProfile?.nickname &&
+                  nicknameAvailable !== null && (
+                    <div
+                      className={`${styles.inputStatus} ${nicknameAvailable ? styles.inputStatusAvailable : styles.inputStatusUnavailable}`}
+                    >
+                      <span>
+                        {nicknameAvailable
+                          ? '✅ Available'
+                          : '❌ Not Available'}
+                      </span>
+                    </div>
+                  )}
+              </div>
+              {errors.nickname && (
+                <p className={styles.error_message}>{errors.nickname}</p>
+              )}
+              {nickname && (
+                <p className={styles.url_example}>
+                  Profile URL: <code>githirys.xyz/{nickname}</code>
                 </p>
               )}
-              <p className={styles.currentProfileMeta}>
-                Last Update:{' '}
-                {new Date(existingProfile.timestamp * 1000).toLocaleString(
-                  'en-US'
-                )}
-              </p>
             </div>
-          )}
-        </div>
-      )}
-    </div>
+            {/* 트위터 핸들 */}
+            <div className={styles.area_form}>
+              <label className={styles.title_form}>X Handle (Optional)</label>
+              <input
+                type="text"
+                value={twitterHandle}
+                onChange={e => setTwitterHandle(e.target.value)}
+                placeholder="@username or username"
+                className={`${styles.formInput} ${errors.twitter ? styles.formInputError : styles.formInputNormal}`}
+              />
+              {errors.twitter && (
+                <p className={styles.error_message}>{errors.twitter}</p>
+              )}
+            </div>
+
+            {/* 저장 버튼 */}
+            <div className={styles.area_form}>
+              <button
+                onClick={handleSave}
+                disabled={
+                  isSaving ||
+                  !uploader ||
+                  (nickname !== existingProfile?.nickname &&
+                    nicknameAvailable === false)
+                }
+                className={`${styles.submitButton} ${isSaving ? styles.submitButtonDisabled : styles.submitButtonActive}`}
+              >
+                {isSaving
+                  ? 'Saving...'
+                  : existingProfile
+                    ? 'Update Profile'
+                    : 'Create Profile'}
+              </button>
+            </div>
+
+            {/* 현재 프로필 정보 */}
+            {existingProfile && (
+              <div className={styles.currentProfileSection}>
+                <h3 className={styles.currentProfileTitle}>Current Profile</h3>
+                <p className={styles.currentProfileInfo}>
+                  Nickname: <strong>{existingProfile.nickname}</strong>
+                </p>
+                {existingProfile.twitterHandle && (
+                  <p className={styles.currentProfileInfo}>
+                    X handle: <strong>@{existingProfile.twitterHandle}</strong>
+                  </p>
+                )}
+                <p className={styles.currentProfileMeta}>
+                  Last Update:{' '}
+                  {new Date(existingProfile.timestamp * 1000).toLocaleString(
+                    'en-US'
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 

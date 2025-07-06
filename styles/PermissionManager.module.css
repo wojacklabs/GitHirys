@@ -1,11 +1,7 @@
 /* 권한 관리 컴포넌트 스타일 */
 
 .permissionSection {
-  margin-top: 24px;
   padding: 20px;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
 }
 
 .permissionTitle {
@@ -49,8 +45,10 @@
 }
 
 .contributorInfo {
+  overflow: hidden;
   display: flex;
   align-items: center;
+  margin-right: 16px;
   gap: 12px;
   flex: 1;
 }
@@ -64,6 +62,7 @@
 }
 
 .contributorAvatarPlaceholder {
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -77,6 +76,7 @@
 }
 
 .contributorDetails {
+  overflow: hidden;
   flex: 1;
 }
 
@@ -84,41 +84,48 @@
   font-weight: 500;
   color: #374151;
   margin-bottom: 2px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .contributorAddress {
   font-size: 12px;
   color: #9ca3af;
   font-family: monospace;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .contributorTwitter {
   font-size: 12px;
-  color: #2563eb;
   margin-top: 2px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .ownerBadge {
   font-size: 11px;
-  color: #059669;
-  background-color: #d1fae5;
+  color: #fff;
+  background-color: #333;
   padding: 2px 6px;
   border-radius: 4px;
-  margin-left: 8px;
+  margin-left: 5px;
+  display: inline-block;
+  vertical-align: top;
+  margin-top: 1px;
 }
 
 .removeButton {
   padding: 4px 8px;
-  background-color: #dc2626;
+  background-color: #333;
   color: white;
   border: none;
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
-}
-
-.removeButton:hover {
-  background-color: #b91c1c;
 }
 
 .removeButton:disabled {
@@ -153,13 +160,6 @@
   border-radius: 6px;
   font-size: 14px;
   outline: none;
-}
-
-.searchInput:focus {
-  border-color: #2563eb;
-  ring: 2px;
-  ring-color: #3b82f6;
-  ring-opacity: 0.2;
 }
 
 .searchResults {

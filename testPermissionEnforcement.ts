@@ -2,7 +2,7 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   updateRepositoryPermissions,
-  updateRepositoryVisibility
+  updateRepositoryVisibility,
 } = require('./lib/irys');
 
 interface FakeUploader {
@@ -16,7 +16,7 @@ function createFakeUploader(address: string): FakeUploader {
     uploadFile: async () => {
       // 업로드를 실제로 호출하지 않고 더미 ID 반환
       return { id: 'dummyTx_' + Math.random().toString(36).substring(2) };
-    }
+    },
   };
 }
 
@@ -52,4 +52,4 @@ async function runTests() {
   console.log(await updateRepositoryVisibility(attackerUploader, visData));
 }
 
-runTests().catch(console.error); 
+runTests().catch(console.error);

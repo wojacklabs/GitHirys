@@ -3,9 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   experimental: {
-    appDir: false
+    appDir: false,
   },
-  webpack: (config) => {
+  webpack: config => {
     config.resolve.fallback = {
       fs: false,
       net: false,
@@ -13,6 +13,6 @@ const nextConfig = {
     };
     return config;
   },
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

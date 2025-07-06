@@ -1,35 +1,7 @@
 /* 프로필 페이지 스타일 */
 
-.header_profile {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  max-width: 1024px;
-  box-sizing: border-box;
-  margin: 0 auto;
-  height: 76px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #fff;
-  z-index: 10;
-}
-.link_back {
-  position: absolute;
-  top: 50%;
-  left: 20px;
-  transform: translateY(-50%);
-  font-size: 16px;
-  line-height: 20px;
-  padding: 10px 0;
-}
-.title_page {
-  font-size: 20px;
-  line-height: 24px;
-}
 .notConnectedSection {
-  margin-top: 110px;
+  margin-top: 40px;
   padding: 20px;
   background-color: #fef3c7;
   border: 1px solid #f59e0b;
@@ -51,7 +23,7 @@
 .profile_main {
   max-width: 460px;
   width: 100%;
-  margin: 110px auto auto;
+  margin: 40px auto auto;
 }
 
 .message_top_success {
@@ -106,7 +78,7 @@
   color: #6b7280;
 }
 .url_example {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 14px;
   line-height: 18px;
   color: #333;

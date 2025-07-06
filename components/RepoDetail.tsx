@@ -1,5 +1,6 @@
 // components/RepoDetail.tsx
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import {
   getTransactionById,
   downloadData,
@@ -7,6 +8,8 @@ import {
   Repository,
   RepoBranch,
   TimestampUtils,
+  getRepositoryPermissions,
+  getProfileByAddress,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -233,26 +236,71 @@ const getFileTypeByExtension = (
     version: 'text/plain',
   };
 
-  if (imageExtensions[extension]) {
-    return { type: 'image', mimeType: imageExtensions[extension] };
+  // 코드 파일 확장자를 먼저 확인 (ts, tsx 등의 충돌 방지)
+  if (extension in codeExtensions) {
+    return {
+      type: 'code',
+      mimeType: codeExtensions[extension as keyof typeof codeExtensions],
+    };
   }
-  if (videoExtensions[extension]) {
-    return { type: 'video', mimeType: videoExtensions[extension] };
+  if (extension in textExtensions) {
+    return {
+      type: 'text',
+      mimeType: textExtensions[extension as keyof typeof textExtensions],
+    };
   }
-  if (audioExtensions[extension]) {
-    return { type: 'audio', mimeType: audioExtensions[extension] };
+  if (extension in imageExtensions) {
+    return {
+      type: 'image',
+      mimeType: imageExtensions[extension as keyof typeof imageExtensions],
+    };
   }
-  if (documentExtensions[extension]) {
-    return { type: 'document', mimeType: documentExtensions[extension] };
+  // ts 확장자의 경우 비디오 파일과 TypeScript 파일을 구분
+  if (extension in videoExtensions) {
+    // .ts 확장자인 경우 파일명 패턴으로 추가 확인
+    if (extension === 'ts') {
+      // 비디오 파일로 보이는 패턴이 있는지 확인 (예: *.transport.ts, *.stream.ts)
+      const lowerFilename = filename.toLowerCase();
+      if (
+        lowerFilename.includes('transport') ||
+        lowerFilename.includes('stream') ||
+        lowerFilename.includes('video') ||
+        lowerFilename.includes('broadcast')
+      ) {
+        return {
+          type: 'video',
+          mimeType: videoExtensions[extension as keyof typeof videoExtensions],
+        };
+      }
+      // 그 외의 경우 TypeScript 파일로 간주 (이미 위에서 처리됨)
+      return {
+        type: 'code',
+        mimeType: 'application/typescript',
+      };
+    }
+    return {
+      type: 'video',
+      mimeType: videoExtensions[extension as keyof typeof videoExtensions],
+    };
   }
-  if (archiveExtensions[extension]) {
-    return { type: 'archive', mimeType: archiveExtensions[extension] };
+  if (extension in audioExtensions) {
+    return {
+      type: 'audio',
+      mimeType: audioExtensions[extension as keyof typeof audioExtensions],
+    };
   }
-  if (codeExtensions[extension]) {
-    return { type: 'code', mimeType: codeExtensions[extension] };
+  if (extension in documentExtensions) {
+    return {
+      type: 'document',
+      mimeType:
+        documentExtensions[extension as keyof typeof documentExtensions],
+    };
   }
-  if (textExtensions[extension]) {
-    return { type: 'text', mimeType: textExtensions[extension] };
+  if (extension in archiveExtensions) {
+    return {
+      type: 'archive',
+      mimeType: archiveExtensions[extension as keyof typeof archiveExtensions],
+    };
   }
 
   return { type: 'binary', mimeType: 'application/octet-stream' };
@@ -403,6 +451,40 @@ const detectFileTypeFromBinary = (
   return { type: 'binary', mimeType: 'application/octet-stream' };
 };
 
+// tar 아카이브에서 제외해야 할 메타데이터 파일들을 필터링하는 함수
+const shouldExcludeFile = (filename: string): boolean => {
+  // pax_global_header: PAX 전역 헤더 파일
+  if (filename === 'pax_global_header') {
+    return true;
+  }
+
+  // macOS 리소스 포크 파일들 (._로 시작)
+  if (filename.startsWith('._')) {
+    return true;
+  }
+
+  // macOS 디렉토리 메타데이터 파일
+  if (filename === '.DS_Store' || filename.endsWith('/.DS_Store')) {
+    return true;
+  }
+
+  // 기타 숨김 파일들 중 일반적으로 제외되는 것들
+  const hiddenFiles = [
+    '.git',
+    '.gitignore',
+    '.svn',
+    'Thumbs.db',
+    'desktop.ini',
+  ];
+
+  const baseName = filename.split('/').pop() || '';
+  if (hiddenFiles.includes(baseName)) {
+    return true;
+  }
+
+  return false;
+};
+
 // 레거시 지원을 위한 이미지 파일 확장자 감지 함수
 const isImageFile = (filename: string): boolean => {
   const { type } = getFileTypeByExtension(filename);
@@ -431,6 +513,11 @@ export default function RepoDetail({
   const [fileContent, setFileContent] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<RepoBranch | null>(null);
   const [repository, setRepository] = useState<Repository | null>(null);
+  const [repositoryOwner, setRepositoryOwner] = useState<any>(null);
+  const [contributors, setContributors] = useState<any[]>([]);
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [refreshPermissions, setRefreshPermissions] = useState(0);
+  const router = useRouter();
 
   // 브랜치 변경 핸들러
   const handleBranchChange = async (branchName: string) => {
@@ -438,15 +525,6 @@ export default function RepoDetail({
 
     const branch = repository.branches.find(b => b.name === branchName);
     if (!branch) return;
-
-    console.log('🌿 브랜치 변경:', {
-      branchName,
-      transactionId: branch.transactionId.substring(0, 12) + '...',
-      mutableAddress: branch.mutableAddress
-        ? branch.mutableAddress.substring(0, 12) + '...'
-        : null,
-      useMutable: !!branch.mutableAddress,
-    });
 
     setSelectedBranch(branch);
     setFiles([]);
@@ -466,19 +544,11 @@ export default function RepoDetail({
   ) => {
     try {
       setLoading(true);
-      console.log('🔄 브랜치 데이터 로딩:', {
-        transactionId: transactionId.substring(0, 12) + '...',
-        mutableAddress: mutableAddress
-          ? mutableAddress.substring(0, 12) + '...'
-          : null,
-        useMutable: !!mutableAddress,
-        forceRefresh,
-      });
 
       // Get transaction details
       const txDetails = await getTransactionById(transactionId);
       if (!txDetails) {
-        throw new Error('브랜치 트랜잭션을 찾을 수 없습니다.');
+        throw new Error("Can't find branch transaction");
       }
 
       setTransaction(txDetails);
@@ -490,7 +560,7 @@ export default function RepoDetail({
         forceRefresh
       );
       if (!data) {
-        throw new Error('브랜치 데이터를 다운로드할 수 없습니다.');
+        throw new Error("Can't download branch Data");
       }
 
       // Try to extract files from multiple formats
@@ -499,7 +569,6 @@ export default function RepoDetail({
 
       // 1. Try TAR format first (most common for irys-git)
       try {
-        console.log('tar 형식으로 압축 해제 시도 중...');
         const uint8Array = new Uint8Array(data);
 
         // Simple TAR parser
@@ -535,52 +604,57 @@ export default function RepoDetail({
           offset += 512;
 
           if (filename && fileSize > 0 && !filename.endsWith('/')) {
-            // Read file content
-            const fileData = uint8Array.slice(offset, offset + fileSize);
-
-            // 파일 유형 감지
-            const fileTypeInfo = getFileTypeByExtension(filename);
-
-            if (
-              fileTypeInfo.type === 'image' ||
-              fileTypeInfo.type === 'video' ||
-              fileTypeInfo.type === 'audio' ||
-              fileTypeInfo.type === 'document' ||
-              fileTypeInfo.type === 'archive'
-            ) {
-              // 바이너리 파일은 바이너리 데이터로 저장
-              extractedFiles.push({
-                path: filename,
-                size: fileSize,
-                binaryContent: fileData,
-                isDirectory: false,
-                fileType: fileTypeInfo.type,
-                mimeType: fileTypeInfo.mimeType,
-              });
+            // 메타데이터 파일들을 제외
+            if (shouldExcludeFile(filename)) {
+              console.log(`🚫 메타데이터 파일 제외: ${filename}`);
             } else {
-              // 텍스트 파일은 텍스트로 디코딩 시도
-              try {
-                const content = new TextDecoder().decode(fileData);
-                extractedFiles.push({
-                  path: filename,
-                  size: fileSize,
-                  content: content,
-                  isDirectory: false,
-                  fileType: fileTypeInfo.type,
-                  mimeType: fileTypeInfo.mimeType,
-                });
-              } catch (decodeError) {
-                // 텍스트 디코딩 실패 시 바이너리로 처리
-                const binaryTypeInfo = detectFileTypeFromBinary(fileData);
+              // Read file content
+              const fileData = uint8Array.slice(offset, offset + fileSize);
+
+              // 파일 유형 감지
+              const fileTypeInfo = getFileTypeByExtension(filename);
+
+              if (
+                fileTypeInfo.type === 'image' ||
+                fileTypeInfo.type === 'video' ||
+                fileTypeInfo.type === 'audio' ||
+                fileTypeInfo.type === 'document' ||
+                fileTypeInfo.type === 'archive'
+              ) {
+                // 바이너리 파일은 바이너리 데이터로 저장
                 extractedFiles.push({
                   path: filename,
                   size: fileSize,
                   binaryContent: fileData,
                   isDirectory: false,
-                  fileType: binaryTypeInfo.type,
-                  mimeType: binaryTypeInfo.mimeType,
-                  content: '[바이너리 파일 - 텍스트로 표시할 수 없음]',
+                  fileType: fileTypeInfo.type,
+                  mimeType: fileTypeInfo.mimeType,
                 });
+              } else {
+                // 텍스트 파일은 텍스트로 디코딩 시도
+                try {
+                  const content = new TextDecoder().decode(fileData);
+                  extractedFiles.push({
+                    path: filename,
+                    size: fileSize,
+                    content: content,
+                    isDirectory: false,
+                    fileType: fileTypeInfo.type,
+                    mimeType: fileTypeInfo.mimeType,
+                  });
+                } catch (decodeError) {
+                  // 텍스트 디코딩 실패 시 바이너리로 처리
+                  const binaryTypeInfo = detectFileTypeFromBinary(fileData);
+                  extractedFiles.push({
+                    path: filename,
+                    size: fileSize,
+                    binaryContent: fileData,
+                    isDirectory: false,
+                    fileType: binaryTypeInfo.type,
+                    mimeType: binaryTypeInfo.mimeType,
+                    content: '[바이너리 파일 - 텍스트로 표시할 수 없음]',
+                  });
+                }
               }
             }
           }
@@ -611,6 +685,12 @@ export default function RepoDetail({
 
           for (const [filepath, file] of Object.entries(zipContent.files)) {
             if (!file.dir) {
+              // 메타데이터 파일들을 제외
+              if (shouldExcludeFile(filepath)) {
+                console.log(`🚫 메타데이터 파일 제외: ${filepath}`);
+                continue;
+              }
+
               // 파일 유형 감지
               const fileTypeInfo = getFileTypeByExtension(filepath);
 
@@ -752,9 +832,7 @@ export default function RepoDetail({
     } catch (error) {
       console.error('브랜치 데이터 로딩 중 오류:', error);
       setError(
-        error instanceof Error
-          ? error.message
-          : '브랜치 데이터를 불러오는 중 오류가 발생했습니다.'
+        error instanceof Error ? error.message : 'Error fetching branch data.'
       );
     } finally {
       setLoading(false);
@@ -782,27 +860,21 @@ export default function RepoDetail({
           );
 
           if (!owner) {
-            throw new Error(
-              '연결된 지갑 정보가 없습니다. 지갑을 연결해주세요.'
-            );
+            throw new Error('Wallet not connected.');
           }
 
           // 항상 최신 저장소 정보를 검색
-          const repos = await searchRepositories(owner);
+          const repos = await searchRepositories(owner, currentWallet);
 
           if (repos.length === 0) {
-            throw new Error(
-              `연결된 지갑 '${owner}'에서 저장소를 찾을 수 없습니다.`
-            );
+            throw new Error(`Can't find repo from '${owner}'`);
           }
 
           // Find repository by name
           const targetRepo = repos.find(repo => repo.name === repoName);
 
           if (!targetRepo) {
-            throw new Error(
-              `저장소 '${repoName}'을 찾을 수 없습니다. 사용 가능한 저장소: ${repos.map(r => r.name).join(', ')}`
-            );
+            throw new Error(`Can't find repo called '${repoName}'.`);
           }
 
           repositoryInfo = targetRepo;
@@ -856,11 +928,7 @@ export default function RepoDetail({
         await loadBranchData(transactionId, mutableAddress, true);
       } catch (error) {
         console.error('저장소 정보 로딩 중 오류:', error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : '알 수 없는 오류가 발생했습니다.'
-        );
+        setError(error instanceof Error ? error.message : 'Unknown error.');
         setLoading(false);
       }
     };
@@ -869,6 +937,57 @@ export default function RepoDetail({
       loadRepoDetails();
     }
   }, [repoName, owner, repo]);
+
+  // 저장소 소유자와 contributor 정보 로드
+  useEffect(() => {
+    const loadRepositoryMembers = async () => {
+      if (!repository || !owner) return;
+
+      try {
+        // 소유자 프로필 로드
+        const ownerProfile = await getProfileByAddress(owner);
+        setRepositoryOwner({
+          address: owner,
+          profile: ownerProfile,
+        });
+
+        // 권한 정보 로드하여 contributor 목록 가져오기
+        const permissions = await getRepositoryPermissions(
+          repository.name,
+          owner
+        );
+        if (permissions) {
+          // 소유자를 제외한 contributor들의 프로필 로드
+          const contributorProfiles = await Promise.all(
+            permissions.contributors
+              .filter(address => address !== owner)
+              .map(async address => {
+                const profile = await getProfileByAddress(address);
+                return {
+                  address,
+                  profile,
+                };
+              })
+          );
+          setContributors(contributorProfiles);
+        }
+      } catch (error) {
+        console.error('저장소 멤버 정보 로딩 중 오류:', error);
+      }
+    };
+
+    loadRepositoryMembers();
+  }, [repository, owner, refreshPermissions]);
+
+  // 사용자 페이지로 이동하는 핸들러
+  const handleUserClick = (user: any) => {
+    // 프로필이 있으면 닉네임으로, 없으면 지갑 주소로 이동
+    if (user.profile?.nickname) {
+      router.push(`/${user.profile.nickname}`);
+    } else {
+      router.push(`/${user.address}`);
+    }
+  };
 
   const handleFileClick = (item: any) => {
     if (item.isDirectory) {
@@ -1215,31 +1334,27 @@ export default function RepoDetail({
 
   if (loading) {
     return (
-      <div>
-        <h2>{repository?.name || repoName}</h2>
-        <p className="loading">저장소 정보를 불러오는 중...</p>
+      <div className={styles.repoHeader}>
+        <h2>📁 {repository?.name || repoName}</h2>
+        <p className={styles.repoLoading}>Fetching Repo Data...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div>
-        <h2>{repository?.name || repoName}</h2>
+      <div className={styles.repoHeader}>
+        <h2>📁 {repository?.name || repoName}</h2>
         <div className="error">
           <p>❌ {error}</p>
           <p style={{ fontSize: '14px', marginTop: '8px' }}>
-            • 저장소 이름이 올바른지 확인해주세요
-            <br />
-            • 저장소가 Irys에 업로드되었는지 확인해주세요
-            <br />
-            • 연결된 지갑에 업로드 권한이 있는지 확인해주세요
-            <br />
-            {owner && (
-              <span>
-                • 연결된 지갑: <code>{owner}</code>
-              </span>
-            )}
+            • Check if the repository name is correct
+          </p>
+          <p style={{ fontSize: '14px', marginTop: '8px' }}>
+            • Check if the repository is done "igit push"
+          </p>
+          <p style={{ fontSize: '14px', marginTop: '8px' }}>
+            • Check if URL is correct
           </p>
         </div>
       </div>
@@ -1248,8 +1363,8 @@ export default function RepoDetail({
 
   if (!transaction) {
     return (
-      <div>
-        <h2>{repository?.name || repoName}</h2>
+      <div className={styles.repoHeader}>
+        <h2>📁 {repository?.name || repoName}</h2>
         <p>저장소를 찾을 수 없습니다.</p>
       </div>
     );
@@ -1262,11 +1377,11 @@ export default function RepoDetail({
           <h2 className={styles.repoTitle}>
             📁 {repository?.name || repoName}
           </h2>
-
+        </div>
+        <div className={styles.repoSubRow}>
           {/* 브랜치 선택 드롭다운 */}
           {repository && repository.branches.length > 1 && (
             <div className={styles.branchSelectorContainer}>
-              <span className={styles.branchLabel}>브랜치:</span>
               <select
                 value={selectedBranch?.name || repository.defaultBranch}
                 onChange={e => handleBranchChange(e.target.value)}
@@ -1274,82 +1389,186 @@ export default function RepoDetail({
               >
                 {repository.branches.map(branch => (
                   <option key={branch.name} value={branch.name}>
-                    🌿 {branch.name}
-                    {branch.name === repository.defaultBranch && ' (기본)'}
+                    {branch.name}
+                    {branch.name === repository.defaultBranch && ' (Default)'}
                   </option>
                 ))}
               </select>
             </div>
           )}
+          {/* 저장소 노출 권한 토글 */}
+          {repository && owner && (
+            <div className={styles.visibilityToggleContainer}>
+              <VisibilityManager
+                repositoryName={repository.name}
+                owner={owner}
+                currentWallet={currentWallet}
+                uploader={uploader}
+              />
+            </div>
+          )}
         </div>
+        {/* 저장소 소유자와 contributor 정보 */}
+        {repositoryOwner && (
+          <div className={styles.membersSection}>
+            <h3 className={styles.membersTitle}>Repo Member</h3>
 
+            <div className={styles.membersContainer}>
+              {/* 소유자 */}
+              <div className={styles.authorGroup}>
+                <h4 className={styles.memberGroupTitle}>Owner</h4>
+                <div
+                  className={styles.authorItem}
+                  onClick={() => handleUserClick(repositoryOwner)}
+                >
+                  {repositoryOwner.profile?.profileImageUrl ? (
+                    <img
+                      src={repositoryOwner.profile.profileImageUrl}
+                      alt="프로필"
+                      className={styles.memberAvatar}
+                    />
+                  ) : (
+                    <div className={styles.memberAvatarPlaceholder}>
+                      {repositoryOwner.profile?.nickname
+                        ?.charAt(0)
+                        .toUpperCase() || '👤'}
+                    </div>
+                  )}
+                  <div className={styles.memberName}>
+                    {repositoryOwner.profile?.nickname ||
+                      `${repositoryOwner.address.substring(0, 8)}...${repositoryOwner.address.slice(-4)}`}
+                  </div>
+                  <div className={styles.memberAddress}>
+                    {repositoryOwner.address}
+                  </div>
+                  {repositoryOwner.profile?.twitterHandle && (
+                    <div className={styles.memberTwitter}>
+                      @{repositoryOwner.profile.twitterHandle}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contributor들 */}
+              <div className={styles.memberGroup}>
+                <div className={styles.memberGroupHeader}>
+                  <h4 className={styles.memberGroupTitle}>
+                    Contributor ({contributors.length})
+                  </h4>
+                  {/* 편집 권한 관리 버튼 - 소유자에게만 표시 */}
+                </div>
+                {contributors.length > 0 ? (
+                  <div className={styles.contributorsList}>
+                    {contributors.map((contributor, index) => (
+                      <div
+                        key={contributor.address}
+                        className={styles.memberItem}
+                        onClick={() => handleUserClick(contributor)}
+                      >
+                        {contributor.profile?.profileImageUrl ? (
+                          <img
+                            src={contributor.profile.profileImageUrl}
+                            alt="프로필"
+                            className={styles.memberAvatar}
+                          />
+                        ) : (
+                          <div className={styles.memberAvatarPlaceholder}>
+                            {contributor.profile?.nickname
+                              ?.charAt(0)
+                              .toUpperCase() || '👤'}
+                          </div>
+                        )}
+                        <div className={styles.memberName}>
+                          {contributor.profile?.nickname ||
+                            `${contributor.address.substring(0, 8)}...${contributor.address.slice(-4)}`}
+                        </div>
+                        <div className={styles.memberAddress}>
+                          {contributor.address}
+                        </div>
+                        {contributor.profile?.twitterHandle && (
+                          <div className={styles.memberTwitter}>
+                            @{contributor.profile.twitterHandle}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.noContributorsMessage}>No one</div>
+                )}
+                {currentWallet === owner && (
+                  <button
+                    className={styles.managePermissionButton}
+                    onClick={() => setIsPermissionModalOpen(true)}
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <div className={styles.repoMeta}>
-          <p className={styles.repoMetaRow}>
-            트랜잭션 ID:{' '}
+          <div className={styles.repoMetaRow}>
+            <span className={styles.repoMetaTitle}>Transaction Id :</span>
             <code className={styles.repoMetaCode}>{transaction.id}</code>
-          </p>
+          </div>
           {selectedBranch?.mutableAddress && (
-            <p className={styles.repoMetaRow}>
-              Mutable 주소:{' '}
+            <div className={styles.repoMetaRow}>
+              <span className={styles.repoMetaTitle}>Mutable Address :</span>
               <code className={styles.repoMetaCode}>
                 {selectedBranch.mutableAddress}
               </code>
-            </p>
+            </div>
           )}
           {owner && (
-            <p className={styles.repoMetaRow}>
-              소유자: <code className={styles.repoMetaCode}>{owner}</code>
-            </p>
-          )}
-          {selectedBranch && (
-            <p className={styles.repoMetaRow}>
-              브랜치:{' '}
-              <code className={styles.repoMetaCode}>{selectedBranch.name}</code>
-            </p>
+            <div className={styles.repoMetaRow}>
+              <span className={styles.repoMetaTitle}>Owner :</span>
+              <code className={styles.repoMetaCode}>{owner}</code>
+            </div>
           )}
           {selectedBranch?.commitHash && (
-            <p className={styles.repoMetaRow}>
-              커밋:{' '}
+            <div className={styles.repoMetaRow}>
+              <span className={styles.repoMetaTitle}>Commit :</span>
               <code className={styles.repoMetaCode}>
                 {selectedBranch.commitHash}
               </code>
-            </p>
+            </div>
           )}
           {selectedBranch?.author && (
-            <p className={styles.repoMetaRow}>
-              작성자:{' '}
+            <div className={styles.repoMetaRow}>
+              <span className={styles.repoMetaTitle}>Commiter :</span>
               <code className={styles.repoMetaCode}>
                 {selectedBranch.author}
               </code>
-            </p>
+            </div>
           )}
           {selectedBranch?.timestamp && (
-            <p className={styles.repoMetaRow}>
-              업로드 시간:{' '}
+            <div className={styles.repoMetaRow}>
+              <span className={styles.repoMetaTitle}>Last Updated :</span>
               {TimestampUtils.formatRelative(selectedBranch.timestamp)} (
               {TimestampUtils.format(selectedBranch.timestamp)})
-            </p>
+            </div>
           )}
         </div>
 
         <div className={styles.cloneSection}>
-          <p className={styles.cloneTitle}>Clone 명령어 (모든 브랜치 포함):</p>
+          <p className={styles.cloneTitle}>Clone Command:</p>
           <div className={styles.cloneCommandContainer}>
             <code className={styles.cloneCommand}>{cloneCmd}</code>
             <button
               onClick={() => navigator.clipboard.writeText(cloneCmd)}
               className={styles.cloneButton}
             >
-              복사
+              Copy
             </button>
           </div>
         </div>
       </div>
-
       <div className={styles.contentContainer}>
         {/* File Tree */}
         <div className={styles.fileTree}>
-          <div className={styles.fileTreeHeader}>파일 트리</div>
+          <div className={styles.fileTreeHeader}>Files</div>
 
           {currentPath && (
             <div className={styles.breadcrumbContainer}>
@@ -1366,10 +1585,10 @@ export default function RepoDetail({
                 }}
                 className={styles.breadcrumbButton}
               >
-                ← 상위 폴더로
+                ← Parent path
               </button>
               <div className={styles.breadcrumbPath}>
-                현재 경로: {currentPath || '/'}
+                Current path : {currentPath || '/'}
               </div>
             </div>
           )}
@@ -1404,7 +1623,7 @@ export default function RepoDetail({
         {/* File Content */}
         <div className={styles.fileContent}>
           <div className={styles.fileContentHeader}>
-            {selectedFile ? selectedFile.path : '파일을 선택하세요'}
+            {selectedFile ? selectedFile.path : 'Choose File'}
           </div>
 
           {selectedFile && (
@@ -1429,7 +1648,7 @@ export default function RepoDetail({
                         }}
                       />
                       <div className={styles.mediaInfo}>
-                        📐 이미지 크기: {selectedFile.size} bytes
+                        📐 Image Size : {selectedFile.size} bytes
                       </div>
                     </div>
                   )}
@@ -1454,7 +1673,7 @@ export default function RepoDetail({
                         }}
                       />
                       <div className={styles.mediaInfo}>
-                        🎬 비디오 크기: {selectedFile.size} bytes
+                        🎬 Video Size: {selectedFile.size} bytes
                       </div>
                     </div>
                   )}
@@ -1479,7 +1698,7 @@ export default function RepoDetail({
                         }}
                       />
                       <div className={styles.mediaInfo}>
-                        🎵 오디오 크기: {selectedFile.size} bytes
+                        🎵 Audio Size: {selectedFile.size} bytes
                       </div>
                     </div>
                   )}
@@ -1497,7 +1716,7 @@ export default function RepoDetail({
                           title={selectedFile.path}
                         />
                         <div className={styles.mediaInfo}>
-                          📄 PDF 문서 크기: {selectedFile.size} bytes
+                          📄 PDF Document Size: {selectedFile.size} bytes
                         </div>
                       </div>
                     )}
@@ -1514,17 +1733,17 @@ export default function RepoDetail({
                             : selectedFile.fileType === 'document'
                               ? '📄'
                               : '⚙️'}{' '}
-                          바이너리 파일
+                          Binary File
                         </div>
                         <div className={styles.binaryDetails}>
                           <p>
-                            <strong>파일 유형:</strong> {selectedFile.fileType}
+                            <strong>File Type:</strong> {selectedFile.fileType}
                           </p>
                           <p>
-                            <strong>MIME 타입:</strong> {selectedFile.mimeType}
+                            <strong>MIME Type:</strong> {selectedFile.mimeType}
                           </p>
                           <p>
-                            <strong>파일 크기:</strong> {selectedFile.size}{' '}
+                            <strong>File Size:</strong> {selectedFile.size}{' '}
                             bytes
                           </p>
                         </div>
@@ -1548,7 +1767,7 @@ export default function RepoDetail({
                               URL.revokeObjectURL(url);
                             }}
                           >
-                            📥 다운로드
+                            📥 Download
                           </button>
                         </div>
                       </div>
@@ -1558,7 +1777,7 @@ export default function RepoDetail({
               ) : (
                 // 텍스트 파일 표시
                 <div className={styles.textContent}>
-                  {fileContent || '파일 내용을 불러올 수 없습니다.'}
+                  {fileContent || `Not supported file type.`}
                 </div>
               )}
             </div>
@@ -1566,23 +1785,40 @@ export default function RepoDetail({
         </div>
       </div>
 
-      {/* 권한 관리 섹션 - 저장소가 있고 소유자가 있을 때만 표시 */}
-      {repository && owner && (
-        <>
-          <PermissionManager
-            repositoryName={repository.name}
-            owner={owner}
-            currentWallet={currentWallet}
-            uploader={uploader}
-          />
-
-          <VisibilityManager
-            repositoryName={repository.name}
-            owner={owner}
-            currentWallet={currentWallet}
-            uploader={uploader}
-          />
-        </>
+      {/* 편집 권한 관리 팝업 모달 */}
+      {isPermissionModalOpen && repository && owner && (
+        <div
+          className={styles.modalOverlay}
+          onClick={e => {
+            if (e.target === e.currentTarget) {
+              setIsPermissionModalOpen(false);
+              setRefreshPermissions(prev => prev + 1);
+            }
+          }}
+        >
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Edit Permission</h3>
+              <button
+                className={styles.modalCloseButton}
+                onClick={() => {
+                  setIsPermissionModalOpen(false);
+                  setRefreshPermissions(prev => prev + 1);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              <PermissionManager
+                repositoryName={repository.name}
+                owner={owner}
+                currentWallet={currentWallet}
+                uploader={uploader}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

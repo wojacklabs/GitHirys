@@ -33,7 +33,6 @@ export const TimestampUtils = {
     }
 
     // 파싱할 수 없는 경우 현재 시간 반환
-    console.warn('Unknown timestamp format:', timestamp, 'using current time');
     return Math.floor(Date.now() / 1000);
   },
 
@@ -44,7 +43,7 @@ export const TimestampUtils = {
   },
 
   // Unix timestamp (초)를 로케일 형식으로 포맷
-  format: (timestamp: any, locale: string = 'ko-KR'): string => {
+  format: (timestamp: any, locale: string = 'en-US'): string => {
     const date = TimestampUtils.toDate(timestamp);
     return date.toLocaleDateString(locale, {
       year: 'numeric',
@@ -69,15 +68,17 @@ export const TimestampUtils = {
     return `${Math.floor(diff / 31536000)} years ago`;
   },
 
-  // 디버깅용 - timestamp 정보 출력
+  // 디버깅용 - timestamp 정보 출력 (개발환경에서만)
   debug: (timestamp: any, label: string = 'timestamp'): void => {
-    console.log(`🕐 ${label}:`, {
-      original: timestamp,
-      type: typeof timestamp,
-      normalized: TimestampUtils.normalize(timestamp),
-      date: TimestampUtils.toDate(timestamp).toISOString(),
-      formatted: TimestampUtils.format(timestamp),
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🕐 ${label}:`, {
+        original: timestamp,
+        type: typeof timestamp,
+        normalized: TimestampUtils.normalize(timestamp),
+        date: TimestampUtils.toDate(timestamp).toISOString(),
+        formatted: TimestampUtils.format(timestamp),
+      });
+    }
   },
 };
 
@@ -117,7 +118,6 @@ interface BranchTransactionData {
 export async function createIrysUploader(wallet?: any) {
   try {
     if (!wallet) {
-      console.log('No wallet provided, creating read-only uploader');
       // For read-only operations without wallet
       return await WebUploader(WebSolana);
     }
@@ -126,15 +126,9 @@ export async function createIrysUploader(wallet?: any) {
       throw new Error('Wallet not connected');
     }
 
-    console.log(
-      'Creating Irys uploader with wallet:',
-      wallet.publicKey?.toBase58()
-    );
-
     // Use the wallet object directly with withProvider as per documentation
     const irysUploader = await WebUploader(WebSolana).withProvider(wallet);
 
-    console.log(`Connected to Irys from ${irysUploader.address}`);
     return irysUploader;
   } catch (error) {
     console.error('Error connecting to Irys:', error);
@@ -166,10 +160,8 @@ export async function testIrysConnection(): Promise<boolean> {
     });
 
     const result = await response.json();
-    console.log('Irys GraphQL 연결 테스트:', response.ok, result);
     return response.ok && !result.errors;
   } catch (error) {
-    console.error('Irys GraphQL 연결 실패:', error);
     return false;
   }
 }
@@ -179,13 +171,8 @@ export async function searchRepositories(
   owner: string,
   currentWallet?: string
 ): Promise<Repository[]> {
-  console.log('🔍 저장소 검색 시작:', owner);
-
   // Test Irys connection first
   const canConnect = await testIrysConnection();
-  if (!canConnect) {
-    console.warn('⚠️ Irys GraphQL 연결 실패');
-  }
 
   const searchStrategy = {
     name: 'irys-git 태그로 검색',
@@ -214,8 +201,6 @@ export async function searchRepositories(
   };
 
   try {
-    console.log(`🔎 ${searchStrategy.name} 시도 중...`);
-
     const response = await fetch(searchStrategy.endpoint, {
       method: 'POST',
       headers: {
@@ -228,23 +213,16 @@ export async function searchRepositories(
     });
 
     if (!response.ok) {
-      console.warn(`❌ ${searchStrategy.name} HTTP 오류:`, response.statusText);
       return [];
     }
 
     const result = await response.json();
 
     if (result.errors) {
-      console.warn(`❌ ${searchStrategy.name} GraphQL 오류:`, result.errors);
       return [];
     }
 
     const transactions = result.data?.transactions?.edges || [];
-    console.log(
-      `📊 ${searchStrategy.name} 결과:`,
-      transactions.length,
-      '개 트랜잭션'
-    );
 
     if (transactions.length === 0) {
       return [];
@@ -282,7 +260,6 @@ export async function searchRepositories(
       const authorTag = node.tags?.find((tag: any) => tag.name === 'Author');
 
       if (!repositoryTag) {
-        console.warn('Repository 태그가 없는 트랜잭션 건너뛰기:', node.id);
         continue;
       }
 
@@ -379,10 +356,6 @@ export async function searchRepositories(
 
     const repositories = Array.from(repositoryMap.values());
 
-    console.log(
-      `✅ ${repositories.length}개 저장소 발견, 총 ${repositories.reduce((sum, repo) => sum + repo.branches.length, 0)}개 브랜치`
-    );
-
     // 노출 권한 필터링 - private 저장소는 편집 권한이 있는 사용자만 볼 수 있음
     const filteredRepositories: Repository[] = [];
 
@@ -408,42 +381,16 @@ export async function searchRepositories(
           );
           if (permissions && permissions.contributors.includes(currentWallet)) {
             filteredRepositories.push(repo);
-          } else {
-            console.log(
-              `🔒 Private 저장소 '${repo.name}' - 편집 권한 없어서 제외됨`
-            );
           }
-        } else {
-          console.log(
-            `🔒 Private 저장소 '${repo.name}' - 지갑 미연결로 제외됨`
-          );
         }
       } catch (error) {
-        console.warn(`권한 확인 오류 (${repo.name}):`, error);
         // 오류 발생 시 안전하게 public으로 처리
         filteredRepositories.push(repo);
       }
     }
 
-    console.log(
-      `👁️ 노출 권한 필터링 후: ${filteredRepositories.length}개 저장소`
-    );
-
-    // 디버깅을 위한 로그
-    filteredRepositories.forEach(repo => {
-      console.log(`📁 저장소: ${repo.name}`);
-      repo.branches.forEach(branch => {
-        const downloadId = branch.mutableAddress || branch.transactionId;
-        console.log(`  🌿 브랜치: ${branch.name} (downloadId: ${downloadId})`);
-        if (branch.mutableAddress) {
-          console.log(`    📍 Mutable 주소: ${branch.mutableAddress}`);
-        }
-      });
-    });
-
     return filteredRepositories;
   } catch (error) {
-    console.error(`❌ ${searchStrategy.name} 오류:`, error);
     return [];
   }
 }
@@ -452,8 +399,6 @@ export async function searchRepositories(
 export async function getTransactionById(
   transactionId: string
 ): Promise<any | null> {
-  console.log('🔍 트랜잭션 상세 정보 조회:', transactionId);
-
   const strategy = {
     name: 'Irys GraphQL',
     endpoint: 'https://uploader.irys.xyz/graphql',
@@ -476,8 +421,6 @@ export async function getTransactionById(
   };
 
   try {
-    console.log(`🔍 ${strategy.name} 시도 중...`);
-
     const response = await fetch(strategy.endpoint, {
       method: 'POST',
       headers: {
@@ -489,20 +432,17 @@ export async function getTransactionById(
     });
 
     if (!response.ok) {
-      console.warn(`❌ ${strategy.name} HTTP 오류:`, response.statusText);
       return null;
     }
 
     const result = await response.json();
 
     if (result.errors) {
-      console.warn(`❌ ${strategy.name} GraphQL 오류:`, result.errors);
       return null;
     }
 
     const transactions = result.data?.transactions?.edges || [];
     if (transactions.length > 0) {
-      console.log(`✅ ${strategy.name}에서 트랜잭션 발견`);
       const tx = transactions[0].node;
 
       // Timestamp 정규화
@@ -515,10 +455,9 @@ export async function getTransactionById(
       };
     }
   } catch (error) {
-    console.error(`❌ ${strategy.name} 오류:`, error);
+    // 에러가 발생하면 null 반환
   }
 
-  console.log('❌ 트랜잭션을 찾을 수 없음');
   return null;
 }
 
@@ -528,14 +467,6 @@ export async function downloadData(
   mutableAddress?: string | null,
   forceRefresh?: boolean
 ): Promise<ArrayBuffer | null> {
-  console.log(
-    '📥 데이터 다운로드 시작:',
-    mutableAddress
-      ? `mutable:${mutableAddress}`
-      : `transaction:${transactionId}`,
-    forceRefresh ? '(강제 새로고침)' : ''
-  );
-
   // 캐시 방지를 위한 쿼리 파라미터 추가
   const cacheBypass = forceRefresh ? `?t=${Date.now()}` : '';
 
@@ -549,7 +480,6 @@ export async function downloadData(
     );
     // fallback으로 기본 트랜잭션 ID도 추가
     gateways.push(`https://gateway.irys.xyz/${transactionId}${cacheBypass}`);
-    console.log('🔄 mutable 주소 우선 시도, fallback 준비됨');
   } else {
     // mutable 주소가 없으면 기본 트랜잭션 ID만 사용
     gateways.push(`https://gateway.irys.xyz/${transactionId}${cacheBypass}`);
@@ -557,8 +487,6 @@ export async function downloadData(
 
   for (const gateway of gateways) {
     try {
-      console.log('🌐 게이트웨이 시도:', gateway);
-
       const response = await fetch(gateway, {
         // 캐시 방지 헤더 추가
         ...(forceRefresh && {
@@ -571,22 +499,13 @@ export async function downloadData(
       });
 
       if (response.ok) {
-        const isMutable = gateway.includes('/mutable/');
-        console.log(
-          '✅ 다운로드 성공:',
-          gateway,
-          isMutable ? '(mutable 주소)' : '(트랜잭션 ID)'
-        );
         return await response.arrayBuffer();
-      } else {
-        console.warn('❌ 다운로드 실패:', gateway, response.statusText);
       }
     } catch (error) {
-      console.error('❌ 게이트웨이 오류:', gateway, error);
+      // 에러가 발생하면 다음 게이트웨이 시도
     }
   }
 
-  console.log('❌ 모든 게이트웨이에서 다운로드 실패');
   return null;
 }
 
@@ -642,8 +561,6 @@ export const ProfileUtils = {
 export async function checkNicknameAvailability(
   nickname: string
 ): Promise<boolean> {
-  console.log('🔍 닉네임 중복 검사:', nickname);
-
   const query = `
     query checkNickname($nickname: String!) {
       transactions(
@@ -677,11 +594,8 @@ export async function checkNicknameAvailability(
     const transactions = result.data?.transactions?.edges || [];
 
     const isAvailable = transactions.length === 0;
-    console.log(`📝 닉네임 '${nickname}' 사용 가능:`, isAvailable);
-
     return isAvailable;
   } catch (error) {
-    console.error('닉네임 중복 검사 오류:', error);
     return false;
   }
 }
@@ -690,8 +604,6 @@ export async function checkNicknameAvailability(
 export async function getProfileByAddress(
   address: string
 ): Promise<UserProfile | null> {
-  console.log('👤 주소로 프로필 조회:', address);
-
   const query = `
     query getProfileByAddress($address: String!) {
       transactions(
@@ -762,10 +674,8 @@ export async function getProfileByAddress(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
-    console.log('✅ 프로필 조회 성공:', profile);
     return profile;
   } catch (error) {
-    console.error('프로필 조회 오류:', error);
     return null;
   }
 }
@@ -774,8 +684,6 @@ export async function getProfileByAddress(
 export async function getProfileByNickname(
   nickname: string
 ): Promise<UserProfile | null> {
-  console.log('👤 닉네임으로 프로필 조회:', nickname);
-
   const query = `
     query getProfileByNickname($nickname: String!) {
       transactions(
@@ -844,10 +752,8 @@ export async function getProfileByNickname(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
-    console.log('✅ 프로필 조회 성공:', profile);
     return profile;
   } catch (error) {
-    console.error('프로필 조회 오류:', error);
     return null;
   }
 }
@@ -865,25 +771,15 @@ export async function uploadProfile(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
-    console.log('📤 프로필 업로드 시작:', profileData.nickname);
-
     let uploadData: File | Blob;
     let contentType: string;
 
     if (profileData.profileImage) {
       // 새로운 프로필 이미지가 있는 경우 - File 객체를 직접 사용
-      console.log('🖼️ 새로운 프로필 이미지 업로드');
       uploadData = profileData.profileImage;
       contentType = profileData.profileImage.type;
-      console.log('📊 File 정보:', {
-        name: profileData.profileImage.name,
-        size: profileData.profileImage.size,
-        type: profileData.profileImage.type,
-        isFile: profileData.profileImage instanceof File,
-      });
     } else if (profileData.existingProfileImageUrl) {
       // 기존 프로필 이미지를 사용하는 경우
-      console.log('🔄 기존 프로필 이미지 재사용');
       try {
         const response = await fetch(profileData.existingProfileImageUrl);
         if (!response.ok) {
@@ -891,13 +787,7 @@ export async function uploadProfile(
         }
         uploadData = await response.blob();
         contentType = response.headers.get('Content-Type') || 'image/png';
-        console.log('📊 Blob 정보:', {
-          size: uploadData.size,
-          type: uploadData.type,
-          isBlob: uploadData instanceof Blob,
-        });
       } catch (fetchError) {
-        console.warn('기존 이미지 로드 실패, 기본 이미지 생성:', fetchError);
         // 기존 이미지 로드 실패 시 기본 이미지 생성으로 fallback
         const defaultImageData = await generateDefaultProfileImage(
           profileData.nickname
@@ -907,21 +797,12 @@ export async function uploadProfile(
       }
     } else {
       // 기본 프로필 이미지 생성
-      console.log('🎨 기본 프로필 이미지 생성');
       const defaultImageData = await generateDefaultProfileImage(
         profileData.nickname
       );
       uploadData = defaultImageData.blob;
       contentType = defaultImageData.contentType;
     }
-
-    console.log('📊 최종 업로드 데이터 정보:', {
-      size: uploadData.size,
-      type: contentType,
-      constructor: uploadData.constructor.name,
-      isFile: uploadData instanceof File,
-      isBlob: uploadData instanceof Blob,
-    });
 
     // 태그 구성
     const tags = [
@@ -940,19 +821,14 @@ export async function uploadProfile(
       tags.push({ name: 'Root-TX', value: profileData.existingRootTxId });
     }
 
-    console.log('🏷️ 업로드 태그:', tags);
-
     // Irys에 업로드 - File/Blob 객체를 직접 전달
     const result = await uploader.uploadFile(uploadData, { tags });
-
-    console.log('✅ 프로필 업로드 성공:', result.id);
 
     return {
       success: true,
       txId: result.id,
     };
   } catch (error) {
-    console.error('프로필 업로드 오류:', error);
     return {
       success: false,
       error:
@@ -1004,19 +880,11 @@ async function generateDefaultProfileImage(
       );
     });
 
-    console.log('🎨 기본 이미지 생성 완료:', {
-      blobSize: blob.size,
-      type: blob.type,
-      isBlob: blob instanceof Blob,
-    });
-
     return {
       blob: blob,
       contentType: 'image/png',
     };
   } catch (error) {
-    console.error('기본 이미지 생성 실패:', error);
-
     // Canvas 생성 실패 시 최소한의 PNG 이미지를 Blob으로 생성
     // 1x1 투명 PNG의 최소 데이터
     const minimalPngData = new Uint8Array([
@@ -1092,12 +960,6 @@ async function generateDefaultProfileImage(
     // Uint8Array를 Blob으로 변환
     const fallbackBlob = new Blob([minimalPngData], { type: 'image/png' });
 
-    console.log('🎨 fallback 이미지 생성 완료:', {
-      blobSize: fallbackBlob.size,
-      type: fallbackBlob.type,
-      isBlob: fallbackBlob instanceof Blob,
-    });
-
     return {
       blob: fallbackBlob,
       contentType: 'image/png',
@@ -1139,8 +1001,6 @@ export async function getRepositoryPermissions(
   repository: string,
   owner: string
 ): Promise<RepositoryPermissions | null> {
-  console.log('🔒 저장소 권한 정보 조회:', repository, owner);
-
   const query = `
     query getRepositoryPermissions($repository: String!, $owner: String!) {
       transactions(
@@ -1220,7 +1080,6 @@ export async function getRepositoryPermissions(
           contributors = contributorsTag.split(',').map(addr => addr.trim());
         }
       } catch (parseError) {
-        console.warn('contributorsTag 파싱 실패:', contributorsTag, parseError);
         contributors = [owner];
       }
     }
@@ -1241,10 +1100,8 @@ export async function getRepositoryPermissions(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
-    console.log('✅ 권한 정보 조회 성공:', permissions);
     return permissions;
   } catch (error) {
-    console.error('권한 정보 조회 오류:', error);
     return null;
   }
 }
@@ -1260,17 +1117,8 @@ export async function updateRepositoryPermissions(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
-    console.log('📤 저장소 권한 업데이트 시작:', permissionsData);
-
     // === 권고사항 B: 업로드 단계에서 소유자 지갑 검증 ===
     if (!uploader?.address || uploader.address !== permissionsData.owner) {
-      console.error(
-        '❌ 권한 업데이트 실패: 지갑 주소가 저장소 소유자와 일치하지 않습니다.',
-        {
-          uploaderAddress: uploader?.address,
-          owner: permissionsData.owner,
-        }
-      );
       return {
         success: false,
         error: '지갑 주소가 저장소 소유자가 아닙니다.',
@@ -1305,19 +1153,14 @@ export async function updateRepositoryPermissions(
       tags.push({ name: 'Root-TX', value: permissionsData.existingRootTxId });
     }
 
-    console.log('🏷️ 권한 업데이트 태그:', tags);
-
     // Irys에 업로드
     const result = await uploader.uploadFile(dataBlob, { tags });
-
-    console.log('✅ 권한 업데이트 성공:', result.id);
 
     return {
       success: true,
       txId: result.id,
     };
   } catch (error) {
-    console.error('권한 업데이트 오류:', error);
     return {
       success: false,
       error:
@@ -1330,8 +1173,6 @@ export async function updateRepositoryPermissions(
 
 // 사용자 검색 (닉네임 또는 지갑 주소)
 export async function searchUsers(query: string): Promise<UserSearchResult[]> {
-  console.log('👥 사용자 검색:', query);
-
   const results: UserSearchResult[] = [];
 
   // 솔라나 지갑 주소 형식인지 확인
@@ -1339,7 +1180,6 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
 
   if (isWalletAddress) {
     // 지갑 주소로 검색
-    console.log('🔍 지갑 주소로 검색');
     const profile = await getProfileByAddress(query);
 
     if (profile) {
@@ -1362,7 +1202,6 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
     }
   } else {
     // 닉네임으로 검색
-    console.log('🔍 닉네임으로 검색');
     const profile = await getProfileByNickname(query);
 
     if (profile) {
@@ -1377,7 +1216,6 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
     }
   }
 
-  console.log('📊 사용자 검색 결과:', results.length, '개');
   return results;
 }
 
@@ -1385,8 +1223,6 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
 export async function searchNicknamesPartial(
   partialNickname: string
 ): Promise<UserSearchResult[]> {
-  console.log('🔍 부분 닉네임 검색:', partialNickname);
-
   if (partialNickname.length < 2) {
     return [];
   }
@@ -1417,13 +1253,11 @@ export async function getRepositoryVisibility(
   repository: string,
   owner: string
 ): Promise<RepositoryVisibility | null> {
-  console.log('👁️ 저장소 노출 권한 정보 조회:', repository, owner);
-
   const query = `
     query getRepositoryVisibility($repository: String!, $owner: String!) {
       transactions(
         tags: [
-          { name: "App-Name", values: ["irys-git-permissions"] },
+          { name: "App-Name", values: ["irys-git-visibility"] },
           { name: "Repository", values: [$repository] },
           { name: "git-owner", values: [$owner] }
         ],
@@ -1492,10 +1326,8 @@ export async function getRepositoryVisibility(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
-    console.log('✅ 노출 권한 정보 조회 성공:', visibility);
     return visibility;
   } catch (error) {
-    console.error('노출 권한 정보 조회 오류:', error);
     return null;
   }
 }
@@ -1511,17 +1343,8 @@ export async function updateRepositoryVisibility(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
-    console.log('📤 저장소 노출 권한 업데이트 시작:', visibilityData);
-
     // === 권고사항 B: 업로드 단계에서 소유자 지갑 검증 ===
     if (!uploader?.address || uploader.address !== visibilityData.owner) {
-      console.error(
-        '❌ 노출 권한 업데이트 실패: 지갑 주소가 저장소 소유자와 일치하지 않습니다.',
-        {
-          uploaderAddress: uploader?.address,
-          owner: visibilityData.owner,
-        }
-      );
       return {
         success: false,
         error: '지갑 주소가 저장소 소유자가 아닙니다.',
@@ -1541,7 +1364,7 @@ export async function updateRepositoryVisibility(
 
     // 태그 구성
     const tags = [
-      { name: 'App-Name', value: 'irys-git-permissions' },
+      { name: 'App-Name', value: 'irys-git-visibility' },
       { name: 'Repository', value: visibilityData.repository },
       { name: 'git-owner', value: visibilityData.owner },
       { name: 'git-repo-visibility', value: visibilityData.visibility },
@@ -1553,19 +1376,14 @@ export async function updateRepositoryVisibility(
       tags.push({ name: 'Root-TX', value: visibilityData.existingRootTxId });
     }
 
-    console.log('🏷️ 노출 권한 업데이트 태그:', tags);
-
     // Irys에 업로드
     const result = await uploader.uploadFile(dataBlob, { tags });
-
-    console.log('✅ 노출 권한 업데이트 성공:', result.id);
 
     return {
       success: true,
       txId: result.id,
     };
   } catch (error) {
-    console.error('노출 권한 업데이트 오류:', error);
     return {
       success: false,
       error:
@@ -1585,8 +1403,6 @@ export interface DashboardStats {
 
 // 저장소 수 통계 가져오기
 export async function getRepositoryStats(): Promise<number> {
-  console.log('📊 저장소 수 통계 조회 시작');
-
   const query = `
     query getRepositoryStats {
       transactions(
@@ -1617,19 +1433,16 @@ export async function getRepositoryStats(): Promise<number> {
     });
 
     if (!response.ok) {
-      console.warn('❌ 저장소 통계 HTTP 오류:', response.statusText);
       return 0;
     }
 
     const result = await response.json();
 
     if (result.errors) {
-      console.warn('❌ 저장소 통계 GraphQL 오류:', result.errors);
       return 0;
     }
 
     const transactions = result.data?.transactions?.edges || [];
-    console.log(`📊 저장소 통계 트랜잭션 수:`, transactions.length);
 
     // 고유한 저장소 수 계산 (Repository + Author 조합으로 구분)
     const repositories = new Set<string>();
@@ -1648,16 +1461,18 @@ export async function getRepositoryStats(): Promise<number> {
     }
 
     const count = repositories.size;
-    console.log(`✅ 저장소 수: ${count}`);
     return count;
   } catch (error) {
-    console.error('❌ 저장소 통계 오류:', error);
     return 0;
   }
 }
 
 // 실제 데이터 디버깅을 위한 함수들
 export async function debugAllTags(): Promise<void> {
+  if (process.env.NODE_ENV !== 'development') {
+    return;
+  }
+
   console.log('🔍 전체 태그 디버깅 시작');
 
   const query = `
@@ -1727,8 +1542,6 @@ export async function debugAllTags(): Promise<void> {
 
 // 사용자 수 통계 가져오기 (개선된 버전)
 export async function getUserStats(): Promise<number> {
-  console.log('📊 사용자 수 통계 조회 시작');
-
   // App-Name이 "irys-git-nickname"인 트랜잭션들만 쿼리
   const query = `
     query getUserStats {
@@ -1760,27 +1573,16 @@ export async function getUserStats(): Promise<number> {
     });
 
     if (!response.ok) {
-      console.warn('❌ 사용자 통계 HTTP 오류:', response.statusText);
       return 0;
     }
 
     const result = await response.json();
 
     if (result.errors) {
-      console.warn('❌ 사용자 통계 GraphQL 오류:', result.errors);
       return 0;
     }
 
     const transactions = result.data?.transactions?.edges || [];
-    console.log(`📊 프로필 트랜잭션 수:`, transactions.length);
-
-    // 디버깅을 위해 첫 번째 트랜잭션의 태그들 출력
-    if (transactions.length > 0) {
-      console.log(
-        '📝 첫 번째 사용자 트랜잭션 태그:',
-        transactions[0].node.tags
-      );
-    }
 
     // 고유한 사용자 수 계산 (githirys_account_address로 구분)
     const users = new Set<string>();
@@ -1797,18 +1599,14 @@ export async function getUserStats(): Promise<number> {
     }
 
     const count = users.size;
-    console.log(`✅ 사용자 수: ${count}`);
     return count;
   } catch (error) {
-    console.error('❌ 사용자 통계 오류:', error);
     return 0;
   }
 }
 
 // 커밋 수 통계 가져오기 (개선된 버전)
 export async function getCommitStats(): Promise<number> {
-  console.log('📊 커밋 수 통계 조회 시작');
-
   // 먼저 App-Name이 irys-git인 트랜잭션들을 모두 가져와서 Commit-Hash가 있는지 확인
   const query = `
     query getCommitStats {
@@ -1840,38 +1638,25 @@ export async function getCommitStats(): Promise<number> {
     });
 
     if (!response.ok) {
-      console.warn('❌ 커밋 통계 HTTP 오류:', response.statusText);
       return 0;
     }
 
     const result = await response.json();
 
     if (result.errors) {
-      console.warn('❌ 커밋 통계 GraphQL 오류:', result.errors);
       return 0;
     }
 
     const transactions = result.data?.transactions?.edges || [];
-    console.log(`📊 커밋 통계 전체 트랜잭션 수:`, transactions.length);
-
-    // 디버깅을 위해 첫 번째 트랜잭션의 태그들 출력
-    if (transactions.length > 0) {
-      console.log('📝 첫 번째 Git 트랜잭션 태그:', transactions[0].node.tags);
-    }
 
     // Commit-Hash 태그가 있는 트랜잭션들만 필터링
-    const commitTransactions = transactions.filter(edge => {
+    const commitTransactions = transactions.filter((edge: any) => {
       const node = edge.node;
       const commitHashTag = node.tags?.find(
         (tag: any) => tag.name === 'Commit-Hash'
       );
       return commitHashTag && commitHashTag.value;
     });
-
-    console.log(
-      `📊 Commit-Hash가 있는 트랜잭션 수:`,
-      commitTransactions.length
-    );
 
     // 방법 1: Commit-Hash가 있는 트랜잭션들로 커밋 수 계산
     const commits = new Set<string>();
@@ -1896,7 +1681,6 @@ export async function getCommitStats(): Promise<number> {
 
     // 방법 2: Commit-Hash가 없다면 Branch 태그가 있는 트랜잭션들을 커밋으로 계산
     if (count === 0) {
-      console.log('📊 Commit-Hash가 없으므로 Branch 태그로 커밋 수 계산');
       const branchCommits = new Set<string>();
 
       for (const edge of transactions) {
@@ -1915,21 +1699,16 @@ export async function getCommitStats(): Promise<number> {
       }
 
       count = branchCommits.size;
-      console.log(`📊 Branch 태그 기준 커밋 수:`, count);
     }
 
-    console.log(`✅ 최종 커밋 수: ${count}`);
     return count;
   } catch (error) {
-    console.error('❌ 커밋 통계 오류:', error);
     return 0;
   }
 }
 
 // 모든 대시보드 통계 가져오기 (디버깅 포함)
 export async function getDashboardStats(): Promise<DashboardStats> {
-  console.log('📊 대시보드 통계 조회 시작');
-
   try {
     // 디버깅을 위해 태그 정보 출력 (개발 환경에서만)
     if (
@@ -1952,10 +1731,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       commitCount,
     };
 
-    console.log('✅ 대시보드 통계 조회 완료:', stats);
     return stats;
   } catch (error) {
-    console.error('❌ 대시보드 통계 오류:', error);
     return {
       repositoryCount: 0,
       userCount: 0,

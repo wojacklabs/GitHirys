@@ -17,7 +17,6 @@ export default function ConnectWallet({
   // Connect wallet and pass to parent
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
-      console.log('Wallet connected successfully:', wallet.publicKey.toBase58());
       // Pass the entire wallet object as per Irys documentation
       onConnect(wallet, wallet.publicKey.toBase58());
       setIsConnecting(false);
@@ -25,7 +24,6 @@ export default function ConnectWallet({
   }, [wallet.connected, wallet.publicKey, onConnect, wallet]);
 
   const handleConnect = () => {
-    console.log('Attempting to connect wallet');
     setIsConnecting(true);
     setVisible(true);
   };
@@ -33,28 +31,27 @@ export default function ConnectWallet({
   const handleDisconnect = async () => {
     try {
       await wallet.disconnect();
-      console.log('Wallet disconnected');
     } catch (error) {
       console.error('Wallet disconnection error:', error);
     }
   };
 
   return wallet.connected ? (
-      <>
-        <button
-            type="button"
-            className={styles.button}
-            onClick={handleDisconnect}
-        >
-          Disconnect
-        </button>
-      </>
-  ) : (
+    <>
       <button
-          type="button"
-          className={styles.button}
-          onClick={handleConnect}
-          disabled={isConnecting}
+        type="button"
+        className={styles.button}
+        onClick={handleDisconnect}
+      >
+        Disconnect
+      </button>
+    </>
+  ) : (
+    <button
+      type="button"
+      className={styles.button}
+      onClick={handleConnect}
+      disabled={isConnecting}
     >
       {isConnecting ? 'Connecting...' : 'Connect Solana Wallet'}
     </button>

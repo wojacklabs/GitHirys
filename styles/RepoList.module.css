@@ -24,7 +24,6 @@
   color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
 }
 
 .debugInfo {
@@ -32,7 +31,6 @@
 }
 
 .debugSummary {
-  cursor: pointer;
   font-weight: 500;
   color: #333;
   font-size: 14px;
@@ -152,7 +150,6 @@
   text-decoration: none;
   color: #333;
   font-weight: 600;
-  cursor: pointer;
   padding: 0;
   font-size: inherit;
 }
@@ -232,7 +229,6 @@
   color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
 }
 
 .repoCloneButton {
@@ -242,5 +238,4 @@
   color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
-} 
+}

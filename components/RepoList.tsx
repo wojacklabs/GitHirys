@@ -57,12 +57,6 @@ export default function RepoList({
         isLatest: true, // 최신 데이터임을 나타내는 플래그
       };
       sessionStorage.setItem('selectedRepo', JSON.stringify(repoData));
-      console.log(
-        '💾 최신 저장소 데이터 저장:',
-        repoData.name,
-        '브랜치:',
-        repoData.selectedBranch.name
-      );
     }
 
     // 현재 URL에서 사용자 식별자 추출 (닉네임 또는 지갑 주소)
@@ -165,12 +159,12 @@ export default function RepoList({
           onClick={() => window.location.reload()}
           className={styles.errorButton}
         >
-          다시 시도
+          Retry
         </button>
 
         {debugInfo.length > 0 && (
           <details className={styles.debugInfo}>
-            <summary className={styles.debugSummary}>디버그 정보 보기</summary>
+            <summary className={styles.debugSummary}>Debug Info</summary>
             <div className={styles.debugContent}>
               {debugInfo.map((info, idx) => (
                 <div
@@ -199,34 +193,10 @@ export default function RepoList({
     return (
       <div>
         <p>
-          📂{' '}
           {currentWallet && currentWallet === owner
-            ? '연결된 지갑에서 저장소를 찾을 수 없습니다.'
-            : '이 지갑에서 저장소를 찾을 수 없습니다.'}
+            ? 'No Repository on this address.'
+            : 'No Repository on this address.'}
         </p>
-
-        <div className={styles.noReposMessage}>
-          <p className={styles.noReposTitle}>확인해야 할 사항:</p>
-          <p className={styles.noReposItem}>
-            • 지갑 주소: <code className={styles.noReposCode}>{owner}</code>
-          </p>
-          <p className={styles.noReposItem}>
-            • 저장소 업로드 시 필수 태그들이 설정되어야 합니다:
-          </p>
-          <p className={styles.noReposItem}>- "App-Name": "irys-git"</p>
-          <p className={styles.noReposItem}>- "git-owner": "{owner}"</p>
-          <p className={styles.noReposItem}>- "Repository": "저장소명"</p>
-          <p className={styles.noReposItem}>- "Branch": "브랜치명"</p>
-          <p className={styles.noReposItem}>
-            - "Mutable-Address": "mutable 주소" (선택사항)
-          </p>
-          <p className={styles.noReposItem}>
-            • 저장소가 다른 네트워크(devnet/mainnet)에 있을 수 있습니다
-          </p>
-          <p className={styles.noReposItem}>
-            • Irys CLI를 사용해서 저장소를 업로드해보세요
-          </p>
-        </div>
 
         {debugInfo.length > 0 && (
           <details className={styles.debugInfo}>
@@ -304,7 +274,7 @@ export default function RepoList({
                     >
                       {repo.branches.map(branch => (
                         <option key={branch.name} value={branch.name}>
-                          🌿 {branch.name}
+                          {branch.name}
                           {branch.name === repo.defaultBranch && ' (default)'}
                         </option>
                       ))}

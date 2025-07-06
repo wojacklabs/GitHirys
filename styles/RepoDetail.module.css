@@ -1,24 +1,29 @@
 /* RepoDetail.module.css */
 
 .repoHeader {
-  margin-bottom: 20px;
+  margin: 40px 0 20px;
 }
-
+.repoLoading {
+  margin-top: 12px;
+}
 .repoTitleRow {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
-
+.repoSubRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
 .repoTitle {
   margin: 0;
+  flex: 1;
 }
 
 .branchSelectorContainer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-right: 16px;
 }
 
 .branchLabel {
@@ -27,47 +32,67 @@
 }
 
 .branchSelect {
+  width: 100%;
   font-size: 14px;
   padding: 6px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background-color: white;
-  cursor: pointer;
+}
+
+.visibilityToggleContainer {
+  margin-left: auto;
 }
 
 .repoMeta {
   font-size: 14px;
   color: #6b7280;
-  margin-bottom: 12px;
+  padding: 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 
 .repoMetaRow {
-  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  justify-content: space-between;
+}
+
+.repoMetaRow + .repoMetaRow {
+  margin-top: 8px;
+}
+
+.repoMetaTitle {
+  flex-shrink: 0;
+  padding-right: 16px;
 }
 
 .repoMetaCode {
-  font-family: monospace;
-  background-color: #f3f4f6;
-  padding: 2px 4px;
-  border-radius: 3px;
+  font-size: 12px;
+  background-color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  word-break: break-all;
 }
 
 .cloneSection {
+  margin: 16px 0;
   padding: 12px;
-  background-color: #f0f9ff;
-  border: 1px solid #0ea5e9;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
-  margin-bottom: 16px;
 }
 
 .cloneTitle {
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   font-weight: 500;
 }
 
 .cloneCommandContainer {
   display: flex;
-  align-items: center;
   gap: 8px;
   font-family: monospace;
   font-size: 14px;
@@ -78,17 +103,18 @@
   background-color: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  flex: 1;
+  flex-grow: 1;
   font-family: inherit;
+  word-break: break-all;
 }
 
 .cloneButton {
-  padding: 4px 8px;
-  background-color: #0ea5e9;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  background-color: #333;
   color: white;
   border: none;
   border-radius: 4px;
-  cursor: pointer;
   font-size: 12px;
 }
 
@@ -121,7 +147,6 @@
   background: none;
   border: none;
   color: #2563eb;
-  cursor: pointer;
   font-size: 14px;
 }
 
@@ -133,7 +158,6 @@
 
 .fileItem {
   padding: 8px 12px;
-  cursor: pointer;
   border-bottom: 1px solid #f3f4f6;
   display: flex;
   align-items: center;
@@ -304,18 +328,9 @@
   color: white;
   border: none;
   border-radius: 6px;
-  cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: background-color 0.2s;
-}
-
-.downloadButton:hover {
-  background-color: #2563eb;
-}
-
-.downloadButton:active {
-  background-color: #1d4ed8;
 }
 
 /* 미디어 정보 공통 스타일 */
@@ -337,4 +352,304 @@
   border: 1px solid #e5e7eb;
   max-height: 500px;
   overflow-y: auto;
+}
+
+/* 저장소 멤버 섹션 스타일 */
+.membersSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.membersTitle {
+  margin: 0 0 16px 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.membersContainer {
+  display: flex;
+  gap: 20px;
+}
+
+.authorGroup {
+  width: 150px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 16px;
+}
+.memberGroupTitle {
+  font-size: 14px;
+  line-height: 30px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.authorItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+.authorItem:hover {
+  background-color: #f3f4f6;
+}
+.memberGroup {
+  overflow: hidden;
+  flex-grow: 1;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 16px;
+}
+.memberItem {
+  display: flex;
+  width: 116px;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+.memberItem:hover {
+  background-color: #f3f4f6;
+}
+
+.memberAvatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e5e7eb;
+}
+
+.memberAvatarPlaceholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e5e7eb;
+  font-size: 16px;
+  color: #6b7280;
+}
+.memberInfo {
+  flex: 1;
+}
+.memberName {
+  font-weight: 500;
+  color: #374151;
+  margin: 16px 0 8px;
+  font-size: 14px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memberAddress {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: monospace;
+  margin-bottom: 8px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memberTwitter {
+  font-size: 12px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contributorsList {
+  overflow: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* 반응형 디자인 개선 */
+@media (max-width: 768px) {
+  .contentContainer {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .fileTree {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 200px;
+  }
+
+  .fileContent {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 300px;
+  }
+
+  .membersSection {
+    padding: 16px;
+  }
+
+  .membersContainer {
+    gap: 16px;
+  }
+
+  .memberGroup {
+    padding: 12px;
+  }
+
+  .memberItem {
+    padding: 8px;
+  }
+
+  .authorGroup {
+    width: 125px;
+  }
+
+  .memberAvatar,
+  .memberAvatarPlaceholder {
+    width: 50px;
+    height: 50px;
+  }
+
+  .memberName {
+    font-size: 13px;
+  }
+
+  .memberAddress {
+    font-size: 11px;
+  }
+
+  .memberTwitter {
+    font-size: 11px;
+  }
+}
+
+/* 편집 권한 관리 버튼 스타일 */
+.memberGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.managePermissionButton {
+  margin-top: 4px;
+  width: 100%;
+  padding: 10px 16px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+/* Contributor가 없을 때 메시지 */
+.noContributorsMessage {
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  padding: 20px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+/* 모달 스타일 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  position: relative;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  border-radius: 8px 8px 0 0;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.modalCloseButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6b7280;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.modalCloseButton:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.modalBody {
+  padding: 0;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 반응형 모달 */
+@media (max-width: 768px) {
+  .modalContent {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+
+  .modalHeader {
+    padding: 16px 20px;
+  }
+
+  .modalTitle {
+    font-size: 16px;
+  }
+
+  .modalCloseButton {
+    font-size: 18px;
+  }
 }
