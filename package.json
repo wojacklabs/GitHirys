@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.18.0",
+    "node": ">=20.15.0",
     "yarn": ">=1.22.0"
   },
   "scripts": {
@@ -45,6 +45,5 @@
     "@types/react-dom": "^18.2.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0"
-  },
-  "packageManager": "yarn@4.9.2"
+  }
 }
