@@ -1,7 +1,6 @@
 // components/ConnectWallet.tsx
 import { useEffect, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useClientWallet, useClientWalletModal } from '../lib/useClientWallet';
 
 import styles from './ConnectWallet.module.css';
 
@@ -10,8 +9,8 @@ export default function ConnectWallet({
 }: {
   onConnect: (wallet: any, publicKey: string) => void;
 }) {
-  const wallet = useWallet();
-  const { setVisible } = useWalletModal();
+  const wallet = useClientWallet();
+  const { setVisible } = useClientWalletModal();
   const [isConnecting, setIsConnecting] = useState(false);
 
   // Connect wallet and pass to parent

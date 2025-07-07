@@ -2,7 +2,7 @@
 import type { NextPage } from 'next';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useClientWallet } from '../lib/useClientWallet';
 import Head from 'next/head';
 import {
   createIrysUploader,
@@ -17,7 +17,7 @@ import AnimatedNumber from '../components/AnimatedNumber';
 
 const Home: NextPage = () => {
   const router = useRouter();
-  const wallet = useWallet();
+  const wallet = useClientWallet();
   const [uploader, setUploader] = useState<any>(null);
 
   // 대시보드 통계 상태

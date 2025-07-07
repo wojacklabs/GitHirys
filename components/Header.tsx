@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useClientWallet, useClientWalletModal } from '../lib/useClientWallet';
 import Link from 'next/link';
 import {
   createIrysUploader,
@@ -18,8 +17,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
-  const wallet = useWallet();
-  const { setVisible } = useWalletModal();
+  const wallet = useClientWallet();
+  const { setVisible } = useClientWalletModal();
   const router = useRouter();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

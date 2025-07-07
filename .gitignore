@@ -3,6 +3,23 @@
 /.history
 /.next
 
+# Build and cache directories
+.next/
+out/
+build/
+dist/
+
+# Next.js build cache
+.next/cache/
+.next/static/
+.next/server/
+
+# Webpack cache
+.cache/
+cache/
+.webpack/
+*.cache
+
 # TypeScript
 tsconfig.tsbuildinfo
 *.tsbuildinfo

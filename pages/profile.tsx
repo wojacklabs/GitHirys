@@ -1,7 +1,7 @@
 import type { NextPage } from 'next';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useClientWallet } from '../lib/useClientWallet';
 import Link from 'next/link';
 import Head from 'next/head';
 import {
@@ -15,7 +15,7 @@ import {
 import styles from '../styles/ProfilePage.module.css';
 
 const ProfilePage: NextPage = () => {
-  const wallet = useWallet();
+  const wallet = useClientWallet();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 지갑 관련 상태
