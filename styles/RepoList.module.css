@@ -120,6 +120,7 @@
 }
 
 .repoCard {
+  overflow: hidden;
   padding: 20px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -192,11 +193,17 @@
   font-size: 11px;
   color: #9ca3af;
 }
-
+.repoMetaRow {
+  display: flex;
+  justify-content: space-between;
+  word-break: break-all;
+}
 .repoMetaRow + .repoMetaRow {
   margin-top: 4px;
 }
-
+.repoMetaTitle {
+  min-width: 100px;
+}
 .repoMetaCode {
   font-family: monospace;
 }

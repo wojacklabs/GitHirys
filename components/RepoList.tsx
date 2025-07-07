@@ -283,12 +283,12 @@ export default function RepoList({
 
                   <div className={styles.repoMeta}>
                     <p className={styles.repoMetaRow}>
-                      Owner :{' '}
+                      <b className={styles.repoMetaTitle}>Owner</b>
                       <span className={styles.repoMetaCode}>{repo.owner}</span>
                     </p>
                     {selectedBranch.commitHash && (
                       <p className={styles.repoMetaRow}>
-                        Commit hash :{' '}
+                        <b className={styles.repoMetaTitle}>Commit hash</b>
                         <span className={styles.repoMetaCode}>
                           {selectedBranch.commitHash.substring(0, 8)}
                         </span>
@@ -296,7 +296,7 @@ export default function RepoList({
                     )}
                     {selectedBranch.commitMessage && (
                       <p className={styles.repoMetaRow}>
-                        Commit msg :{' '}
+                        <b className={styles.repoMetaTitle}>Commit msg</b>
                         <span className={styles.repoMetaCode}>
                           {selectedBranch.commitMessage.substring(0, 50)}
                           {selectedBranch.commitMessage.length > 50
@@ -307,21 +307,21 @@ export default function RepoList({
                     )}
                     {selectedBranch.author && (
                       <p className={styles.repoMetaRow}>
-                        Commiter :{' '}
+                        <b className={styles.repoMetaTitle}>Commiter</b>
                         <span className={styles.repoMetaCode}>
                           {selectedBranch.author}
                         </span>
                       </p>
                     )}
                     <p className={styles.repoMetaRow}>
-                      Tx ID :{' '}
+                      <b className={styles.repoMetaTitle}>Tx ID</b>
                       <span className={styles.repoMetaCode}>
                         {selectedBranch.transactionId.substring(0, 12)}...
                       </span>
                     </p>
                     <p className={styles.repoMetaRow}>
-                      Last Updated : {formatDate(selectedBranch.timestamp)} (
-                      {TimestampUtils.formatRelative(selectedBranch.timestamp)})
+                      <b className={styles.repoMetaTitle}>Last Updated</b>
+                      {TimestampUtils.formatRelative(selectedBranch.timestamp)}
                     </p>
                   </div>
                 </div>
