@@ -427,6 +427,16 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                         </>
                       )}
 
+                      <a
+                        href="https://docs.githirys.xyz"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.dropdownItem}
+                      >
+                        <span className={styles.dropdownIcon}>📚</span>
+                        Docs
+                      </a>
+
                       <div className={styles.dropdownDivider} />
 
                       <button
