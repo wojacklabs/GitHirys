@@ -314,24 +314,18 @@ export default function RepoList({
                       </p>
                     )}
                     <p className={styles.repoMetaRow}>
-                      Tx ID:{' '}
+                      Tx ID :{' '}
                       <span className={styles.repoMetaCode}>
                         {selectedBranch.transactionId.substring(0, 12)}...
                       </span>
                     </p>
-                  </div>
-                </div>
-
-                <div className={styles.repoTimestamp}>
-                  <div className={styles.repoTimestampRelative}>
-                    {TimestampUtils.formatRelative(selectedBranch.timestamp)}
-                  </div>
-                  <div className={styles.repoTimestampAbsolute}>
-                    {formatDate(selectedBranch.timestamp)}
+                    <p className={styles.repoMetaRow}>
+                      Last Updated : {formatDate(selectedBranch.timestamp)} (
+                      {TimestampUtils.formatRelative(selectedBranch.timestamp)})
+                    </p>
                   </div>
                 </div>
               </div>
-
               <div className={styles.repoActions}>
                 <button
                   onClick={() => handleRepoClick(repo, selectedBranch)}
