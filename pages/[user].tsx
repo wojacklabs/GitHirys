@@ -13,18 +13,30 @@ import {
 import Link from 'next/link';
 import styles from '../styles/UserPage.module.css';
 
-const UserPage: NextPage = () => {
+interface UserPageProps {
+  user?: string;
+  userProfile?: UserProfile | null;
+  actualWalletAddress?: string;
+}
+
+const UserPage: NextPage<UserPageProps> = ({
+  user: propUser,
+  userProfile: initialUserProfile,
+  actualWalletAddress: initialWalletAddress,
+}) => {
   const router = useRouter();
   const { user: queryUser } = router.query;
   const wallet = useClientWallet();
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
   const [targetUser, setTargetUser] = useState<string>('');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [actualWalletAddress, setActualWalletAddress] = useState<string>('');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(
+    initialUserProfile || null
+  );
+  const [actualWalletAddress, setActualWalletAddress] = useState<string>(
+    initialWalletAddress || ''
+  );
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
@@ -34,22 +46,22 @@ const UserPage: NextPage = () => {
     }
   }, [wallet.connected, wallet.publicKey]);
 
-  // 라우터에서 사용자 정보 추출
   useEffect(() => {
-    if (router.isReady && typeof queryUser === 'string' && queryUser) {
-      setTargetUser(queryUser);
-      setIsInitialized(true);
+    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
+    if (user) {
+      setTargetUser(user);
     }
-  }, [router.isReady, queryUser]);
+  }, [propUser, queryUser]);
 
-  // 사용자 정보 로드
+  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
   useEffect(() => {
     const loadUserInfo = async () => {
-      if (!targetUser || !isInitialized) return;
+      if (!targetUser) return;
+
+      // 이미 props에서 데이터를 받았으면 스킵
+      if (initialUserProfile && initialWalletAddress) return;
 
       setIsLoadingProfile(true);
-      setPageError(null);
-
       try {
         // 솔라나 지갑 주소 형식인지 확인
         const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
@@ -59,6 +71,7 @@ const UserPage: NextPage = () => {
         if (isWalletAddress) {
           // 지갑 주소로 프로필 조회
           setActualWalletAddress(targetUser);
+
           const profile = await getProfileByAddress(targetUser);
           setUserProfile(profile);
         } else {
@@ -68,21 +81,21 @@ const UserPage: NextPage = () => {
             setUserProfile(profile);
             setActualWalletAddress(profile.accountAddress);
           } else {
-            // 닉네임에 해당하는 프로필이 없는 경우
-            setPageError('사용자를 찾을 수 없습니다.');
+            // 닉네임에 해당하는 프로필이 없는 경우 404로 리다이렉트
+            router.push('/404');
             return;
           }
         }
       } catch (error) {
         console.error('사용자 정보 로딩 오류:', error);
-        setPageError('사용자 정보를 불러오는 중 오류가 발생했습니다.');
+        router.push('/404');
       } finally {
         setIsLoadingProfile(false);
       }
     };
 
     loadUserInfo();
-  }, [targetUser, isInitialized]);
+  }, [targetUser, initialUserProfile, initialWalletAddress, router]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -111,39 +124,7 @@ const UserPage: NextPage = () => {
     userProfile?.nickname ||
     (actualWalletAddress
       ? `${actualWalletAddress.substring(0, 8)}...${actualWalletAddress.slice(-4)}`
-      : targetUser || 'GitHirys');
-
-  // 라우터 준비 대기 중
-  if (!router.isReady || !isInitialized) {
-    return (
-      <>
-        <Head>
-          <title>GitHirys</title>
-        </Head>
-        <div className="container">
-          <p style={{ marginTop: 40 }}>페이지를 준비 중입니다...</p>
-        </div>
-      </>
-    );
-  }
-
-  // 에러 발생 시
-  if (pageError) {
-    return (
-      <>
-        <Head>
-          <title>GitHirys - 사용자를 찾을 수 없음</title>
-        </Head>
-        <div className="container">
-          <div style={{ marginTop: 40, textAlign: 'center' }}>
-            <h1>404 - 사용자를 찾을 수 없습니다</h1>
-            <p>{pageError}</p>
-            <Link href="/">홈으로 돌아가기</Link>
-          </div>
-        </div>
-      </>
-    );
-  }
+      : 'GitHirys');
 
   // 프로필 정보 로딩 중
   if (isLoadingProfile) {
@@ -154,6 +135,20 @@ const UserPage: NextPage = () => {
         </Head>
         <div className="container">
           <p style={{ marginTop: 40 }}>Fetching User Data...</p>
+        </div>
+      </>
+    );
+  }
+
+  // 필수 정보 확인 중
+  if (!targetUser) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Fetching Page Data...</p>
         </div>
       </>
     );
@@ -252,5 +247,7 @@ const UserPage: NextPage = () => {
     </>
   );
 };
+
+// SPA 모드로 전환하여 모든 라우팅을 클라이언트 사이드에서 처리
 
 export default UserPage;

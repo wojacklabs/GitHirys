@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "clean": "rm -rf .next cache/ node_modules/.cache/",
-    "build": "npm run clean && next build",
-    "build:prod": "npm run clean && NODE_ENV=production next build",
-    "build:export": "npm run clean && next build",
+    "build": "next build",
+    "build:prod": "NODE_ENV=production next build",
+    "build:vercel": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -46,5 +46,9 @@
     "@types/react-dom": "^18.2.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "14.2.30"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
