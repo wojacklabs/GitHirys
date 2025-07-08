@@ -14,14 +14,7 @@ import {
 import Link from 'next/link';
 import styles from '../../styles/UserRepo.module.css';
 
-interface UserRepoPageProps {
-  user?: string;
-  repo?: string;
-  userProfile?: UserProfile | null;
-  actualWalletAddress?: string;
-}
-
-const UserRepoPage: NextPage<UserRepoPageProps> = () => {
+const UserRepoPage: NextPage = () => {
   const router = useRouter();
   const { user: queryUser, repo: queryRepo } = router.query;
   const wallet = useClientWallet();
@@ -34,6 +27,7 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
   const [actualWalletAddress, setActualWalletAddress] = useState<string>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
@@ -43,6 +37,7 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
     }
   }, [wallet.connected, wallet.publicKey]);
 
+  // 라우터에서 사용자 및 저장소 정보 추출
   useEffect(() => {
     if (
       router.isReady &&
@@ -53,13 +48,14 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
     ) {
       setTargetUser(queryUser);
       setTargetRepo(queryRepo);
+      setIsInitialized(true);
     }
   }, [router.isReady, queryUser, queryRepo]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
+  // 사용자 정보 및 저장소 존재 여부 확인
   useEffect(() => {
     const loadUserInfo = async () => {
-      if (!targetUser || !targetRepo || !router.isReady) return;
+      if (!targetUser || !targetRepo || !isInitialized) return;
 
       setIsLoadingProfile(true);
       setPageError(null);
@@ -109,7 +105,7 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
     };
 
     loadUserInfo();
-  }, [targetUser, targetRepo, router.isReady]);
+  }, [targetUser, targetRepo, isInitialized]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -139,6 +135,20 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
   // 페이지 타이틀 생성
   const pageTitle = targetRepo || 'GitHirys';
 
+  // 라우터 준비 대기 중
+  if (!router.isReady || !isInitialized) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>페이지를 준비 중입니다...</p>
+        </div>
+      </>
+    );
+  }
+
   // 에러 발생 시
   if (pageError) {
     return (
@@ -158,7 +168,7 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
   }
 
   // 프로필 정보 로딩 중
-  if (isLoadingProfile || !router.isReady) {
+  if (isLoadingProfile) {
     return (
       <>
         <Head>
@@ -166,20 +176,6 @@ const UserRepoPage: NextPage<UserRepoPageProps> = () => {
         </Head>
         <div className="container">
           <p style={{ marginTop: 40 }}>Fetching Repository Data...</p>
-        </div>
-      </>
-    );
-  }
-
-  // 필수 정보 확인 중
-  if (!targetUser || !targetRepo) {
-    return (
-      <>
-        <Head>
-          <title>GitHirys</title>
-        </Head>
-        <div className="container">
-          <p style={{ marginTop: 40 }}>Fetching Page Data...</p>
         </div>
       </>
     );

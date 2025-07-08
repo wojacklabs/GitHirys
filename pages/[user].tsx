@@ -13,13 +13,7 @@ import {
 import Link from 'next/link';
 import styles from '../styles/UserPage.module.css';
 
-interface UserPageProps {
-  user?: string;
-  userProfile?: UserProfile | null;
-  actualWalletAddress?: string;
-}
-
-const UserPage: NextPage<UserPageProps> = () => {
+const UserPage: NextPage = () => {
   const router = useRouter();
   const { user: queryUser } = router.query;
   const wallet = useClientWallet();
@@ -30,6 +24,7 @@ const UserPage: NextPage<UserPageProps> = () => {
   const [actualWalletAddress, setActualWalletAddress] = useState<string>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
@@ -39,16 +34,18 @@ const UserPage: NextPage<UserPageProps> = () => {
     }
   }, [wallet.connected, wallet.publicKey]);
 
+  // 라우터에서 사용자 정보 추출
   useEffect(() => {
     if (router.isReady && typeof queryUser === 'string' && queryUser) {
       setTargetUser(queryUser);
+      setIsInitialized(true);
     }
   }, [router.isReady, queryUser]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
+  // 사용자 정보 로드
   useEffect(() => {
     const loadUserInfo = async () => {
-      if (!targetUser || !router.isReady) return;
+      if (!targetUser || !isInitialized) return;
 
       setIsLoadingProfile(true);
       setPageError(null);
@@ -85,7 +82,7 @@ const UserPage: NextPage<UserPageProps> = () => {
     };
 
     loadUserInfo();
-  }, [targetUser, router.isReady]);
+  }, [targetUser, isInitialized]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -116,6 +113,20 @@ const UserPage: NextPage<UserPageProps> = () => {
       ? `${actualWalletAddress.substring(0, 8)}...${actualWalletAddress.slice(-4)}`
       : targetUser || 'GitHirys');
 
+  // 라우터 준비 대기 중
+  if (!router.isReady || !isInitialized) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>페이지를 준비 중입니다...</p>
+        </div>
+      </>
+    );
+  }
+
   // 에러 발생 시
   if (pageError) {
     return (
@@ -135,7 +146,7 @@ const UserPage: NextPage<UserPageProps> = () => {
   }
 
   // 프로필 정보 로딩 중
-  if (isLoadingProfile || !router.isReady) {
+  if (isLoadingProfile) {
     return (
       <>
         <Head>
@@ -143,20 +154,6 @@ const UserPage: NextPage<UserPageProps> = () => {
         </Head>
         <div className="container">
           <p style={{ marginTop: 40 }}>Fetching User Data...</p>
-        </div>
-      </>
-    );
-  }
-
-  // 필수 정보 확인 중
-  if (!targetUser) {
-    return (
-      <>
-        <Head>
-          <title>GitHirys</title>
-        </Head>
-        <div className="container">
-          <p style={{ marginTop: 40 }}>Fetching Page Data...</p>
         </div>
       </>
     );
