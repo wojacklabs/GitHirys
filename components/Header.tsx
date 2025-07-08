@@ -428,7 +428,7 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                       )}
 
                       <a
-                        href="https://docs.githirys.xyz"
+                        href="https://irys-git-docs.vercel.app"
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.dropdownItem}
