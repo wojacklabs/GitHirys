@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
+import domtoimage from 'dom-to-image-more';
 import styles from '../styles/RepoShareCard.module.css';
 
 interface RepoShareCardProps {
@@ -39,34 +39,44 @@ const RepoShareCard: React.FC<RepoShareCardProps> = ({
 
     setIsCapturing(true);
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
+      // Get device pixel ratio for better quality
+      const pixelRatio = window.devicePixelRatio || 1;
+      const scale = Math.max(4, pixelRatio * 2);
+
+      const dataUrl = await domtoimage.toPng(cardRef.current, {
+        quality: 1.0,
+        pixelRatio: scale,
+        width: cardRef.current.offsetWidth * scale,
+        height: cardRef.current.offsetHeight * scale,
+        style: {
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: cardRef.current.offsetWidth + 'px',
+          height: cardRef.current.offsetHeight + 'px',
+        },
       });
 
-      canvas.toBlob(async blob => {
-        if (blob) {
-          try {
-            await navigator.clipboard.write([
-              new ClipboardItem({
-                'image/png': blob,
-              }),
-            ]);
-            alert('Repository card copied to clipboard!');
-          } catch (err) {
-            console.error('Failed to copy to clipboard:', err);
-            // Alternative: Create download link
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${repositoryName}_githirys_card.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }
-        }
-      }, 'image/png');
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': blob,
+          }),
+        ]);
+        alert('Repository card copied to clipboard!');
+      } catch (err) {
+        console.error('Failed to copy to clipboard:', err);
+        // Alternative: Create download link
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${repositoryName}_githirys_card.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Failed to generate image:', error);
       alert('Failed to generate image.');

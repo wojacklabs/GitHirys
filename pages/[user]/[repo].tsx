@@ -182,25 +182,6 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
   );
 };
 
-export async function getStaticPaths() {
-  // 정적 사이트 생성에서는 fallback을 false로 설정
-  // 모든 경로는 클라이언트 사이드에서 처리
-  return {
-    paths: [],
-    fallback: false,
-  };
-}
-
-export async function getStaticProps({
-  params,
-}: {
-  params: { user: string; repo: string };
-}) {
-  // 정적 사이트에서는 빌드 시점에 모든 경로를 알 수 없으므로
-  // 클라이언트 사이드에서 처리하도록 기본 props만 반환
-  return {
-    props: {},
-  };
-}
+// SPA 모드로 전환하여 모든 라우팅을 클라이언트 사이드에서 처리
 
 export default UserRepoPage;
