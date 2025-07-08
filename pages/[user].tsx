@@ -19,24 +19,17 @@ interface UserPageProps {
   actualWalletAddress?: string;
 }
 
-const UserPage: NextPage<UserPageProps> = ({
-  user: propUser,
-  userProfile: initialUserProfile,
-  actualWalletAddress: initialWalletAddress,
-}) => {
+const UserPage: NextPage<UserPageProps> = () => {
   const router = useRouter();
   const { user: queryUser } = router.query;
   const wallet = useClientWallet();
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
   const [targetUser, setTargetUser] = useState<string>('');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(
-    initialUserProfile || null
-  );
-  const [actualWalletAddress, setActualWalletAddress] = useState<string>(
-    initialWalletAddress || ''
-  );
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [actualWalletAddress, setActualWalletAddress] = useState<string>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
@@ -47,24 +40,19 @@ const UserPage: NextPage<UserPageProps> = ({
   }, [wallet.connected, wallet.publicKey]);
 
   useEffect(() => {
-    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
-    if (user) {
-      setTargetUser(user);
+    if (router.isReady && typeof queryUser === 'string' && queryUser) {
+      setTargetUser(queryUser);
     }
-  }, [propUser, queryUser]);
+  }, [router.isReady, queryUser]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소) - props에서 받지 못한 경우에만 실행
+  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
   useEffect(() => {
     const loadUserInfo = async () => {
-      if (!targetUser) return;
-
-      // 이미 props에서 데이터를 받았으면 스킵
-      if (initialUserProfile && initialWalletAddress) return;
-
-      // router가 준비되지 않은 상태면 대기
-      if (!router.isReady) return;
+      if (!targetUser || !router.isReady) return;
 
       setIsLoadingProfile(true);
+      setPageError(null);
+
       try {
         // 솔라나 지갑 주소 형식인지 확인
         const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
@@ -74,7 +62,6 @@ const UserPage: NextPage<UserPageProps> = ({
         if (isWalletAddress) {
           // 지갑 주소로 프로필 조회
           setActualWalletAddress(targetUser);
-
           const profile = await getProfileByAddress(targetUser);
           setUserProfile(profile);
         } else {
@@ -84,27 +71,21 @@ const UserPage: NextPage<UserPageProps> = ({
             setUserProfile(profile);
             setActualWalletAddress(profile.accountAddress);
           } else {
-            // 닉네임에 해당하는 프로필이 없는 경우 404로 리다이렉트
-            router.push('/404');
+            // 닉네임에 해당하는 프로필이 없는 경우
+            setPageError('사용자를 찾을 수 없습니다.');
             return;
           }
         }
       } catch (error) {
         console.error('사용자 정보 로딩 오류:', error);
-        router.push('/404');
+        setPageError('사용자 정보를 불러오는 중 오류가 발생했습니다.');
       } finally {
         setIsLoadingProfile(false);
       }
     };
 
     loadUserInfo();
-  }, [
-    targetUser,
-    initialUserProfile,
-    initialWalletAddress,
-    router,
-    router.isReady,
-  ]);
+  }, [targetUser, router.isReady]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -133,10 +114,28 @@ const UserPage: NextPage<UserPageProps> = ({
     userProfile?.nickname ||
     (actualWalletAddress
       ? `${actualWalletAddress.substring(0, 8)}...${actualWalletAddress.slice(-4)}`
-      : 'GitHirys');
+      : targetUser || 'GitHirys');
+
+  // 에러 발생 시
+  if (pageError) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys - 사용자를 찾을 수 없음</title>
+        </Head>
+        <div className="container">
+          <div style={{ marginTop: 40, textAlign: 'center' }}>
+            <h1>404 - 사용자를 찾을 수 없습니다</h1>
+            <p>{pageError}</p>
+            <Link href="/">홈으로 돌아가기</Link>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   // 프로필 정보 로딩 중
-  if (isLoadingProfile) {
+  if (isLoadingProfile || !router.isReady) {
     return (
       <>
         <Head>
@@ -256,48 +255,5 @@ const UserPage: NextPage<UserPageProps> = ({
     </>
   );
 };
-
-// 서버 사이드에서 사용자 정보를 미리 가져옴
-export async function getServerSideProps(context: any) {
-  const { user } = context.params;
-
-  try {
-    // 솔라나 지갑 주소 형식인지 확인
-    const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(user);
-
-    let userProfile: UserProfile | null = null;
-    let actualWalletAddress: string = '';
-
-    if (isWalletAddress) {
-      // 지갑 주소로 프로필 조회
-      actualWalletAddress = user;
-      userProfile = await getProfileByAddress(user);
-    } else {
-      // 닉네임으로 프로필 조회
-      userProfile = await getProfileByNickname(user);
-      if (userProfile) {
-        actualWalletAddress = userProfile.accountAddress;
-      } else {
-        // 닉네임에 해당하는 프로필이 없는 경우 404 반환
-        return {
-          notFound: true,
-        };
-      }
-    }
-
-    return {
-      props: {
-        user,
-        userProfile,
-        actualWalletAddress,
-      },
-    };
-  } catch (error) {
-    console.error('서버 사이드 사용자 정보 로딩 오류:', error);
-    return {
-      notFound: true,
-    };
-  }
-}
 
 export default UserPage;

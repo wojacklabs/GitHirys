@@ -21,12 +21,7 @@ interface UserRepoPageProps {
   actualWalletAddress?: string;
 }
 
-const UserRepoPage: NextPage<UserRepoPageProps> = ({
-  user: propUser,
-  repo: propRepo,
-  userProfile: initialUserProfile,
-  actualWalletAddress: initialWalletAddress,
-}) => {
+const UserRepoPage: NextPage<UserRepoPageProps> = () => {
   const router = useRouter();
   const { user: queryUser, repo: queryRepo } = router.query;
   const wallet = useClientWallet();
@@ -35,13 +30,10 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const [targetUser, setTargetUser] = useState<string>('');
   const [targetRepo, setTargetRepo] = useState<string>('');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(
-    initialUserProfile || null
-  );
-  const [actualWalletAddress, setActualWalletAddress] = useState<string>(
-    initialWalletAddress || ''
-  );
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [actualWalletAddress, setActualWalletAddress] = useState<string>('');
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (wallet.connected && wallet.publicKey) {
@@ -52,66 +44,72 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
   }, [wallet.connected, wallet.publicKey]);
 
   useEffect(() => {
-    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
-    const repo = propRepo || (typeof queryRepo === 'string' ? queryRepo : '');
-    if (user && repo) {
-      setTargetUser(user);
-      setTargetRepo(repo);
+    if (
+      router.isReady &&
+      typeof queryUser === 'string' &&
+      queryUser &&
+      typeof queryRepo === 'string' &&
+      queryRepo
+    ) {
+      setTargetUser(queryUser);
+      setTargetRepo(queryRepo);
     }
-  }, [propUser, propRepo, queryUser, queryRepo]);
+  }, [router.isReady, queryUser, queryRepo]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소) - props에서 받지 못한 경우에만 실행
+  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
   useEffect(() => {
     const loadUserInfo = async () => {
-      if (!targetUser) return;
-
-      // 이미 props에서 데이터를 받았으면 스킵
-      if (initialUserProfile && initialWalletAddress) return;
-
-      // router가 준비되지 않은 상태면 대기
-      if (!router.isReady) return;
+      if (!targetUser || !targetRepo || !router.isReady) return;
 
       setIsLoadingProfile(true);
+      setPageError(null);
+
       try {
         // 솔라나 지갑 주소 형식인지 확인
         const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
           targetUser
         );
 
+        let resolvedWalletAddress = '';
+        let profile: UserProfile | null = null;
+
         if (isWalletAddress) {
           // 지갑 주소로 프로필 조회
-          setActualWalletAddress(targetUser);
-
-          const profile = await getProfileByAddress(targetUser);
-          setUserProfile(profile);
+          resolvedWalletAddress = targetUser;
+          profile = await getProfileByAddress(targetUser);
         } else {
           // 닉네임으로 프로필 조회
-          const profile = await getProfileByNickname(targetUser);
+          profile = await getProfileByNickname(targetUser);
           if (profile) {
-            setUserProfile(profile);
-            setActualWalletAddress(profile.accountAddress);
+            resolvedWalletAddress = profile.accountAddress;
           } else {
-            // 닉네임에 해당하는 프로필이 없는 경우 404로 리다이렉트
-            router.push('/404');
+            // 닉네임에 해당하는 프로필이 없는 경우
+            setPageError('사용자를 찾을 수 없습니다.');
             return;
           }
         }
+
+        setUserProfile(profile);
+        setActualWalletAddress(resolvedWalletAddress);
+
+        // 저장소 존재 여부 확인
+        const repositories = await searchRepositories(resolvedWalletAddress);
+        const targetRepository = repositories.find(r => r.name === targetRepo);
+
+        if (!targetRepository) {
+          setPageError('저장소를 찾을 수 없습니다.');
+          return;
+        }
       } catch (error) {
-        console.error('사용자 정보 로딩 오류:', error);
-        router.push('/404');
+        console.error('사용자/저장소 정보 로딩 오류:', error);
+        setPageError('정보를 불러오는 중 오류가 발생했습니다.');
       } finally {
         setIsLoadingProfile(false);
       }
     };
 
     loadUserInfo();
-  }, [
-    targetUser,
-    initialUserProfile,
-    initialWalletAddress,
-    router,
-    router.isReady,
-  ]);
+  }, [targetUser, targetRepo, router.isReady]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -141,15 +139,33 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
   // 페이지 타이틀 생성
   const pageTitle = targetRepo || 'GitHirys';
 
+  // 에러 발생 시
+  if (pageError) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys - 페이지를 찾을 수 없음</title>
+        </Head>
+        <div className="container">
+          <div style={{ marginTop: 40, textAlign: 'center' }}>
+            <h1>404 - 페이지를 찾을 수 없습니다</h1>
+            <p>{pageError}</p>
+            <Link href="/">홈으로 돌아가기</Link>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   // 프로필 정보 로딩 중
-  if (isLoadingProfile) {
+  if (isLoadingProfile || !router.isReady) {
     return (
       <>
         <Head>
           <title>{pageTitle}</title>
         </Head>
         <div className="container">
-          <p style={{ marginTop: 40 }}>Fetching User Data...</p>
+          <p style={{ marginTop: 40 }}>Fetching Repository Data...</p>
         </div>
       </>
     );
@@ -191,60 +207,5 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
     </>
   );
 };
-
-// 서버 사이드에서 사용자 및 저장소 정보를 미리 가져옴
-export async function getServerSideProps(context: any) {
-  const { user, repo } = context.params;
-
-  try {
-    // 솔라나 지갑 주소 형식인지 확인
-    const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(user);
-
-    let userProfile: UserProfile | null = null;
-    let actualWalletAddress: string = '';
-
-    if (isWalletAddress) {
-      // 지갑 주소로 프로필 조회
-      actualWalletAddress = user;
-      userProfile = await getProfileByAddress(user);
-    } else {
-      // 닉네임으로 프로필 조회
-      userProfile = await getProfileByNickname(user);
-      if (userProfile) {
-        actualWalletAddress = userProfile.accountAddress;
-      } else {
-        // 닉네임에 해당하는 프로필이 없는 경우 404 반환
-        return {
-          notFound: true,
-        };
-      }
-    }
-
-    // 저장소 존재 여부 확인
-    const repositories = await searchRepositories(actualWalletAddress || user);
-    const targetRepository = repositories.find(r => r.name === repo);
-
-    if (!targetRepository) {
-      // 저장소가 존재하지 않는 경우 404 반환
-      return {
-        notFound: true,
-      };
-    }
-
-    return {
-      props: {
-        user,
-        repo,
-        userProfile,
-        actualWalletAddress,
-      },
-    };
-  } catch (error) {
-    console.error('서버 사이드 저장소 정보 로딩 오류:', error);
-    return {
-      notFound: true,
-    };
-  }
-}
 
 export default UserRepoPage;
