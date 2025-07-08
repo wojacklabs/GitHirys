@@ -71,13 +71,7 @@ export const TimestampUtils = {
   // 디버깅용 - timestamp 정보 출력 (개발환경에서만)
   debug: (timestamp: any, label: string = 'timestamp'): void => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🕐 ${label}:`, {
-        original: timestamp,
-        type: typeof timestamp,
-        normalized: TimestampUtils.normalize(timestamp),
-        date: TimestampUtils.toDate(timestamp).toISOString(),
-        formatted: TimestampUtils.format(timestamp),
-      });
+      // 개발환경에서의 디버깅 로그 제거
     }
   },
 };
@@ -163,6 +157,241 @@ export async function testIrysConnection(): Promise<boolean> {
     return response.ok && !result.errors;
   } catch (error) {
     return false;
+  }
+}
+
+// Search all repositories across all owners (for global search)
+export async function searchAllRepositories(
+  query: string,
+  currentWallet?: string
+): Promise<Repository[]> {
+  // Test Irys connection first
+  const canConnect = await testIrysConnection();
+
+  const searchStrategy = {
+    name: 'irys-git 태그로 모든 저장소 검색',
+    endpoint: 'https://uploader.irys.xyz/graphql',
+    query: `
+      query getAllRepositories {
+        transactions(
+          tags: [{ name: "App-Name", values: ["irys-git"] }],
+          first: 1000,
+          order: DESC
+        ) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
+            }
+          }
+        }
+      }
+    `,
+  };
+
+  try {
+    const response = await fetch(searchStrategy.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchStrategy.query,
+      }),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return [];
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    if (transactions.length === 0) {
+      return [];
+    }
+
+    // 저장소별로 그룹핑
+    const repositoryMap = new Map<string, Repository>();
+
+    // 브랜치별 최신 트랜잭션 맵
+    const branchTransactionMap = new Map<
+      string,
+      Map<string, BranchTransactionData>
+    >();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+
+      // 태그에서 필요한 정보 추출
+      const repositoryTag = node.tags?.find(
+        (tag: any) => tag.name === 'Repository'
+      );
+      const ownerTag = node.tags?.find((tag: any) => tag.name === 'git-owner');
+      const branchTag = node.tags?.find((tag: any) => tag.name === 'Branch');
+      const timestampTag = node.tags?.find(
+        (tag: any) => tag.name === 'Timestamp'
+      );
+      const mutableTag = node.tags?.find(
+        (tag: any) => tag.name === 'Mutable-Address'
+      );
+      const commitHashTag = node.tags?.find(
+        (tag: any) => tag.name === 'Commit-Hash'
+      );
+      const commitMsgTag = node.tags?.find(
+        (tag: any) => tag.name === 'Commit-Message'
+      );
+      const authorTag = node.tags?.find((tag: any) => tag.name === 'Author');
+
+      if (!repositoryTag || !ownerTag) {
+        continue;
+      }
+
+      const repoName = repositoryTag.value;
+      const owner = ownerTag.value;
+
+      // Query filter - search by repository name
+      if (!repoName.toLowerCase().includes(query.toLowerCase())) {
+        continue;
+      }
+
+      const branchName = branchTag?.value || 'main';
+
+      // Timestamp 처리 개선
+      const rawTimestamp = timestampTag?.value || node.timestamp;
+      const normalizedTimestamp = TimestampUtils.normalize(rawTimestamp);
+
+      const mutableAddress = mutableTag?.value || null;
+
+      // 저장소 고유 키 생성 (owner + repoName)
+      const repoKey = `${owner}/${repoName}`;
+
+      // 저장소별 브랜치 맵 초기화
+      if (!branchTransactionMap.has(repoKey)) {
+        branchTransactionMap.set(
+          repoKey,
+          new Map<string, BranchTransactionData>()
+        );
+      }
+
+      const repoBranches = branchTransactionMap.get(repoKey)!;
+
+      // 브랜치별로 최신 트랜잭션만 유지
+      const existingBranch = repoBranches.get(branchName);
+      const shouldUpdate =
+        !existingBranch ||
+        normalizedTimestamp >
+          TimestampUtils.normalize(existingBranch.timestamp);
+
+      if (shouldUpdate) {
+        repoBranches.set(branchName, {
+          name: branchName,
+          transactionId: node.id,
+          mutableAddress: mutableAddress,
+          timestamp:
+            timestampTag?.value ||
+            TimestampUtils.toDate(node.timestamp).toISOString(),
+          commitHash: commitHashTag?.value || '',
+          commitMessage: commitMsgTag?.value || '',
+          author: authorTag?.value || '',
+          tags: node.tags || [],
+          nodeTimestamp: normalizedTimestamp,
+        });
+      }
+    }
+
+    // Repository 객체 생성
+    for (const [repoKey, branches] of Array.from(
+      branchTransactionMap.entries()
+    )) {
+      const [owner, repoName] = repoKey.split('/');
+
+      const branchInfos: RepoBranch[] = Array.from(branches.values()).map(
+        (branchData: BranchTransactionData) => ({
+          name: branchData.name,
+          transactionId: branchData.transactionId,
+          mutableAddress: branchData.mutableAddress,
+          timestamp: branchData.nodeTimestamp,
+          commitHash: branchData.commitHash,
+          commitMessage: branchData.commitMessage,
+          author: branchData.author,
+          tags: branchData.tags,
+        })
+      );
+
+      // 기본 브랜치 결정
+      let defaultBranch = 'main';
+      if (branchInfos.find(b => b.name === 'main')) {
+        defaultBranch = 'main';
+      } else if (branchInfos.find(b => b.name === 'master')) {
+        defaultBranch = 'master';
+      } else if (branchInfos.length > 0) {
+        defaultBranch = branchInfos[0].name;
+      }
+
+      // 브랜치 정렬
+      branchInfos.sort((a, b) => {
+        if (a.name === defaultBranch) return -1;
+        if (b.name === defaultBranch) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      repositoryMap.set(repoKey, {
+        name: repoName,
+        owner: owner,
+        branches: branchInfos,
+        defaultBranch: defaultBranch,
+        tags: branchInfos[0]?.tags || [],
+      });
+    }
+
+    const repositories = Array.from(repositoryMap.values());
+
+    // 노출 권한 필터링 - private 저장소는 편집 권한이 있는 사용자만 볼 수 있음
+    const filteredRepositories: Repository[] = [];
+
+    for (const repo of repositories) {
+      // 현재 지갑이 소유자인 경우 항상 표시
+      if (repo.owner === currentWallet) {
+        filteredRepositories.push(repo);
+        continue;
+      }
+
+      try {
+        // 저장소 노출 권한 확인
+        const visibility = await getRepositoryVisibility(repo.name, repo.owner);
+
+        if (!visibility || visibility.visibility === 'public') {
+          // 노출 권한 정보가 없거나 public인 경우 표시
+          filteredRepositories.push(repo);
+        } else if (visibility.visibility === 'private' && currentWallet) {
+          // private인 경우 편집 권한 확인
+          const permissions = await getRepositoryPermissions(
+            repo.name,
+            repo.owner
+          );
+          if (permissions && permissions.contributors.includes(currentWallet)) {
+            filteredRepositories.push(repo);
+          }
+        }
+      } catch (error) {
+        // 오류 발생 시 안전하게 public으로 처리
+        filteredRepositories.push(repo);
+      }
+    }
+
+    return filteredRepositories;
+  } catch (error) {
+    return [];
   }
 }
 
@@ -987,6 +1216,15 @@ export interface RepositoryVisibility {
   timestamp: number;
 }
 
+export interface RepositoryDescription {
+  repository: string;
+  owner: string;
+  description: string;
+  rootTxId?: string;
+  mutableAddress?: string;
+  timestamp: number;
+}
+
 export interface UserSearchResult {
   type: 'nickname' | 'wallet';
   displayName: string;
@@ -1394,6 +1632,141 @@ export async function updateRepositoryVisibility(
   }
 }
 
+// Get repository description
+export async function getRepositoryDescription(
+  repository: string,
+  owner: string
+): Promise<RepositoryDescription | null> {
+  const query = `
+    query getRepositoryDescription($repository: String!, $owner: String!) {
+      transactions(
+        tags: [
+          { name: "App-Name", values: ["irys-git-repo-description"] },
+          { name: "Repository", values: [$repository] },
+          { name: "git-owner", values: [$owner] }
+        ],
+        first: 1,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { repository, owner },
+      }),
+    });
+
+    const result = await response.json();
+    const transactions = result.data?.transactions?.edges || [];
+
+    if (transactions.length === 0) {
+      return null;
+    }
+
+    // Get the latest description data
+    const latestTx = transactions[0].node;
+    const tags = latestTx.tags || [];
+
+    const descriptionTag = tags.find(
+      (tag: any) => tag.name === 'git-repo-description'
+    )?.value;
+    const rootTxIdTag = tags.find((tag: any) => tag.name === 'Root-TX')?.value;
+
+    const description: RepositoryDescription = {
+      repository,
+      owner,
+      description: descriptionTag || '',
+      rootTxId: rootTxIdTag || latestTx.id,
+      mutableAddress: rootTxIdTag
+        ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
+        : undefined,
+      timestamp: TimestampUtils.normalize(latestTx.timestamp),
+    };
+
+    return description;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Update repository description
+export async function updateRepositoryDescription(
+  uploader: any,
+  descriptionData: {
+    repository: string;
+    owner: string;
+    description: string;
+    existingRootTxId?: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Verify owner wallet address
+    if (!uploader?.address || uploader.address !== descriptionData.owner) {
+      return {
+        success: false,
+        error: 'Wallet address is not the repository owner.',
+      };
+    }
+
+    // Create JSON data for description
+    const descriptionJson = {
+      repository: descriptionData.repository,
+      owner: descriptionData.owner,
+      description: descriptionData.description,
+      timestamp: Math.floor(Date.now() / 1000),
+    };
+
+    const jsonData = JSON.stringify(descriptionJson, null, 2);
+    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+
+    // Configure tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-repo-description' },
+      { name: 'Repository', value: descriptionData.repository },
+      { name: 'git-owner', value: descriptionData.owner },
+      { name: 'git-repo-description', value: descriptionData.description },
+      { name: 'Content-Type', value: 'application/json' },
+    ];
+
+    // Add Root-TX tag if updating existing description
+    if (descriptionData.existingRootTxId) {
+      tags.push({ name: 'Root-TX', value: descriptionData.existingRootTxId });
+    }
+
+    // Upload to Irys
+    const result = await uploader.uploadFile(dataBlob, { tags });
+
+    return {
+      success: true,
+      txId: result.id,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'An unknown error occurred.',
+    };
+  }
+}
+
 // 대시보드 통계 정보 인터페이스
 export interface DashboardStats {
   repositoryCount: number;
@@ -1473,8 +1846,6 @@ export async function debugAllTags(): Promise<void> {
     return;
   }
 
-  console.log('🔍 전체 태그 디버깅 시작');
-
   const query = `
     query debugAllTags {
       transactions(
@@ -1504,14 +1875,12 @@ export async function debugAllTags(): Promise<void> {
     });
 
     if (!response.ok) {
-      console.warn('❌ 태그 디버깅 HTTP 오류:', response.statusText);
       return;
     }
 
     const result = await response.json();
 
     if (result.errors) {
-      console.warn('❌ 태그 디버깅 GraphQL 오류:', result.errors);
       return;
     }
 
@@ -1529,14 +1898,13 @@ export async function debugAllTags(): Promise<void> {
       }
     }
 
-    console.log('📊 태그 사용 빈도:');
     Array.from(tagCounts.entries())
       .sort(([, a], [, b]) => b - a)
       .forEach(([tagName, count]) => {
-        console.log(`  ${tagName}: ${count}개`);
+        // 태그 정보 출력 로그 제거
       });
   } catch (error) {
-    console.error('❌ 태그 디버깅 오류:', error);
+    // 태그 디버깅 오류 로그 제거
   }
 }
 

@@ -39,17 +39,13 @@ async function runTests() {
     visibility: 'private' as const,
   } as const;
 
-  console.log('===== 권한 업데이트: 소유자 시도 =====');
-  console.log(await updateRepositoryPermissions(ownerUploader, permsData));
+  await updateRepositoryPermissions(ownerUploader, permsData);
 
-  console.log('\n===== 권한 업데이트: 공격자 시도 =====');
-  console.log(await updateRepositoryPermissions(attackerUploader, permsData));
+  await updateRepositoryPermissions(attackerUploader, permsData);
 
-  console.log('\n===== 노출 권한 업데이트: 소유자 시도 =====');
-  console.log(await updateRepositoryVisibility(ownerUploader, visData));
+  await updateRepositoryVisibility(ownerUploader, visData);
 
-  console.log('\n===== 노출 권한 업데이트: 공격자 시도 =====');
-  console.log(await updateRepositoryVisibility(attackerUploader, visData));
+  await updateRepositoryVisibility(attackerUploader, visData);
 }
 
 runTests().catch(console.error);

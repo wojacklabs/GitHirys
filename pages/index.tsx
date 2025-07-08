@@ -7,6 +7,7 @@ import Head from 'next/head';
 import {
   createIrysUploader,
   searchRepositories,
+  searchAllRepositories,
   getProfileByNickname,
   ProfileUtils,
   getDashboardStats,
@@ -131,22 +132,15 @@ const Home: NextPage = () => {
           setSearchError('Error occurred while searching');
         }
       } else {
-        // 저장소 검색 - 연결된 지갑의 저장소에서 검색
+        // 저장소 검색 - 모든 저장소에서 검색
 
-        if (wallet.publicKey) {
-          // 연결된 지갑의 저장소에서 검색
-          const publicKeyString = wallet.publicKey.toBase58();
-          const repos = await searchRepositories(
-            publicKeyString,
-            publicKeyString
-          );
-          const matchingRepos = repos.filter(repo =>
-            repo.name.toLowerCase().includes(searchQuery.toLowerCase())
-          );
+        try {
+          const currentWallet = wallet.publicKey?.toBase58() || undefined;
+          const repos = await searchAllRepositories(searchQuery, currentWallet);
 
-          if (matchingRepos.length > 0) {
+          if (repos.length > 0) {
             setSearchResults(
-              matchingRepos.map(repo => ({
+              repos.map(repo => ({
                 ...repo,
                 type: 'repository',
               }))
@@ -154,8 +148,8 @@ const Home: NextPage = () => {
           } else {
             setSearchError(`Repository called '${searchQuery}' not found`);
           }
-        } else {
-          setSearchError('Connect your wallet to search repositories.');
+        } catch (error) {
+          setSearchError('Error occurred while searching repositories');
         }
       }
     } catch (error) {

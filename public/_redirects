@@ -1,0 +1,26 @@
+# Cloudflare Pages SPA 라우팅을 위한 리다이렉트 설정
+# 정적 파일들은 그대로 서빙
+/static/* /static/:splat 200
+/_next/* /_next/:splat 200
+/favicon.ico /favicon.ico 200
+/logo.jpg /logo.jpg 200
+/logo2.png /logo2.png 200
+/card_background.png /card_background.png 200
+/sprite_favicon.webp /sprite_favicon.webp 200
+/Sprite.webp /Sprite.webp 200
+
+# API 라우트들 (있는 경우)
+/api/* /api/:splat 200
+
+# 존재하는 페이지들
+/profile /profile.html 200
+/404 /404.html 200
+
+# 동적 라우팅을 위한 catch-all 규칙
+# 사용자 페이지: /user
+/*/:user /[user].html 200
+# 사용자 저장소 페이지: /user/repo  
+/*/:user/:repo /[user]/[repo].html 200
+
+# 최종 fallback - 모든 미매칭 라우트를 index.html로 리다이렉트
+/* /index.html 200 

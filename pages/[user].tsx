@@ -13,15 +13,29 @@ import {
 import Link from 'next/link';
 import styles from '../styles/UserPage.module.css';
 
-const UserPage: NextPage = () => {
+interface UserPageProps {
+  user?: string;
+  userProfile?: UserProfile | null;
+  actualWalletAddress?: string;
+}
+
+const UserPage: NextPage<UserPageProps> = ({
+  user: propUser,
+  userProfile: initialUserProfile,
+  actualWalletAddress: initialWalletAddress,
+}) => {
   const router = useRouter();
   const { user: queryUser } = router.query;
   const wallet = useClientWallet();
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
   const [targetUser, setTargetUser] = useState<string>('');
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [actualWalletAddress, setActualWalletAddress] = useState<string>('');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(
+    initialUserProfile || null
+  );
+  const [actualWalletAddress, setActualWalletAddress] = useState<string>(
+    initialWalletAddress || ''
+  );
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   useEffect(() => {
@@ -33,15 +47,19 @@ const UserPage: NextPage = () => {
   }, [wallet.connected, wallet.publicKey]);
 
   useEffect(() => {
-    if (typeof queryUser === 'string') {
-      setTargetUser(queryUser);
+    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
+    if (user) {
+      setTargetUser(user);
     }
-  }, [queryUser]);
+  }, [propUser, queryUser]);
 
   // 사용자 정보 로드 (닉네임 또는 지갑 주소)
   useEffect(() => {
     const loadUserInfo = async () => {
       if (!targetUser) return;
+
+      // 이미 props에서 데이터를 받았으면 스킵
+      if (initialUserProfile && initialWalletAddress) return;
 
       setIsLoadingProfile(true);
       try {
@@ -77,7 +95,7 @@ const UserPage: NextPage = () => {
     };
 
     loadUserInfo();
-  }, [targetUser, router]);
+  }, [targetUser, initialUserProfile, initialWalletAddress, router]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -108,6 +126,34 @@ const UserPage: NextPage = () => {
       ? `${actualWalletAddress.substring(0, 8)}...${actualWalletAddress.slice(-4)}`
       : 'GitHirys');
 
+  // 프로필 정보 로딩 중
+  if (isLoadingProfile) {
+    return (
+      <>
+        <Head>
+          <title>{pageTitle}</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Fetching User Data...</p>
+        </div>
+      </>
+    );
+  }
+
+  // 필수 정보 확인 중
+  if (!targetUser) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Fetching Page Data...</p>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -133,8 +179,10 @@ const UserPage: NextPage = () => {
                       <span className={styles.ownProfileBadge}>✅ ME</span>
                     )}
                   </>
-                ) : (
+                ) : actualWalletAddress ? (
                   `${actualWalletAddress.substring(0, 8)}...'s Repository`
+                ) : (
+                  `${targetUser}'s Repository`
                 )}
               </h1>
               {userProfile?.twitterHandle && (
@@ -164,7 +212,7 @@ const UserPage: NextPage = () => {
               <div className={styles.profileInfoRow}>
                 <span className={styles.profileInfoLabel}>Wallet Address</span>
                 <code className={styles.walletAddress}>
-                  {actualWalletAddress}
+                  {actualWalletAddress || targetUser}
                 </code>
               </div>
               {userProfile?.nickname && (
@@ -182,7 +230,7 @@ const UserPage: NextPage = () => {
           <div>
             <RepoList
               uploader={null}
-              owner={actualWalletAddress}
+              owner={actualWalletAddress || targetUser}
               currentWallet={publicKey}
             />
           </div>
@@ -190,7 +238,7 @@ const UserPage: NextPage = () => {
           <div>
             <RepoList
               uploader={uploader}
-              owner={actualWalletAddress}
+              owner={actualWalletAddress || targetUser}
               currentWallet={publicKey}
             />
           </div>
@@ -199,5 +247,22 @@ const UserPage: NextPage = () => {
     </>
   );
 };
+
+export async function getStaticPaths() {
+  // 정적 사이트 생성에서는 fallback을 false로 설정
+  // 모든 경로는 클라이언트 사이드에서 처리
+  return {
+    paths: [],
+    fallback: false,
+  };
+}
+
+export async function getStaticProps({ params }: { params: { user: string } }) {
+  // 정적 사이트에서는 빌드 시점에 모든 경로를 알 수 없으므로
+  // 클라이언트 사이드에서 처리하도록 기본 props만 반환
+  return {
+    props: {},
+  };
+}
 
 export default UserPage;

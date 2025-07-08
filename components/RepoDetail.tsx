@@ -10,10 +10,14 @@ import {
   TimestampUtils,
   getRepositoryPermissions,
   getProfileByAddress,
+  getRepositoryDescription,
+  updateRepositoryDescription,
+  RepositoryDescription,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
 import VisibilityManager from './VisibilityManager';
+import RepoShareCard from './RepoShareCard';
 import styles from '../styles/RepoDetail.module.css';
 
 interface FileInfo {
@@ -517,6 +521,13 @@ export default function RepoDetail({
   const [contributors, setContributors] = useState<any[]>([]);
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [refreshPermissions, setRefreshPermissions] = useState(0);
+  const [description, setDescription] = useState<string>('');
+  const [editingDescription, setEditingDescription] = useState<string>('');
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [savingDescription, setSavingDescription] = useState(false);
+  const [repositoryDescription, setRepositoryDescription] =
+    useState<RepositoryDescription | null>(null);
+  const [showRepoShareCard, setShowRepoShareCard] = useState(false);
   const router = useRouter();
 
   // 브랜치 변경 핸들러
@@ -544,6 +555,7 @@ export default function RepoDetail({
   ) => {
     try {
       setLoading(true);
+      setError(null);
 
       // Get transaction details
       const txDetails = await getTransactionById(transactionId);
@@ -606,7 +618,7 @@ export default function RepoDetail({
           if (filename && fileSize > 0 && !filename.endsWith('/')) {
             // 메타데이터 파일들을 제외
             if (shouldExcludeFile(filename)) {
-              console.log(`🚫 메타데이터 파일 제외: ${filename}`);
+              // 메타데이터 파일 제외 로그 제거
             } else {
               // Read file content
               const fileData = uint8Array.slice(offset, offset + fileSize);
@@ -665,21 +677,14 @@ export default function RepoDetail({
 
         if (extractedFiles.length > 0) {
           extractionSuccess = true;
-          console.log(
-            `✅ tar에서 ${extractedFiles.length}개의 파일을 추출했습니다.`
-          );
         }
       } catch (tarError) {
-        console.log(
-          'tar 추출 실패, 다른 형식 시도:',
-          tarError instanceof Error ? tarError.message : String(tarError)
-        );
+        // tar 추출 실패, zip 형식 시도
       }
 
       // 2. Try ZIP format if TAR fails
       if (!extractionSuccess) {
         try {
-          console.log('zip 형식으로 압축 해제 시도 중...');
           const zip = new JSZip();
           const zipContent = await zip.loadAsync(data);
 
@@ -687,7 +692,7 @@ export default function RepoDetail({
             if (!file.dir) {
               // 메타데이터 파일들을 제외
               if (shouldExcludeFile(filepath)) {
-                console.log(`🚫 메타데이터 파일 제외: ${filepath}`);
+                // 메타데이터 파일 제외 로그 제거
                 continue;
               }
 
@@ -743,22 +748,14 @@ export default function RepoDetail({
 
           if (extractedFiles.length > 0) {
             extractionSuccess = true;
-            console.log(
-              `✅ zip에서 ${extractedFiles.length}개의 파일을 추출했습니다.`
-            );
           }
         } catch (zipError) {
-          console.log(
-            'zip 추출 실패, 원본 데이터 표시 시도:',
-            zipError instanceof Error ? zipError.message : String(zipError)
-          );
+          // zip 추출 실패, 원본 데이터 표시 시도
         }
       }
 
       // 3. If both archive formats fail, try to display as single file
       if (!extractionSuccess) {
-        console.warn('⚠️ 모든 압축 해제 실패, 원본 데이터를 단일 파일로 표시');
-
         // 파일 이름이 있는지 확인 (URL이나 다른 소스에서)
         let filename = 'unknown-file';
         if (selectedBranch?.mutableAddress) {
@@ -791,9 +788,6 @@ export default function RepoDetail({
               mimeType: binaryTypeInfo.mimeType,
             },
           ];
-          console.log(
-            `✅ 원본 데이터를 ${binaryTypeInfo.type} 파일로 표시합니다.`
-          );
         } else {
           // 텍스트로 처리 시도
           try {
@@ -809,7 +803,6 @@ export default function RepoDetail({
                 mimeType: 'text/plain',
               },
             ];
-            console.log('✅ 원본 데이터를 텍스트로 표시합니다.');
           } catch (decodeError) {
             console.error('텍스트 디코딩도 실패:', decodeError);
             extractedFiles = [
@@ -828,7 +821,6 @@ export default function RepoDetail({
       }
 
       setFiles(extractedFiles);
-      console.log(`📁 총 ${extractedFiles.length}개의 파일을 로드했습니다.`);
     } catch (error) {
       console.error('브랜치 데이터 로딩 중 오류:', error);
       setError(
@@ -844,7 +836,6 @@ export default function RepoDetail({
       try {
         setLoading(true);
         setError(null);
-        console.log('저장소 상세 정보 로딩:', { repoName, owner, repo });
 
         let transactionId: string;
         let mutableAddress: string | null = null;
@@ -853,12 +844,6 @@ export default function RepoDetail({
 
         // 항상 최신 정보를 가져오기 위해 저장소 검색을 다시 수행
         if (!repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
-          console.log(
-            '🔄 저장소 이름으로 최신 정보 검색:',
-            repoName,
-            repo?.isLatest ? '(최신 데이터 요청됨)' : ''
-          );
-
           if (!owner) {
             throw new Error('Wallet not connected.');
           }
@@ -889,33 +874,19 @@ export default function RepoDetail({
                 b => b.name === targetRepo.defaultBranch
               ) ||
               targetRepo.branches[0];
-            console.log(
-              '전달받은 브랜치 정보를 최신 데이터와 매칭:',
-              currentBranch?.name
-            );
           } else {
             currentBranch =
               targetRepo.branches.find(
                 b => b.name === targetRepo.defaultBranch
               ) || targetRepo.branches[0];
-            console.log('기본 브랜치 선택:', currentBranch?.name);
           }
 
           transactionId = currentBranch.transactionId;
           mutableAddress = currentBranch.mutableAddress;
-          console.log(
-            '최신 저장소 정보 사용:',
-            targetRepo.name,
-            '브랜치:',
-            currentBranch.name,
-            'mutable:',
-            mutableAddress
-          );
         }
         // 직접 트랜잭션 ID로 접근하는 경우
         else {
           transactionId = repoName;
-          console.log('직접 트랜잭션 ID 사용:', transactionId);
         }
 
         // 저장소와 브랜치 정보 설정
@@ -979,6 +950,86 @@ export default function RepoDetail({
     loadRepositoryMembers();
   }, [repository, owner, refreshPermissions]);
 
+  // Load repository description
+  useEffect(() => {
+    const loadRepositoryDescription = async () => {
+      if (!repository || !owner) return;
+
+      try {
+        const descriptionData = await getRepositoryDescription(
+          repository.name,
+          owner
+        );
+        if (descriptionData) {
+          setRepositoryDescription(descriptionData);
+          setDescription(descriptionData.description);
+        } else {
+          setRepositoryDescription(null);
+          setDescription('');
+        }
+      } catch (error) {
+        console.error('Error loading repository description:', error);
+      }
+    };
+
+    loadRepositoryDescription();
+  }, [repository, owner]);
+
+  // Save repository description
+  const handleSaveDescription = async () => {
+    if (!repository || !owner || !uploader || !currentWallet) return;
+
+    // Only repository owner can edit description
+    if (currentWallet !== owner) {
+      alert('Only repository owner can edit the description.');
+      return;
+    }
+
+    try {
+      setSavingDescription(true);
+
+      const result = await updateRepositoryDescription(uploader, {
+        repository: repository.name,
+        owner: owner,
+        description: editingDescription,
+        existingRootTxId: repositoryDescription?.rootTxId,
+      });
+
+      if (result.success) {
+        setDescription(editingDescription);
+        setIsEditingDescription(false);
+
+        // Update repository description data
+        const updatedDescriptionData = await getRepositoryDescription(
+          repository.name,
+          owner
+        );
+        if (updatedDescriptionData) {
+          setRepositoryDescription(updatedDescriptionData);
+        }
+      } else {
+        alert(`Error saving description: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving description:', error);
+      alert('Error saving description. Please try again.');
+    } finally {
+      setSavingDescription(false);
+    }
+  };
+
+  // Cancel editing description
+  const handleCancelEditDescription = () => {
+    setEditingDescription(description);
+    setIsEditingDescription(false);
+  };
+
+  // Start editing description
+  const handleStartEditDescription = () => {
+    setEditingDescription(description);
+    setIsEditingDescription(true);
+  };
+
   // 사용자 페이지로 이동하는 핸들러
   const handleUserClick = (user: any) => {
     // 프로필이 있으면 닉네임으로, 없으면 지갑 주소로 이동
@@ -987,6 +1038,16 @@ export default function RepoDetail({
     } else {
       router.push(`/${user.address}`);
     }
+  };
+
+  // 저장소 공유 카드 열기 핸들러
+  const handleOpenRepoShareCard = () => {
+    setShowRepoShareCard(true);
+  };
+
+  // 저장소 공유 카드 닫기 핸들러
+  const handleCloseRepoShareCard = () => {
+    setShowRepoShareCard(false);
   };
 
   const handleFileClick = (item: any) => {
@@ -1008,18 +1069,8 @@ export default function RepoDetail({
       file?.fileType === 'binary'
     ) {
       setFileContent('');
-      console.log(
-        `🎯 ${file.fileType} 파일 선택:`,
-        file.path,
-        `(${file.size} bytes)`
-      );
     } else {
       setFileContent(file?.content || '파일 내용을 불러올 수 없습니다.');
-      console.log(
-        '📄 텍스트 파일 선택:',
-        file?.path,
-        `(${file?.size || 0} bytes)`
-      );
     }
   };
 
@@ -1377,6 +1428,13 @@ export default function RepoDetail({
           <h2 className={styles.repoTitle}>
             📁 {repository?.name || repoName}
           </h2>
+          <button
+            className={styles.shareButton}
+            onClick={handleOpenRepoShareCard}
+            title="Share Repository"
+          >
+            Share
+          </button>
         </div>
         <div className={styles.repoSubRow}>
           {/* 브랜치 선택 드롭다운 */}
@@ -1408,6 +1466,83 @@ export default function RepoDetail({
             </div>
           )}
         </div>
+
+        {/* Repository Description Section - Description visible to all, editing only for owner */}
+        {repository && owner && description && (
+          <div className={styles.descriptionSection}>
+            <h3 className={styles.descriptionTitle}>Project Description</h3>
+            <div className={styles.descriptionText}>{description}</div>
+            {/* Edit button only visible to repository owner */}
+            {currentWallet === owner && (
+              <div className={styles.areaeditDescriptionButton}>
+                <button
+                  onClick={handleStartEditDescription}
+                  className={styles.editDescriptionButton}
+                >
+                  Edit Description
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Repository Description Editor - Only visible to repository owner when editing */}
+        {repository &&
+          owner &&
+          currentWallet === owner &&
+          isEditingDescription && (
+            <div className={styles.descriptionSection}>
+              <h3 className={styles.descriptionTitle}>Project Description</h3>
+              <div className={styles.descriptionEditor}>
+                <textarea
+                  value={editingDescription}
+                  onChange={e => setEditingDescription(e.target.value)}
+                  placeholder="Describe your project..."
+                  className={styles.descriptionTextarea}
+                  rows={4}
+                />
+                <div className={styles.descriptionActions}>
+                  <button
+                    onClick={handleSaveDescription}
+                    disabled={savingDescription}
+                    className={styles.saveDescriptionButton}
+                  >
+                    {savingDescription ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleCancelEditDescription}
+                    disabled={savingDescription}
+                    className={styles.cancelDescriptionButton}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* Add Description Section - Only visible to repository owner when no description exists */}
+        {repository &&
+          owner &&
+          currentWallet === owner &&
+          !description &&
+          !isEditingDescription && (
+            <div className={styles.descriptionSection}>
+              <h3 className={styles.descriptionTitle}>Project Description</h3>
+              <div className={styles.descriptionPlaceholder}>
+                Add a description to help others understand your project
+              </div>
+              <div className={styles.areaeditDescriptionButton}>
+                <button
+                  onClick={handleStartEditDescription}
+                  className={styles.editDescriptionButton}
+                >
+                  Add Description
+                </button>
+              </div>
+            </div>
+          )}
+
         {/* 저장소 소유자와 contributor 정보 */}
         {repositoryOwner && (
           <div className={styles.membersSection}>
@@ -1508,6 +1643,7 @@ export default function RepoDetail({
             </div>
           </div>
         )}
+
         <div className={styles.repoMeta}>
           <div className={styles.repoMetaRow}>
             <span className={styles.repoMetaTitle}>Transaction Id :</span>
@@ -1819,6 +1955,22 @@ export default function RepoDetail({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 저장소 공유 카드 팝업 */}
+      {showRepoShareCard && repository && (
+        <RepoShareCard
+          repositoryName={repository.name}
+          description={description || 'No description available'}
+          owner={repositoryOwner || { address: owner || 'Unknown' }}
+          contributors={contributors || []}
+          lastUpdated={
+            selectedBranch?.timestamp
+              ? TimestampUtils.formatRelative(selectedBranch.timestamp)
+              : 'Unknown'
+          }
+          onClose={handleCloseRepoShareCard}
+        />
       )}
     </div>
   );
