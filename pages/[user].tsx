@@ -2,6 +2,7 @@ import type { NextPage } from 'next';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useClientWallet } from '../lib/useClientWallet';
+import { useRouterContext } from '../lib/RouterContext';
 import Head from 'next/head';
 import RepoList from '../components/RepoList';
 import {
@@ -25,7 +26,7 @@ const UserPage: NextPage<UserPageProps> = ({
   actualWalletAddress: initialWalletAddress,
 }) => {
   const router = useRouter();
-  const { user: queryUser } = router.query;
+  const { isRouteReady, currentUser, isValidRoute } = useRouterContext();
   const wallet = useClientWallet();
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
@@ -47,11 +48,11 @@ const UserPage: NextPage<UserPageProps> = ({
   }, [wallet.connected, wallet.publicKey]);
 
   useEffect(() => {
-    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
+    const user = propUser || currentUser || '';
     if (user) {
       setTargetUser(user);
     }
-  }, [propUser, queryUser]);
+  }, [propUser, currentUser]);
 
   // 사용자 정보 로드 (닉네임 또는 지갑 주소)
   useEffect(() => {
@@ -125,6 +126,34 @@ const UserPage: NextPage<UserPageProps> = ({
     (actualWalletAddress
       ? `${actualWalletAddress.substring(0, 8)}...${actualWalletAddress.slice(-4)}`
       : 'GitHirys');
+
+  // 라우트 준비 중
+  if (!isRouteReady) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Loading Page...</p>
+        </div>
+      </>
+    );
+  }
+
+  // 유효하지 않은 라우트
+  if (!isValidRoute) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Invalid Route</p>
+        </div>
+      </>
+    );
+  }
 
   // 프로필 정보 로딩 중
   if (isLoadingProfile) {

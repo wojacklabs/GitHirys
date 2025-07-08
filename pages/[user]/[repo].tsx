@@ -2,6 +2,7 @@ import type { NextPage } from 'next';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useClientWallet } from '../../lib/useClientWallet';
+import { useRouterContext } from '../../lib/RouterContext';
 import Head from 'next/head';
 import RepoDetail from '../../components/RepoDetail';
 import {
@@ -27,7 +28,8 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
   actualWalletAddress: initialWalletAddress,
 }) => {
   const router = useRouter();
-  const { user: queryUser, repo: queryRepo } = router.query;
+  const { isRouteReady, currentUser, currentRepo, isValidRoute } =
+    useRouterContext();
   const wallet = useClientWallet();
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
@@ -51,13 +53,13 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
   }, [wallet.connected, wallet.publicKey]);
 
   useEffect(() => {
-    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
-    const repo = propRepo || (typeof queryRepo === 'string' ? queryRepo : '');
+    const user = propUser || currentUser || '';
+    const repo = propRepo || currentRepo || '';
     if (user && repo) {
       setTargetUser(user);
       setTargetRepo(repo);
     }
-  }, [propUser, propRepo, queryUser, queryRepo]);
+  }, [propUser, propRepo, currentUser, currentRepo]);
 
   // 사용자 정보 로드 (닉네임 또는 지갑 주소)
   useEffect(() => {
@@ -130,6 +132,34 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
 
   // 페이지 타이틀 생성
   const pageTitle = targetRepo || 'GitHirys';
+
+  // 라우트 준비 중
+  if (!isRouteReady) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Loading Page...</p>
+        </div>
+      </>
+    );
+  }
+
+  // 유효하지 않은 라우트
+  if (!isValidRoute) {
+    return (
+      <>
+        <Head>
+          <title>GitHirys</title>
+        </Head>
+        <div className="container">
+          <p style={{ marginTop: 40 }}>Invalid Route</p>
+        </div>
+      </>
+    );
+  }
 
   // 프로필 정보 로딩 중
   if (isLoadingProfile) {
