@@ -173,15 +173,7 @@ const ProfilePage: NextPage = () => {
       return;
     }
 
-    // 이미지 크기 검증 (400x400)
-    const isValidSize = await ProfileUtils.validateImageSize(file);
-    if (!isValidSize) {
-      setErrors(prev => ({
-        ...prev,
-        image: 'Image should be 400x400(pixel) size',
-      }));
-      return;
-    }
+    // No size restriction - any image size is accepted
 
     setProfileImage(file);
     setPreviewUrl(URL.createObjectURL(file));
@@ -335,10 +327,7 @@ const ProfilePage: NextPage = () => {
                   >
                     Upload image
                   </button>
-                  <p className={styles.guide_image}>
-                    · 400x400(pixel) size
-                    <br />· 5MB max
-                  </p>
+                  <p className={styles.guide_image}>· 5MB max</p>
                 </div>
               </div>
               {errors.image && (

@@ -773,16 +773,9 @@ export const ProfileUtils = {
     return handle.startsWith('@') ? handle.slice(1) : handle;
   },
 
-  // 프로필 이미지 크기 검증
+  // Profile image validation (no size restriction)
   validateImageSize: (file: File): Promise<boolean> => {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        resolve(img.width === 400 && img.height === 400);
-      };
-      img.onerror = () => resolve(false);
-      img.src = URL.createObjectURL(file);
-    });
+    return Promise.resolve(true);
   },
 };
 
