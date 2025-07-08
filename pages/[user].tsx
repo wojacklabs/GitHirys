@@ -2,7 +2,6 @@ import type { NextPage } from 'next';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useClientWallet } from '../lib/useClientWallet';
-import { useRouterContext } from '../lib/RouterContext';
 import Head from 'next/head';
 import RepoList from '../components/RepoList';
 import {
@@ -26,7 +25,7 @@ const UserPage: NextPage<UserPageProps> = ({
   actualWalletAddress: initialWalletAddress,
 }) => {
   const router = useRouter();
-  const { isRouteReady, currentUser, isValidRoute } = useRouterContext();
+  const { user: queryUser } = router.query;
   const wallet = useClientWallet();
   const [publicKey, setPublicKey] = useState('');
   const [uploader, setUploader] = useState<any>(null);
@@ -48,19 +47,22 @@ const UserPage: NextPage<UserPageProps> = ({
   }, [wallet.connected, wallet.publicKey]);
 
   useEffect(() => {
-    const user = propUser || currentUser || '';
+    const user = propUser || (typeof queryUser === 'string' ? queryUser : '');
     if (user) {
       setTargetUser(user);
     }
-  }, [propUser, currentUser]);
+  }, [propUser, queryUser]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
+  // 사용자 정보 로드 (닉네임 또는 지갑 주소) - props에서 받지 못한 경우에만 실행
   useEffect(() => {
     const loadUserInfo = async () => {
       if (!targetUser) return;
 
       // 이미 props에서 데이터를 받았으면 스킵
       if (initialUserProfile && initialWalletAddress) return;
+
+      // router가 준비되지 않은 상태면 대기
+      if (!router.isReady) return;
 
       setIsLoadingProfile(true);
       try {
@@ -96,7 +98,13 @@ const UserPage: NextPage<UserPageProps> = ({
     };
 
     loadUserInfo();
-  }, [targetUser, initialUserProfile, initialWalletAddress, router]);
+  }, [
+    targetUser,
+    initialUserProfile,
+    initialWalletAddress,
+    router,
+    router.isReady,
+  ]);
 
   // Create uploader when wallet changes
   useEffect(() => {
@@ -126,34 +134,6 @@ const UserPage: NextPage<UserPageProps> = ({
     (actualWalletAddress
       ? `${actualWalletAddress.substring(0, 8)}...${actualWalletAddress.slice(-4)}`
       : 'GitHirys');
-
-  // 라우트 준비 중
-  if (!isRouteReady) {
-    return (
-      <>
-        <Head>
-          <title>GitHirys</title>
-        </Head>
-        <div className="container">
-          <p style={{ marginTop: 40 }}>Loading Page...</p>
-        </div>
-      </>
-    );
-  }
-
-  // 유효하지 않은 라우트
-  if (!isValidRoute) {
-    return (
-      <>
-        <Head>
-          <title>GitHirys</title>
-        </Head>
-        <div className="container">
-          <p style={{ marginTop: 40 }}>Invalid Route</p>
-        </div>
-      </>
-    );
-  }
 
   // 프로필 정보 로딩 중
   if (isLoadingProfile) {
@@ -277,6 +257,47 @@ const UserPage: NextPage<UserPageProps> = ({
   );
 };
 
-// SPA 모드로 전환하여 모든 라우팅을 클라이언트 사이드에서 처리
+// 서버 사이드에서 사용자 정보를 미리 가져옴
+export async function getServerSideProps(context: any) {
+  const { user } = context.params;
+
+  try {
+    // 솔라나 지갑 주소 형식인지 확인
+    const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(user);
+
+    let userProfile: UserProfile | null = null;
+    let actualWalletAddress: string = '';
+
+    if (isWalletAddress) {
+      // 지갑 주소로 프로필 조회
+      actualWalletAddress = user;
+      userProfile = await getProfileByAddress(user);
+    } else {
+      // 닉네임으로 프로필 조회
+      userProfile = await getProfileByNickname(user);
+      if (userProfile) {
+        actualWalletAddress = userProfile.accountAddress;
+      } else {
+        // 닉네임에 해당하는 프로필이 없는 경우 404 반환
+        return {
+          notFound: true,
+        };
+      }
+    }
+
+    return {
+      props: {
+        user,
+        userProfile,
+        actualWalletAddress,
+      },
+    };
+  } catch (error) {
+    console.error('서버 사이드 사용자 정보 로딩 오류:', error);
+    return {
+      notFound: true,
+    };
+  }
+}
 
 export default UserPage;

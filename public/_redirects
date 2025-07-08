@@ -12,11 +12,5 @@
 # API 라우트들 (있는 경우)
 /api/* /api/:splat 200
 
-# 동적 라우트들 처리
-/:user/:repo/* /index.html 200
-/:user/:repo /index.html 200
-/:user/* /index.html 200
-/:user /index.html 200
-
 # SPA 모드: 모든 라우트를 index.html로 리다이렉트
 /* /index.html 200 

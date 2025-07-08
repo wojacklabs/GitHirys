@@ -21,17 +21,6 @@ const SolanaProvider = dynamic(() => import('../components/SolanaProvider'), {
   loading: () => <div>Loading wallet...</div>,
 });
 
-const RouterProvider = dynamic(
-  () =>
-    import('../lib/RouterContext').then(mod => ({
-      default: mod.RouterProvider,
-    })),
-  {
-    ssr: false,
-    loading: () => <div>Loading...</div>,
-  }
-);
-
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -101,13 +90,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         />
         <meta name="theme-color" content="#ffffff" />
       </Head>
-      <RouterProvider>
-        <SolanaProvider>
-          <Header showSearch={showSearch} />
-          <Component {...pageProps} />
-          <CustomCursor />
-        </SolanaProvider>
-      </RouterProvider>
+      <SolanaProvider>
+        <Header showSearch={showSearch} />
+        <Component {...pageProps} />
+        <CustomCursor />
+      </SolanaProvider>
     </>
   );
 }
