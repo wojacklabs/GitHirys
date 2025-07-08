@@ -12,6 +12,7 @@ import {
   ProfileUtils,
   UserProfile,
 } from '../lib/irys';
+import ProfileCard from '../components/ProfileCard';
 import styles from '../styles/ProfilePage.module.css';
 
 const ProfilePage: NextPage = () => {
@@ -42,6 +43,27 @@ const ProfilePage: NextPage = () => {
   const [nicknameAvailable, setNicknameAvailable] = useState<boolean | null>(
     null
   );
+
+  // 명함카드 팝업 상태
+  const [showProfileCard, setShowProfileCard] = useState(false);
+  const [profileCardData, setProfileCardData] = useState<{
+    nickname: string;
+    walletAddress: string;
+    joinDate: string;
+    profileImageUrl?: string;
+  } | null>(null);
+  const [shouldRefreshAfterClose, setShouldRefreshAfterClose] = useState(false);
+
+  // 명함카드 팝업 닫기 핸들러
+  const handleCloseProfileCard = () => {
+    setShowProfileCard(false);
+    if (shouldRefreshAfterClose) {
+      setShouldRefreshAfterClose(false);
+      setTimeout(() => {
+        window.location.reload();
+      }, 300); // 팝업 닫힌 후 약간의 지연을 두고 새로고침
+    }
+  };
 
   // 지갑 연결 처리
   useEffect(() => {
@@ -217,10 +239,24 @@ const ProfilePage: NextPage = () => {
 
       if (result.success) {
         setSuccessMessage('Profile Saved!');
-        // 프로필 정보 새로고침
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+
+        // 명함카드 팝업 데이터 설정
+        const joinDate = existingProfile
+          ? new Date(existingProfile.timestamp * 1000).toLocaleDateString(
+              'en-US'
+            )
+          : new Date().toLocaleDateString('en-US');
+
+        setProfileCardData({
+          nickname,
+          walletAddress: publicKey,
+          joinDate,
+          profileImageUrl: previewUrl || undefined,
+        });
+
+        // 명함카드 팝업 표시
+        setShowProfileCard(true);
+        setShouldRefreshAfterClose(true);
       } else {
         setErrors({ general: result.error || 'Failed to save Profile.' });
       }
@@ -410,6 +446,17 @@ const ProfilePage: NextPage = () => {
           </div>
         )}
       </div>
+
+      {/* 명함카드 팝업 */}
+      {showProfileCard && profileCardData && (
+        <ProfileCard
+          nickname={profileCardData.nickname}
+          walletAddress={profileCardData.walletAddress}
+          joinDate={profileCardData.joinDate}
+          profileImageUrl={profileCardData.profileImageUrl}
+          onClose={handleCloseProfileCard}
+        />
+      )}
     </>
   );
 };
