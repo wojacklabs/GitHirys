@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useClientWallet } from '../lib/useClientWallet';
 import Head from 'next/head';
+import Marquee from 'react-fast-marquee';
 import {
   createIrysUploader,
   searchRepositories,
@@ -12,6 +13,10 @@ import {
   ProfileUtils,
   getDashboardStats,
   DashboardStats,
+  getRecentUsers,
+  getRecentRepositories,
+  RecentUser,
+  RecentRepository,
 } from '../lib/irys';
 import styles from '../styles/HomePage.module.css';
 import AnimatedNumber from '../components/AnimatedNumber';
@@ -21,12 +26,18 @@ const Home: NextPage = () => {
   const wallet = useClientWallet();
   const [uploader, setUploader] = useState<any>(null);
 
-  // 대시보드 통계 상태
+  // Dashboard statistics state
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(
     null
   );
 
-  // 검색 관련 상태
+  // Recent users and repositories state
+  const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
+  const [recentRepositories, setRecentRepositories] = useState<
+    RecentRepository[]
+  >([]);
+
+  // Search related state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<
     'repository' | 'wallet' | 'nickname'
@@ -35,18 +46,36 @@ const Home: NextPage = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  // 대시보드 통계 로드
+  // Load dashboard statistics
   useEffect(() => {
     const loadDashboardStats = async () => {
       try {
         const stats = await getDashboardStats();
         setDashboardStats(stats);
       } catch (error) {
-        console.error('대시보드 통계 로드 오류:', error);
+        console.error('Dashboard statistics load error:', error);
       }
     };
 
     loadDashboardStats();
+  }, []);
+
+  // Load recent users and repositories
+  useEffect(() => {
+    const loadRecentData = async () => {
+      try {
+        const [users, repositories] = await Promise.all([
+          getRecentUsers(),
+          getRecentRepositories(),
+        ]);
+        setRecentUsers(users);
+        setRecentRepositories(repositories);
+      } catch (error) {
+        console.error('Recent data load error:', error);
+      }
+    };
+
+    loadRecentData();
   }, []);
 
   // Create uploader when wallet changes
@@ -61,7 +90,7 @@ const Home: NextPage = () => {
         const newUploader = await createIrysUploader(wallet);
         setUploader(newUploader);
       } catch (error) {
-        console.error('Irys 업로더 생성 실패:', error);
+        console.error('Irys uploader creation failed:', error);
         setUploader(null);
       }
     };
@@ -69,14 +98,14 @@ const Home: NextPage = () => {
     initUploader();
   }, [wallet.connected, wallet]);
 
-  // 솔라나 지갑 주소 형식 검증
+  // Solana wallet address format validation
   const isValidSolanaAddress = (address: string): boolean => {
-    // 솔라나 주소는 32-44자의 Base58 문자열
+    // Solana address is 32-44 character Base58 string
     const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
     return base58Regex.test(address);
   };
 
-  // 검색 함수
+  // Search function
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchError('Type something to search');
@@ -89,9 +118,9 @@ const Home: NextPage = () => {
 
     try {
       if (searchType === 'wallet') {
-        // 지갑 주소 검색
+        // Wallet address search
         if (isValidSolanaAddress(searchQuery.trim())) {
-          // 지갑 정보를 결과 리스트에 표시
+          // Display wallet information in result list
           const walletAddress = searchQuery.trim();
           setSearchResults([
             {
@@ -105,8 +134,8 @@ const Home: NextPage = () => {
           setSearchError('Not a valid Solana address.');
         }
       } else if (searchType === 'nickname') {
-        // 닉네임 검색 (정확한 일치만 지원)
-        // 닉네임 형식 검증
+        // Nickname search (exact match only)
+        // Nickname format validation
         if (!ProfileUtils.isValidNickname(searchQuery.trim())) {
           setSearchError(
             'Not a valid nickname. (3-20 english letter, number, underbar)'
@@ -115,10 +144,10 @@ const Home: NextPage = () => {
         }
 
         try {
-          // 정확한 닉네임 검색
+          // Exact nickname search
           const profile = await getProfileByNickname(searchQuery.trim());
           if (profile) {
-            // 프로필을 결과 리스트에 표시
+            // Display profile in result list
             setSearchResults([
               {
                 ...profile,
@@ -132,7 +161,7 @@ const Home: NextPage = () => {
           setSearchError('Error occurred while searching');
         }
       } else {
-        // 저장소 검색 - 모든 저장소에서 검색
+        // Repository search - search all repositories
 
         try {
           const currentWallet = wallet.publicKey?.toBase58() || undefined;
@@ -159,23 +188,23 @@ const Home: NextPage = () => {
     }
   };
 
-  // 엔터키 처리
+  // Enter key handling
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   };
 
-  // 검색 결과 클릭 처리
+  // Search result click handling
   const handleSearchResultClick = (result: any) => {
     if (result.type === 'profile') {
-      // 프로필 결과인 경우 닉네임 페이지로 이동
+      // Navigate to nickname page for profile result
       router.push(`/${result.nickname}`);
     } else if (result.type === 'wallet') {
-      // 지갑 결과인 경우 지갑 페이지로 이동
+      // Navigate to wallet page for wallet result
       router.push(`/${result.address}`);
     } else if (result.type === 'repository') {
-      // 저장소 결과인 경우 저장소 페이지로 이동
+      // Navigate to repository page for repository result
       router.push(`/${result.owner}/${result.name}`);
     }
   };
@@ -186,10 +215,24 @@ const Home: NextPage = () => {
         <title>GitHirys (✧ᴗ✧)</title>
       </Head>
       <div className="container">
-        {/* 검색 섹션 */}
+        {/* Search section */}
         <div className={styles.area_search}>
-          {/* 검색창 */}
+          {/* Search input */}
           <div className={styles.area_input_search}>
+            <select
+              value={searchType}
+              onChange={e =>
+                setSearchType(
+                  e.target.value as 'repository' | 'nickname' | 'wallet'
+                )
+              }
+              className={styles.searchTypeSelect}
+              disabled={isSearching}
+            >
+              <option value="repository">Repository</option>
+              <option value="nickname">Nickname</option>
+              <option value="wallet">Wallet Address(sol)</option>
+            </select>
             <input
               type="text"
               value={searchQuery}
@@ -213,44 +256,11 @@ const Home: NextPage = () => {
               {isSearching ? 'Searching...' : 'Search'}
             </button>
           </div>
-          {/* 검색 타입 선택 */}
-          <div className={styles.area_search_type}>
-            <label className={styles.searchTypeLabel}>
-              <input
-                type="radio"
-                value="repository"
-                checked={searchType === 'repository'}
-                onChange={e => setSearchType(e.target.value as 'repository')}
-                className={styles.searchTypeInput}
-              />
-              Repository
-            </label>
-            <label className={styles.searchTypeLabel}>
-              <input
-                type="radio"
-                value="nickname"
-                checked={searchType === 'nickname'}
-                onChange={e => setSearchType(e.target.value as 'nickname')}
-                className={styles.searchTypeInput}
-              />
-              Nickname
-            </label>
-            <label className={styles.searchTypeLabel}>
-              <input
-                type="radio"
-                value="wallet"
-                checked={searchType === 'wallet'}
-                onChange={e => setSearchType(e.target.value as 'wallet')}
-                className={styles.searchTypeInput}
-              />
-              Wallet Address(sol)
-            </label>
-          </div>
-          {/* 검색 오류 */}
+          {/* Search error */}
           {searchError && (
             <div className={styles.searchError}>{searchError}</div>
           )}
-          {/* 검색 결과 */}
+          {/* Search results */}
           {searchResults.length > 0 && (
             <div className={styles.searchResults}>
               <h3 className={styles.searchResultsTitle}>
@@ -264,7 +274,7 @@ const Home: NextPage = () => {
                     className={styles.searchResultItem}
                   >
                     {result.type === 'profile' ? (
-                      // 프로필 결과 표시
+                      // Profile result display
                       <div className={styles.profileResult}>
                         {result.profileImageUrl && (
                           <img
@@ -292,7 +302,7 @@ const Home: NextPage = () => {
                         </div>
                       </div>
                     ) : result.type === 'wallet' ? (
-                      // 지갑 결과 표시
+                      // Wallet result display
                       <div className={styles.walletResult}>
                         <div>
                           <div className={styles.walletDisplayName}>
@@ -301,7 +311,7 @@ const Home: NextPage = () => {
                         </div>
                       </div>
                     ) : (
-                      // 저장소 결과 표시
+                      // Repository result display
                       <div className={styles.repoResult}>
                         <span>📁</span>
                         <span className={styles.repoName}>{result.name}</span>
@@ -320,7 +330,96 @@ const Home: NextPage = () => {
           )}
         </div>
 
-        {/* 대시보드 섹션 */}
+        {/* Recent users section */}
+        <div className={styles.area_recent_users}>
+          <h2 className={styles.title_recent}>Recent Users</h2>
+          <div className={styles.marquee_container}>
+            {recentUsers.length > 0 ? (
+              <Marquee speed={30} gradient={false} pauseOnHover={true}>
+                {recentUsers.map((user, index) => (
+                  <div
+                    key={index}
+                    className={styles.recent_user_item}
+                    onClick={() => router.push(`/${user.nickname}`)}
+                  >
+                    <div className={styles.user_image_container}>
+                      {user.profileImageUrl ? (
+                        <img
+                          src={user.profileImageUrl}
+                          alt={`${user.nickname}'s profile`}
+                          className={styles.user_image}
+                        />
+                      ) : (
+                        <div className={styles.user_image_placeholder}>
+                          {user.nickname.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.user_info}>
+                      <div className={styles.user_nickname}>
+                        {user.nickname}
+                      </div>
+                      {user.twitterHandle && (
+                        <div className={styles.user_twitter}>
+                          @{user.twitterHandle}
+                        </div>
+                      )}
+                      <div className={styles.user_wallet}>
+                        {user.accountAddress.substring(0, 8)}...
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </Marquee>
+            ) : (
+              <div className={styles.empty_state}>
+                <div className={styles.empty_text}>No recent users found</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent repositories section */}
+        <div className={styles.area_recent_repositories}>
+          <h2 className={styles.title_recent}>Recent Repositories</h2>
+          <div className={styles.marquee_container}>
+            {recentRepositories.length > 0 ? (
+              <Marquee
+                speed={30}
+                gradient={false}
+                pauseOnHover={true}
+                direction="right"
+              >
+                {recentRepositories.map((repo, index) => (
+                  <div
+                    key={index}
+                    className={styles.recent_repo_item}
+                    onClick={() => router.push(`/${repo.owner}/${repo.name}`)}
+                  >
+                    <div className={styles.repo_icon}>📁</div>
+                    <div className={styles.repo_info}>
+                      <div className={styles.repo_name}>{repo.name}</div>
+                      <div className={styles.repo_owner}>
+                        by {repo.owner.substring(0, 8)}...
+                      </div>
+                      <div className={styles.repo_details}>
+                        {repo.branchCount} branches • {repo.defaultBranch}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </Marquee>
+            ) : (
+              <div className={styles.empty_state}>
+                <div className={styles.empty_text}>
+                  No recent repositories found
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dashboard section */}
         <div className={styles.area_dashboard}>
           <h2 className={styles.title_dashboard}>Statistics</h2>
           <ul className={styles.list_stats}>

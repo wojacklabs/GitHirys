@@ -2101,3 +2101,228 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     };
   }
 }
+
+// Recent users and repositories for homepage marquee
+export interface RecentUser {
+  nickname: string;
+  twitterHandle: string;
+  accountAddress: string;
+  profileImageUrl?: string;
+  timestamp: number;
+}
+
+export interface RecentRepository {
+  name: string;
+  owner: string;
+  timestamp: number;
+  branchCount: number;
+  defaultBranch: string;
+}
+
+// Get recent users (last 10 users by timestamp)
+export async function getRecentUsers(): Promise<RecentUser[]> {
+  const query = `
+    query getRecentUsers {
+      transactions(
+        tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+        first: 50,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return [];
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    // Track latest profile for each user
+    const userMap = new Map<string, RecentUser>();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const tags = node.tags || [];
+
+      const nickname = tags.find(
+        (tag: any) => tag.name === 'githirys_nickname'
+      )?.value;
+      const accountAddress = tags.find(
+        (tag: any) => tag.name === 'githirys_account_address'
+      )?.value;
+      const twitterHandle =
+        tags.find((tag: any) => tag.name === 'githirys_twitter')?.value || '';
+      const rootTxId =
+        tags.find((tag: any) => tag.name === 'Root-TX')?.value || node.id;
+
+      if (!nickname || !accountAddress) {
+        continue;
+      }
+
+      const normalizedTimestamp = TimestampUtils.normalize(node.timestamp);
+
+      // Only keep the latest profile for each user
+      const existingUser = userMap.get(accountAddress);
+      if (!existingUser || normalizedTimestamp > existingUser.timestamp) {
+        userMap.set(accountAddress, {
+          nickname,
+          twitterHandle,
+          accountAddress,
+          profileImageUrl: rootTxId
+            ? `https://gateway.irys.xyz/mutable/${rootTxId}`
+            : undefined,
+          timestamp: normalizedTimestamp,
+        });
+      }
+    }
+
+    // Sort by timestamp (newest first) and return top 10
+    const recentUsers = Array.from(userMap.values())
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10);
+
+    return recentUsers;
+  } catch (error) {
+    return [];
+  }
+}
+
+// Get recent repositories (last 10 repositories by timestamp)
+export async function getRecentRepositories(): Promise<RecentRepository[]> {
+  const query = `
+    query getRecentRepositories {
+      transactions(
+        tags: [{ name: "App-Name", values: ["irys-git"] }],
+        first: 200,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return [];
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    // Track repositories and their branches
+    const repositoryMap = new Map<
+      string,
+      {
+        name: string;
+        owner: string;
+        branches: Set<string>;
+        latestTimestamp: number;
+      }
+    >();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const tags = node.tags || [];
+
+      const repositoryTag = tags.find((tag: any) => tag.name === 'Repository');
+      const ownerTag = tags.find((tag: any) => tag.name === 'git-owner');
+      const branchTag = tags.find((tag: any) => tag.name === 'Branch');
+
+      if (!repositoryTag || !ownerTag) {
+        continue;
+      }
+
+      const repoName = repositoryTag.value;
+      const owner = ownerTag.value;
+      const branchName = branchTag?.value || 'main';
+      const repoKey = `${owner}/${repoName}`;
+
+      const normalizedTimestamp = TimestampUtils.normalize(node.timestamp);
+
+      if (!repositoryMap.has(repoKey)) {
+        repositoryMap.set(repoKey, {
+          name: repoName,
+          owner,
+          branches: new Set(),
+          latestTimestamp: normalizedTimestamp,
+        });
+      }
+
+      const repoData = repositoryMap.get(repoKey)!;
+      repoData.branches.add(branchName);
+
+      // Update latest timestamp if this is newer
+      if (normalizedTimestamp > repoData.latestTimestamp) {
+        repoData.latestTimestamp = normalizedTimestamp;
+      }
+    }
+
+    // Convert to RecentRepository format and sort by timestamp
+    const recentRepositories = Array.from(repositoryMap.values())
+      .map(repo => ({
+        name: repo.name,
+        owner: repo.owner,
+        timestamp: repo.latestTimestamp,
+        branchCount: repo.branches.size,
+        defaultBranch: repo.branches.has('main')
+          ? 'main'
+          : repo.branches.has('master')
+            ? 'master'
+            : Array.from(repo.branches)[0] || 'main',
+      }))
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10);
+
+    return recentRepositories;
+  } catch (error) {
+    return [];
+  }
+}

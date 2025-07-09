@@ -33,6 +33,10 @@ button {
   margin: 0;
 }
 
+select {
+  background-color: transparent;
+}
+
 * {
   box-sizing: border-box;
 }
