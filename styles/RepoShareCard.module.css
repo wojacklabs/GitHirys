@@ -69,7 +69,7 @@
 /* 저장소 카드 */
 .card {
   width: 400px;
-  height: 280px;
+  min-height: 280px;
   background-image: url('/card_background.png');
   background-size: cover;
   background-position: center center;
@@ -126,7 +126,6 @@
   background: rgba(0, 0, 0, 0.7);
   padding: 16px;
   border-radius: 12px;
-  height: calc(100% - 60px);
 }
 
 .repoSection {
@@ -256,6 +255,7 @@
 }
 
 .repoUrl {
+  display: block;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.1);
