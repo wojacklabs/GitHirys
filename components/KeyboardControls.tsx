@@ -33,7 +33,7 @@ const KeyboardControls: React.FC<KeyboardControlsProps> = ({ speed = 2 }) => {
   useFrame((state, delta) => {
     const keys = keysPressed.current;
 
-    // 카메라의 현재 방향 벡터들 계산
+    // Calculate camera's current direction vectors
     const forward = new THREE.Vector3();
     const right = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
@@ -41,10 +41,10 @@ const KeyboardControls: React.FC<KeyboardControlsProps> = ({ speed = 2 }) => {
     camera.getWorldDirection(forward);
     right.crossVectors(forward, up).normalize();
 
-    // 속도 초기화
+    // Initialize velocity
     velocity.current.set(0, 0, 0);
 
-    // WASD 키 입력에 따른 이동
+    // WASD key movement
     if (keys['keyw']) {
       velocity.current.add(forward.multiplyScalar(speed));
     }
@@ -57,14 +57,8 @@ const KeyboardControls: React.FC<KeyboardControlsProps> = ({ speed = 2 }) => {
     if (keys['keyd']) {
       velocity.current.add(right.multiplyScalar(speed));
     }
-    if (keys['space']) {
-      velocity.current.y += speed;
-    }
-    if (keys['shiftleft']) {
-      velocity.current.y -= speed;
-    }
 
-    // 카메라 위치 업데이트
+    // Update camera position
     if (velocity.current.length() > 0) {
       camera.position.add(velocity.current.clone().multiplyScalar(delta));
     }
