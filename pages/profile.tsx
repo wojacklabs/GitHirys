@@ -203,11 +203,11 @@ const ProfilePage: NextPage = () => {
       return;
     }
 
-    // 파일 크기 검증 (5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // 파일 크기 검증 (100KB)
+    if (file.size > 100 * 1024) {
       setErrors(prev => ({
         ...prev,
-        image: 'Image should be smaller than 5MB.',
+        image: 'Image should be smaller than 100KB.',
       }));
       // 에러가 있어도 기존 프로필 이미지는 유지
       setProfileImage(null);
@@ -423,7 +423,7 @@ const ProfilePage: NextPage = () => {
                   >
                     Upload image
                   </button>
-                  <p className={styles.guide_image}>· 5MB max</p>
+                  <p className={styles.guide_image}>· 100KB max</p>
                 </div>
               </div>
               {errors.image && (
