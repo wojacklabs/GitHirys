@@ -43,13 +43,14 @@ const Planet: React.FC<PlanetProps> = ({
   const surfaceDetailRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  // Realistic planet type and color determination (based on repository name)
+  // Expanded realistic planet type determination (based on repository name)
   const planetType = useMemo(() => {
     const hash = repo.name.split('').reduce((acc, char) => {
       return acc + char.charCodeAt(0);
     }, 0);
 
     const planetTypes = [
+      // Terrestrial Planets
       {
         name: 'Earth-like',
         color: '#4F94CD',
@@ -69,24 +70,6 @@ const Planet: React.FC<PlanetProps> = ({
         metalness: 0.2,
       }, // Mars-type
       {
-        name: 'Gas Giant',
-        color: '#DAA520',
-        atmosphere: '#FFA500',
-        hasOceans: false,
-        hasClouds: true,
-        surfaceRoughness: 0.1,
-        metalness: 0.0,
-      }, // Gas giant (Jupiter-like)
-      {
-        name: 'Ice Planet',
-        color: '#E0FFFF',
-        atmosphere: '#B0E0E6',
-        hasOceans: false,
-        hasClouds: false,
-        surfaceRoughness: 0.1,
-        metalness: 0.8,
-      }, // Ice world
-      {
         name: 'Venus-like',
         color: '#FFA500',
         atmosphere: '#FFFF99',
@@ -96,7 +79,7 @@ const Planet: React.FC<PlanetProps> = ({
         metalness: 0.0,
       }, // Venus-type
       {
-        name: 'Desert',
+        name: 'Desert World',
         color: '#DEB887',
         atmosphere: '#F5DEB3',
         hasOceans: false,
@@ -114,7 +97,7 @@ const Planet: React.FC<PlanetProps> = ({
         metalness: 0.6,
       }, // Ocean world
       {
-        name: 'Rocky',
+        name: 'Rocky World',
         color: '#696969',
         atmosphere: '#A9A9A9',
         hasOceans: false,
@@ -122,6 +105,162 @@ const Planet: React.FC<PlanetProps> = ({
         surfaceRoughness: 1.0,
         metalness: 0.3,
       }, // Rocky world
+      // Ice Worlds
+      {
+        name: 'Ice Planet',
+        color: '#E0FFFF',
+        atmosphere: '#B0E0E6',
+        hasOceans: false,
+        hasClouds: false,
+        surfaceRoughness: 0.1,
+        metalness: 0.8,
+      }, // Ice world
+      {
+        name: 'Frozen Ocean',
+        color: '#B0E0E6',
+        atmosphere: '#87CEEB',
+        hasOceans: true,
+        hasClouds: false,
+        surfaceRoughness: 0.2,
+        metalness: 0.7,
+      }, // Frozen ocean world
+      {
+        name: 'Arctic World',
+        color: '#F0F8FF',
+        atmosphere: '#E6E6FA',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.3,
+        metalness: 0.6,
+      }, // Arctic world
+      // Gas Giants
+      {
+        name: 'Gas Giant',
+        color: '#DAA520',
+        atmosphere: '#FFA500',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.1,
+        metalness: 0.0,
+      }, // Jupiter-like
+      {
+        name: 'Ice Giant',
+        color: '#4682B4',
+        atmosphere: '#87CEEB',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.1,
+        metalness: 0.0,
+      }, // Neptune-like
+      {
+        name: 'Storm Giant',
+        color: '#8B4513',
+        atmosphere: '#CD853F',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.1,
+        metalness: 0.0,
+      }, // Storm giant
+      // Exotic Worlds
+      {
+        name: 'Volcanic World',
+        color: '#DC143C',
+        atmosphere: '#FF6347',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.9,
+        metalness: 0.2,
+      }, // Volcanic world
+      {
+        name: 'Crystal World',
+        color: '#E6E6FA',
+        atmosphere: '#F0F8FF',
+        hasOceans: false,
+        hasClouds: false,
+        surfaceRoughness: 0.1,
+        metalness: 0.9,
+      }, // Crystal world
+      {
+        name: 'Metal World',
+        color: '#708090',
+        atmosphere: '#778899',
+        hasOceans: false,
+        hasClouds: false,
+        surfaceRoughness: 0.2,
+        metalness: 0.95,
+      }, // Metal world
+      {
+        name: 'Jungle World',
+        color: '#228B22',
+        atmosphere: '#90EE90',
+        hasOceans: true,
+        hasClouds: true,
+        surfaceRoughness: 0.8,
+        metalness: 0.1,
+      }, // Jungle world
+      {
+        name: 'Toxic World',
+        color: '#9ACD32',
+        atmosphere: '#ADFF2F',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.7,
+        metalness: 0.3,
+      }, // Toxic world
+      {
+        name: 'Lava World',
+        color: '#FF4500',
+        atmosphere: '#FF6347',
+        hasOceans: false,
+        hasClouds: false,
+        surfaceRoughness: 0.8,
+        metalness: 0.1,
+      }, // Lava world
+      {
+        name: 'Carbon World',
+        color: '#2F4F4F',
+        atmosphere: '#696969',
+        hasOceans: false,
+        hasClouds: false,
+        surfaceRoughness: 0.9,
+        metalness: 0.4,
+      }, // Carbon world
+      {
+        name: 'Plasma World',
+        color: '#FF1493',
+        atmosphere: '#FF69B4',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.1,
+        metalness: 0.0,
+      }, // Plasma world
+      {
+        name: 'Cloud City',
+        color: '#F5F5DC',
+        atmosphere: '#FFFACD',
+        hasOceans: false,
+        hasClouds: true,
+        surfaceRoughness: 0.1,
+        metalness: 0.0,
+      }, // Cloud city
+      {
+        name: 'Rogue Planet',
+        color: '#191970',
+        atmosphere: '#483D8B',
+        hasOceans: false,
+        hasClouds: false,
+        surfaceRoughness: 0.95,
+        metalness: 0.2,
+      }, // Rogue planet
+      {
+        name: 'Ring World',
+        color: '#CD853F',
+        atmosphere: '#DAA520',
+        hasOceans: true,
+        hasClouds: false,
+        surfaceRoughness: 0.3,
+        metalness: 0.7,
+      }, // Ring world
     ];
 
     return planetTypes[hash % planetTypes.length];
@@ -129,33 +268,37 @@ const Planet: React.FC<PlanetProps> = ({
 
   // Planet size and properties (based on branch count and planet type)
   const planetProperties = useMemo(() => {
-    const branchCount = repo.branches?.length || 0;
-    let baseSize = 0.5;
-    let maxSize = 1.4;
+    const branchCount = Array.isArray(repo.branches) ? repo.branches.length : 0;
+    let baseSize = 0.6;
+    let maxSize = 1.6;
 
-    // Gas giants are larger
-    if (planetType.name === 'Gas Giant') {
-      baseSize = 0.8;
-      maxSize = 2.2;
+    // Gas giants and special types are larger
+    if (planetType.name.includes('Giant') || planetType.name === 'Ring World') {
+      baseSize = 1.0;
+      maxSize = 2.5;
     }
 
     // Size increases with more branches
     const size = Math.max(
       baseSize,
-      Math.min(baseSize + branchCount * 0.1, maxSize)
+      Math.min(baseSize + branchCount * 0.12, maxSize)
     );
 
     // Planet type-based colors
     const planetColor = new THREE.Color(planetType.color);
     const atmosphereColor = new THREE.Color(planetType.atmosphere);
 
-    // Ring system (gas giants get rings more easily)
+    // Ring system (gas giants and special types get rings more easily)
     const hasRings =
-      planetType.name === 'Gas Giant' ? branchCount >= 2 : branchCount >= 4;
+      planetType.name.includes('Giant') || planetType.name === 'Ring World'
+        ? branchCount >= 1
+        : branchCount >= 3;
 
     // Surface detail based on planet type
     const hasSurfaceDetail =
-      !planetType.hasOceans && planetType.name !== 'Gas Giant';
+      !planetType.hasOceans &&
+      !planetType.name.includes('Giant') &&
+      planetType.name !== 'Cloud City';
 
     return {
       size,
@@ -164,6 +307,7 @@ const Planet: React.FC<PlanetProps> = ({
       hasRings,
       planetType,
       hasSurfaceDetail,
+      branchCount, // Store branch count for debugging
     };
   }, [repo.branches, planetType]);
 
@@ -181,22 +325,21 @@ const Planet: React.FC<PlanetProps> = ({
       groupRef.current.position.set(x, y, z);
 
       // Rotation effects (different speeds based on planet type)
-      const rotationSpeed =
-        planetProperties.planetType.name === 'Gas Giant' ? 0.025 : 0.012;
+      const rotationSpeed = planetType.name.includes('Giant') ? 0.03 : 0.015;
       planetRef.current.rotation.y += rotationSpeed;
 
       // Atmospheric effects (counter-rotation)
-      atmosphereRef.current.rotation.y -= 0.006;
+      atmosphereRef.current.rotation.y -= 0.008;
 
       // Cloud effects (if present)
       if (cloudsRef.current && planetProperties.planetType.hasClouds) {
-        cloudsRef.current.rotation.y += 0.01;
-        cloudsRef.current.rotation.x += 0.003;
+        cloudsRef.current.rotation.y += 0.012;
+        cloudsRef.current.rotation.x += 0.004;
       }
 
       // Ocean effects (if present)
       if (oceansRef.current && planetProperties.planetType.hasOceans) {
-        oceansRef.current.rotation.y += 0.004;
+        oceansRef.current.rotation.y += 0.005;
 
         // Ocean wave simulation
         const waveEffect = Math.sin(time * 2.5) * 0.02 + 1;
@@ -211,23 +354,23 @@ const Planet: React.FC<PlanetProps> = ({
       }
 
       // Enhanced hover effects
-      const hoverScale = isFocused ? 1.25 : 1;
-      const atmosphericPulse = Math.sin(time * 2.8) * 0.04 + 1;
+      const hoverScale = isFocused ? 1.3 : 1;
+      const atmosphericPulse = Math.sin(time * 3.2) * 0.05 + 1;
 
       planetRef.current.scale.setScalar(hoverScale * atmosphericPulse);
       atmosphereRef.current.scale.setScalar(
-        hoverScale * atmosphericPulse * 1.4
+        hoverScale * atmosphericPulse * 1.5
       );
 
       // Ring rotation (if present)
       if (ringsRef.current) {
-        ringsRef.current.rotation.z += 0.015;
-        ringsRef.current.rotation.y += 0.003;
+        ringsRef.current.rotation.z += 0.018;
+        ringsRef.current.rotation.y += 0.004;
 
         // Ring particle effect
-        const ringPulse = Math.sin(time * 1.8) * 0.05 + 1;
+        const ringPulse = Math.sin(time * 2.1) * 0.06 + 1;
         ringsRef.current.scale.setScalar(
-          planetProperties.size * 2.2 * ringPulse
+          planetProperties.size * 2.4 * ringPulse
         );
       }
     }
@@ -240,7 +383,13 @@ const Planet: React.FC<PlanetProps> = ({
   const handlePointerEnter = () => {
     if (groupRef.current) {
       const position = groupRef.current.position;
-      onPlanetHover(repo, [position.x, position.y, position.z]);
+      // Ensure branches array is properly passed
+      const repoWithBranches = {
+        ...repo,
+        branches: Array.isArray(repo.branches) ? repo.branches : [],
+        branchCount: planetProperties.branchCount, // Add explicit branch count
+      };
+      onPlanetHover(repoWithBranches, [position.x, position.y, position.z]);
     }
   };
 
@@ -250,21 +399,24 @@ const Planet: React.FC<PlanetProps> = ({
 
   return (
     <group ref={groupRef}>
-      {/* Atmospheric layer (varies by planet type) */}
+      {/* Enhanced atmospheric layer */}
       <mesh
         ref={atmosphereRef}
         scale={[
-          planetProperties.size * 1.5,
-          planetProperties.size * 1.5,
-          planetProperties.size * 1.5,
+          planetProperties.size * 1.6,
+          planetProperties.size * 1.6,
+          planetProperties.size * 1.6,
         ]}
       >
-        <icosahedronGeometry args={[1, 2]} />
+        <icosahedronGeometry args={[1, 3]} />
         <meshBasicMaterial
           color={planetProperties.atmosphereColor}
           transparent
           opacity={
-            planetProperties.planetType.name === 'Venus-like' ? 0.4 : 0.15
+            planetType.name === 'Venus-like' ||
+            planetType.name === 'Toxic World'
+              ? 0.5
+              : 0.2
           }
           blending={THREE.AdditiveBlending}
         />
@@ -275,69 +427,67 @@ const Planet: React.FC<PlanetProps> = ({
         <mesh
           ref={oceansRef}
           scale={[
-            planetProperties.size * 1.05,
-            planetProperties.size * 1.05,
-            planetProperties.size * 1.05,
+            planetProperties.size * 1.06,
+            planetProperties.size * 1.06,
+            planetProperties.size * 1.06,
           ]}
         >
-          <icosahedronGeometry args={[1, 3]} />
+          <icosahedronGeometry args={[1, 4]} />
           <meshStandardMaterial
-            color="#1E90FF"
+            color={planetType.name === 'Frozen Ocean' ? '#87CEEB' : '#1E90FF'}
             transparent
-            opacity={0.85}
-            roughness={0.05}
-            metalness={0.8}
-            envMapIntensity={1.2}
+            opacity={0.9}
+            roughness={0.03}
+            metalness={0.85}
+            envMapIntensity={1.5}
             clearcoat={1.0}
-            clearcoatRoughness={0.1}
+            clearcoatRoughness={0.05}
           />
         </mesh>
       )}
 
-      {/* Cloud layer (for planets with clouds) */}
+      {/* Enhanced cloud layer */}
       {planetProperties.planetType.hasClouds && (
         <mesh
           ref={cloudsRef}
           scale={[
-            planetProperties.size * 1.12,
-            planetProperties.size * 1.12,
-            planetProperties.size * 1.12,
+            planetProperties.size * 1.15,
+            planetProperties.size * 1.15,
+            planetProperties.size * 1.15,
           ]}
         >
-          <icosahedronGeometry args={[1, 2]} />
+          <icosahedronGeometry args={[1, 3]} />
           <meshBasicMaterial
-            color="#FFFFFF"
+            color={planetType.name === 'Storm Giant' ? '#8B4513' : '#FFFFFF'}
             transparent
-            opacity={
-              planetProperties.planetType.name === 'Gas Giant' ? 0.6 : 0.25
-            }
+            opacity={planetType.name.includes('Giant') ? 0.7 : 0.3}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
       )}
 
-      {/* Surface detail layer (for rocky planets) */}
+      {/* Enhanced surface detail layer */}
       {planetProperties.hasSurfaceDetail && (
         <mesh
           ref={surfaceDetailRef}
           scale={[
-            planetProperties.size * 1.01,
-            planetProperties.size * 1.01,
-            planetProperties.size * 1.01,
+            planetProperties.size * 1.02,
+            planetProperties.size * 1.02,
+            planetProperties.size * 1.02,
           ]}
         >
-          <icosahedronGeometry args={[1, 3]} />
+          <icosahedronGeometry args={[1, 4]} />
           <meshStandardMaterial
-            color={planetProperties.planetColor.clone().multiplyScalar(0.8)}
-            roughness={0.95}
-            metalness={0.1}
+            color={planetProperties.planetColor.clone().multiplyScalar(0.7)}
+            roughness={0.98}
+            metalness={0.05}
             transparent
-            opacity={0.8}
+            opacity={0.9}
           />
         </mesh>
       )}
 
-      {/* Planet core - high detail surface */}
+      {/* High-quality planet core */}
       <mesh
         ref={planetRef}
         scale={[
@@ -349,55 +499,72 @@ const Planet: React.FC<PlanetProps> = ({
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
       >
-        <icosahedronGeometry args={[1, 4]} />
+        <icosahedronGeometry args={[1, 5]} />
         <meshStandardMaterial
           color={planetProperties.planetColor}
           roughness={planetProperties.planetType.surfaceRoughness}
           metalness={planetProperties.planetType.metalness}
-          envMapIntensity={0.6}
+          envMapIntensity={0.8}
           clearcoat={
-            planetProperties.planetType.name === 'Ice Planet' ? 0.9 : 0.0
+            planetType.name === 'Ice Planet' ||
+            planetType.name === 'Crystal World'
+              ? 0.95
+              : 0.0
           }
-          clearcoatRoughness={0.1}
+          clearcoatRoughness={0.05}
+          emissive={
+            planetType.name === 'Lava World' ||
+            planetType.name === 'Plasma World'
+              ? planetProperties.planetColor.clone().multiplyScalar(0.3)
+              : new THREE.Color(0x000000)
+          }
+          emissiveIntensity={
+            planetType.name === 'Lava World' ||
+            planetType.name === 'Plasma World'
+              ? 0.5
+              : 0.0
+          }
         />
       </mesh>
 
-      {/* Ring system (conditional) */}
+      {/* Enhanced ring system */}
       {planetProperties.hasRings && (
         <mesh
           ref={ringsRef}
           rotation={[Math.PI / 2, 0, 0]}
           scale={[
-            planetProperties.size * 2.2,
-            planetProperties.size * 2.2,
-            planetProperties.size * 2.2,
+            planetProperties.size * 2.4,
+            planetProperties.size * 2.4,
+            planetProperties.size * 2.4,
           ]}
         >
-          <ringGeometry args={[1.4, 2.2, 128]} />
+          <ringGeometry args={[1.5, 2.4, 256]} />
           <meshStandardMaterial
             color={
-              planetProperties.planetType.name === 'Gas Giant'
+              planetType.name.includes('Giant')
                 ? '#DAA520'
-                : '#C0C0C0'
+                : planetType.name === 'Ring World'
+                  ? '#CD853F'
+                  : '#C0C0C0'
             }
             transparent
-            opacity={0.7}
-            roughness={0.6}
-            metalness={0.4}
+            opacity={0.8}
+            roughness={0.4}
+            metalness={0.6}
             side={THREE.DoubleSide}
-            envMapIntensity={0.8}
+            envMapIntensity={1.0}
           />
         </mesh>
       )}
 
-      {/* Planetary lighting (subtle) */}
-      {planetProperties.planetType.name !== 'Gas Giant' && (
+      {/* Enhanced planetary lighting */}
+      {!planetType.name.includes('Giant') && (
         <pointLight
           position={[0, 0, 0]}
-          intensity={0.1}
+          intensity={0.15}
           color={planetProperties.planetColor}
-          distance={planetProperties.size * 8}
-          decay={2.0}
+          distance={planetProperties.size * 10}
+          decay={1.8}
         />
       )}
     </group>

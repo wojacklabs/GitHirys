@@ -108,25 +108,25 @@ const StarSystem: React.FC<StarSystemProps> = ({
       {/* Render orbits and planets only if repositories exist */}
       {repositories.length > 0 && (
         <>
-          {/* Orbital rings (around star) */}
+          {/* Enhanced orbital rings (around star) */}
           {planetOrbits.map((orbit, index) => (
             <mesh
               key={`orbit-${orbit.repo.name}`}
               rotation={[Math.PI / 2, 0, 0]}
             >
               <ringGeometry
-                args={[orbit.radius - 0.03, orbit.radius + 0.03, 64]}
+                args={[orbit.radius - 0.05, orbit.radius + 0.05, 128]}
               />
               <meshBasicMaterial
-                color={isFocused ? '#88ddff' : '#5588aa'}
+                color={isFocused ? '#00d4ff' : '#88ccff'}
                 transparent
-                opacity={isFocused ? 0.7 : 0.4}
+                opacity={isFocused ? 0.9 : 0.6}
                 side={THREE.DoubleSide}
               />
             </mesh>
           ))}
 
-          {/* Orbit glow effect (when focused) */}
+          {/* Enhanced orbit glow effect (when focused) */}
           {isFocused &&
             planetOrbits.map((orbit, index) => (
               <mesh
@@ -134,16 +134,34 @@ const StarSystem: React.FC<StarSystemProps> = ({
                 rotation={[Math.PI / 2, 0, 0]}
               >
                 <ringGeometry
-                  args={[orbit.radius - 0.08, orbit.radius + 0.08, 64]}
+                  args={[orbit.radius - 0.15, orbit.radius + 0.15, 128]}
                 />
                 <meshBasicMaterial
-                  color="#88ddff"
+                  color="#00d4ff"
                   transparent
-                  opacity={0.2}
+                  opacity={0.3}
                   side={THREE.DoubleSide}
                 />
               </mesh>
             ))}
+
+          {/* Additional orbit visibility enhancement */}
+          {planetOrbits.map((orbit, index) => (
+            <mesh
+              key={`orbit-bright-${orbit.repo.name}`}
+              rotation={[Math.PI / 2, 0, 0]}
+            >
+              <ringGeometry
+                args={[orbit.radius - 0.02, orbit.radius + 0.02, 64]}
+              />
+              <meshBasicMaterial
+                color="#ffffff"
+                transparent
+                opacity={isFocused ? 0.5 : 0.3}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          ))}
 
           {/* Planets (repositories) */}
           {planetOrbits.map((orbit, index) => (

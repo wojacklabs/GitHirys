@@ -310,9 +310,11 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
               <p>Owner: {hoveredPlanet.repo.owner}</p>
               <p>
                 Branches:{' '}
-                {Array.isArray(hoveredPlanet.repo.branches)
-                  ? hoveredPlanet.repo.branches.length
-                  : 0}
+                {hoveredPlanet.repo.branchCount !== undefined
+                  ? hoveredPlanet.repo.branchCount
+                  : Array.isArray(hoveredPlanet.repo.branches)
+                    ? hoveredPlanet.repo.branches.length
+                    : 0}
               </p>
               <p>Default: {hoveredPlanet.repo.defaultBranch || 'N/A'}</p>
             </div>

@@ -31,6 +31,7 @@ const Star: React.FC<StarProps> = ({
   const glowRef = useRef<THREE.Mesh>(null);
   const coronaRef = useRef<THREE.Mesh>(null);
   const flareRef = useRef<THREE.Mesh>(null);
+  const solarWindRef = useRef<THREE.Points>(null);
 
   // Determine star color and type (using only solar colors)
   const starProperties = useMemo(() => {
@@ -74,15 +75,53 @@ const Star: React.FC<StarProps> = ({
     };
   }, [user.accountAddress, user.repositories]);
 
+  // Solar wind particle system
+  const solarWindParticles = useMemo(() => {
+    const particleCount = 2000;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const lifetimes = new Float32Array(particleCount);
+
+    for (let i = 0; i < particleCount; i++) {
+      // Start particles near the star surface
+      const phi = Math.random() * Math.PI * 2;
+      const theta = Math.random() * Math.PI;
+      const startRadius = starProperties.size * 1.2;
+
+      positions[i * 3] = Math.sin(theta) * Math.cos(phi) * startRadius;
+      positions[i * 3 + 1] = Math.sin(theta) * Math.sin(phi) * startRadius;
+      positions[i * 3 + 2] = Math.cos(theta) * startRadius;
+
+      // Random velocity direction (outward from star)
+      const speed = 0.5 + Math.random() * 1.5;
+      velocities[i * 3] = (positions[i * 3] / startRadius) * speed;
+      velocities[i * 3 + 1] = (positions[i * 3 + 1] / startRadius) * speed;
+      velocities[i * 3 + 2] = (positions[i * 3 + 2] / startRadius) * speed;
+
+      // Particle color based on star color
+      colors[i * 3] = starProperties.baseColor.r;
+      colors[i * 3 + 1] = starProperties.baseColor.g;
+      colors[i * 3 + 2] = starProperties.baseColor.b;
+
+      // Random lifetime
+      lifetimes[i] = Math.random() * 10;
+    }
+
+    return { positions, velocities, colors, lifetimes };
+  }, [starProperties]);
+
   // Advanced star animation with realistic stellar activity
   useFrame(state => {
     if (
       starRef.current &&
       glowRef.current &&
       coronaRef.current &&
-      flareRef.current
+      flareRef.current &&
+      solarWindRef.current
     ) {
       const time = state.clock.getElapsedTime();
+      const deltaTime = state.clock.getDelta();
 
       // Complex stellar activity simulation
       const corePulse = Math.sin(time * 1.5) * 0.04 + 1;
@@ -115,6 +154,51 @@ const Star: React.FC<StarProps> = ({
       flareRef.current.rotation.x += 0.012;
       flareRef.current.rotation.z -= 0.008;
 
+      // Solar wind particle animation
+      const geometry = solarWindRef.current.geometry;
+      const positions = geometry.attributes.position.array as Float32Array;
+      const velocities = solarWindParticles.velocities;
+      const lifetimes = solarWindParticles.lifetimes;
+
+      for (let i = 0; i < positions.length / 3; i++) {
+        // Update particle positions
+        positions[i * 3] += velocities[i * 3] * deltaTime;
+        positions[i * 3 + 1] += velocities[i * 3 + 1] * deltaTime;
+        positions[i * 3 + 2] += velocities[i * 3 + 2] * deltaTime;
+
+        // Update lifetime
+        lifetimes[i] -= deltaTime;
+
+        // Reset particle if lifetime expired or too far from star
+        const distance = Math.sqrt(
+          positions[i * 3] ** 2 +
+            positions[i * 3 + 1] ** 2 +
+            positions[i * 3 + 2] ** 2
+        );
+
+        if (lifetimes[i] <= 0 || distance > starProperties.size * 15) {
+          // Reset particle near star surface
+          const phi = Math.random() * Math.PI * 2;
+          const theta = Math.random() * Math.PI;
+          const startRadius = starProperties.size * 1.2;
+
+          positions[i * 3] = Math.sin(theta) * Math.cos(phi) * startRadius;
+          positions[i * 3 + 1] = Math.sin(theta) * Math.sin(phi) * startRadius;
+          positions[i * 3 + 2] = Math.cos(theta) * startRadius;
+
+          // New velocity
+          const speed = 0.5 + Math.random() * 1.5;
+          velocities[i * 3] = (positions[i * 3] / startRadius) * speed;
+          velocities[i * 3 + 1] = (positions[i * 3 + 1] / startRadius) * speed;
+          velocities[i * 3 + 2] = (positions[i * 3 + 2] / startRadius) * speed;
+
+          // Reset lifetime
+          lifetimes[i] = 8 + Math.random() * 4;
+        }
+      }
+
+      geometry.attributes.position.needsUpdate = true;
+
       // Dynamic material properties
       if (starRef.current.material instanceof THREE.MeshStandardMaterial) {
         const emissiveIntensity = 2.5 + Math.sin(time * 2.1) * 0.5;
@@ -125,6 +209,32 @@ const Star: React.FC<StarProps> = ({
 
   return (
     <group>
+      {/* Solar wind particles */}
+      <points ref={solarWindRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={solarWindParticles.positions}
+            count={solarWindParticles.positions.length / 3}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={solarWindParticles.colors}
+            count={solarWindParticles.colors.length / 3}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.2}
+          vertexColors
+          transparent
+          opacity={0.7}
+          sizeAttenuation
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+
       {/* Outer stellar flare (most distant layer) */}
       <mesh
         ref={flareRef}
