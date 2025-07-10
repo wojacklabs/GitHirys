@@ -141,7 +141,7 @@ export async function createIrysUploader(wallet?: any) {
         providerUrl: rpcUrl,
       };
 
-      const irysUploader = await WebUploader(
+      const irysUploader = await (WebUploader as any)(
         WebSolana,
         uploaderConfig
       ).withProvider(wallet);
