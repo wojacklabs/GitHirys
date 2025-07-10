@@ -1,209 +1,169 @@
-/* 홈페이지 스타일 */
+/* 3D 우주 환경을 위한 오버레이 스타일 */
+.universeOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+}
 
-.header_home {
-  padding-top: 24px;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: space-between;
+.searchOverlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  max-width: 400px;
+  pointer-events: auto;
 }
-.title_page {
+
+.searchContainer {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+}
+
+.searchContainer h2 {
+  margin: 0 0 10px 0;
   font-size: 24px;
+  font-weight: 300;
+  color: #00d4ff;
 }
-.area_header_right {
-  width: 200px;
-  text-align: right;
-}
-.area_button_header {
-  margin-top: 5px;
-  text-align: right;
-}
-.button_header {
-  display: block;
+
+.searchContainer p {
+  margin: 0 0 20px 0;
+  opacity: 0.8;
   font-size: 14px;
-  line-height: 18px;
-  padding: 5px 20px;
-  text-decoration: underline;
 }
-.area_dashboard {
-  padding-top: 30px;
-  margin-top: auto;
-}
-.title_dashboard {
-  color: #374151;
-  font-size: 20px;
-  text-align: center;
-}
-.list_stats {
-  display: flex;
-  margin-top: 10px;
-  justify-content: space-evenly;
-}
-.item_stats {
-  padding: 16px 0;
-  border-radius: 8px;
-  text-align: center;
-}
-.stats_number {
-  font-size: 28px;
-  line-height: 32px;
-  font-weight: bold;
-  color: #666;
-}
-.stats_name {
-  margin-top: 10px;
-  font-size: 14px;
-  line-height: 18px;
-}
-.area_search {
-  margin-top: 5vh;
-}
-.area_input {
-  margin-bottom: 16px;
-}
-.area_input_search {
+
+.searchInputGroup {
   display: flex;
   gap: 8px;
   margin-bottom: 15px;
 }
 
 .searchTypeSelect {
-  padding: 12px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 18px;
-  background-color: white;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  min-width: 120px;
-  outline: none;
-}
-
-.searchTypeSelect:focus {
-  border-color: #333;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.searchTypeSelect:disabled {
-  background-color: #f9fafb;
-  cursor: not-allowed;
-}
-
-.input_search {
-  flex: 1;
-  padding: 12px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 18px;
-  outline: none;
-}
-.button_search {
-  flex-shrink: 0;
-  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
   color: white;
-  border-radius: 8px;
+  padding: 8px 12px;
   font-size: 14px;
-  line-height: 18px;
-  font-weight: 500;
+  min-width: 100px;
 }
-.searchButtonActive {
-  background-color: #333;
+
+.searchInput {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: white;
+  padding: 8px 12px;
+  font-size: 14px;
 }
-.searchButtonDisabled {
-  background-color: #9ca3af;
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.searchButton {
+  background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.searchButton:hover {
+  background: linear-gradient(135deg, #00b8e6 0%, #0088bb 100%);
+}
+
+.searchButton:disabled {
+  background: rgba(255, 255, 255, 0.2);
   cursor: not-allowed;
 }
 
 .searchError {
-  margin-top: 12px;
-  padding: 12px;
-  background-color: #fee2e2;
-  border: 1px solid #dc2626;
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.4);
   border-radius: 6px;
-  color: #991b1b;
+  padding: 10px;
+  margin-top: 10px;
+  color: #ff6b6b;
   font-size: 14px;
 }
+
 .searchResults {
-  margin-top: 25px;
-  padding-top: 25px;
-  border-top: 1px solid #e5e7eb;
+  margin-top: 15px;
 }
-.searchResultsTitle {
-  margin-bottom: 12px;
+
+.searchResults h3 {
+  margin: 0 0 10px 0;
   font-size: 16px;
-  line-height: 20px;
-  color: #374151;
+  color: #00d4ff;
 }
+
 .searchResultsGrid {
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
+
 .searchResultItem {
-  padding: 12px 16px;
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
+  padding: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.searchResultItem + .searchResultItem {
-  margin-top: 8px;
-}
+
 .searchResultItem:hover {
-  background-color: #f3f4f6;
-  border-color: #333;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
 }
+
 .profileResult {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+
 .profileImage {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  object-fit: cover;
 }
+
 .profileInfo {
   flex: 1;
 }
+
 .profileNickname {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.profileNicknameText {
-  margin-right: 8px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #00d4ff;
+  margin-bottom: 4px;
 }
 
 .profileTwitter {
   font-size: 12px;
-  color: #6b7280;
-}
-
-.profileWallet {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 2px;
+  opacity: 0.8;
 }
 
 .walletResult {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 
 .walletDisplayName {
-  font-weight: 500;
-  color: #333;
-}
-
-.walletType {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 1px;
+  font-family: monospace;
+  color: #00d4ff;
 }
 
 .repoResult {
@@ -213,207 +173,190 @@
 }
 
 .repoName {
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: #00d4ff;
 }
 
 .repoOwner {
   font-size: 12px;
-  color: #6b7280;
+  opacity: 0.8;
 }
 
 .repoBranches {
   font-size: 12px;
-  color: #6b7280;
-}
-.connectedText {
-  margin: 0 0 12px 0;
+  opacity: 0.6;
 }
 
-.connectingCard {
-  background-color: #fef3c7;
-  border: 1px solid #f59e0b;
-  color: #92400e;
+.statsOverlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  pointer-events: auto;
 }
 
-.errorCard {
-  background-color: #fee2e2;
-  border: 1px solid #dc2626;
-  color: #991b1b;
-}
-
-/* 최근 사용자 및 저장소 섹션 */
-.area_recent_users,
-.area_recent_repositories {
-  margin-top: 40px;
-  padding-top: 30px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.title_recent {
-  color: #374151;
-  font-size: 20px;
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.marquee_container {
-  overflow: hidden;
-  margin: 0 -20px;
-  padding: 16px 0;
-}
-
-/* 최근 사용자 아이템 */
-.recent_user_item {
-  display: flex;
-  align-items: center;
-  padding: 16px;
-  margin-right: 20px;
-  background-color: white;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+.statsOverlay {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
   min-width: 200px;
 }
 
-.user_image_container {
-  margin-right: 12px;
-}
-
-.user_image {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.user_image_placeholder {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.statsOverlay h3 {
+  margin: 0 0 15px 0;
   font-size: 18px;
-  font-weight: bold;
-  color: #6b7280;
-}
-
-.user_info {
-  flex: 1;
-}
-
-.user_nickname {
-  font-weight: 600;
-  color: #333;
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-
-.user_twitter {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 2px;
-}
-
-.user_wallet {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-/* 최근 저장소 아이템 */
-.recent_repo_item {
-  display: flex;
-  align-items: center;
-  padding: 16px;
-  margin-right: 20px;
-  background-color: white;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-width: 220px;
-}
-
-.repo_icon {
-  font-size: 24px;
-  margin-right: 12px;
-}
-
-.repo_info {
-  flex: 1;
-}
-
-.repo_name {
-  font-weight: 600;
-  color: #333;
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-
-.repo_owner {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 2px;
-}
-
-.repo_details {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-/* Empty state styles */
-.empty_state {
-  padding: 40px 20px;
+  color: #00d4ff;
   text-align: center;
 }
 
-.empty_text {
-  color: #9ca3af;
+.statsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statNumber {
+  font-size: 20px;
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.statLabel {
   font-size: 14px;
-  font-style: italic;
+  opacity: 0.8;
 }
 
-/* Responsive design */
+.controlsGuide {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  color: white;
+  font-size: 12px;
+  min-width: 220px;
+}
+
+.controlsGuide h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #00d4ff;
+}
+
+.controlsGuide div {
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.controlsGuide kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 10px;
+  margin-right: 8px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.controlsSection {
+  margin-bottom: 12px;
+}
+
+.controlsSection:last-child {
+  margin-bottom: 0;
+}
+
+.controlsSection h5 {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+/* 기존 스타일 유지 (숨김 처리 또는 제거) */
+.area_search,
+.area_recent_users,
+.area_recent_repositories,
+.area_dashboard {
+  display: none;
+}
+
+/* 반응형 디자인 */
 @media (max-width: 768px) {
-  .area_input_search {
+  .searchOverlay {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+
+  .searchContainer {
+    padding: 15px;
+  }
+
+  .searchInputGroup {
     flex-direction: column;
-    gap: 12px;
   }
 
-  .searchTypeSelect {
-    font-size: 12px;
-    padding: 10px 12px;
-    min-width: 100px;
+  .statsOverlay {
+    right: 10px;
+    min-width: 150px;
   }
 
-  .input_search {
-    font-size: 12px;
-    padding: 10px 12px;
-  }
-
-  .button_search {
-    font-size: 12px;
-    padding: 10px 16px;
+  .controlsGuide {
+    left: 10px;
+    right: 10px;
+    max-width: none;
   }
 }
 
-@media (max-width: 480px) {
-  .searchTypeSelect {
-    font-size: 11px;
-    padding: 8px 10px;
-    min-width: 80px;
+/* 애니메이션 효과 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  .input_search {
-    font-size: 11px;
-    padding: 8px 10px;
-  }
+.searchContainer,
+.statsOverlay,
+.controlsGuide {
+  animation: fadeIn 0.5s ease-out;
+}
 
-  .button_search {
-    font-size: 11px;
-    padding: 8px 14px;
-  }
+/* 스크롤바 스타일 */
+.searchResults::-webkit-scrollbar {
+  width: 6px;
+}
+
+.searchResults::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.searchResults::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.searchResults::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }

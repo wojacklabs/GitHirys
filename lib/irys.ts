@@ -2,8 +2,6 @@
 import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
 
-// Note: Fund functionality now uses irys-git CLI tool
-
 // Timestamp 처리 유틸리티 함수들
 export const TimestampUtils = {
   // 다양한 형식의 timestamp를 Unix timestamp (초)로 정규화
@@ -112,66 +110,24 @@ interface BranchTransactionData {
 }
 
 export async function createIrysUploader(wallet?: any) {
-  // Alternative RPC endpoints to try in case of 403 errors
-  const rpcEndpoints = [
-    'https://solana-mainnet.core.chainstack.com',
-    'https://rpc.ankr.com/solana',
-    'https://solana-api.projectserum.com',
-    'https://api.mainnet-beta.solana.com',
-  ];
-
-  for (let i = 0; i < rpcEndpoints.length; i++) {
-    try {
-      const rpcUrl = rpcEndpoints[i];
-      console.log(`Trying RPC endpoint: ${rpcUrl}`);
-
-      if (!wallet) {
-        // For read-only operations without wallet
-        const uploader = await WebUploader(WebSolana);
-        return uploader;
-      }
-
-      if (!wallet.connected) {
-        throw new Error('Wallet not connected');
-      }
-
-      // Create uploader with custom RPC configuration
-      const uploaderConfig = {
-        url: 'https://uploader.irys.xyz',
-        providerUrl: rpcUrl,
-      };
-
-      const irysUploader = await (WebUploader as any)(
-        WebSolana,
-        uploaderConfig
-      ).withProvider(wallet);
-
-      console.log(`Successfully connected to Irys with RPC: ${rpcUrl}`);
-      return irysUploader;
-    } catch (error) {
-      console.warn(`Failed to connect with RPC ${rpcEndpoints[i]}:`, error);
-
-      // If this is the last endpoint, throw the error
-      if (i === rpcEndpoints.length - 1) {
-        console.error('All RPC endpoints failed. Last error:', error);
-        throw new Error(
-          'Unable to connect to Solana network. Please try again later.'
-        );
-      }
-
-      // Continue to next RPC endpoint
-      continue;
+  try {
+    if (!wallet) {
+      // For read-only operations without wallet
+      return await WebUploader(WebSolana);
     }
-  }
-}
 
-// Get CLI fund commands for user guidance
-export function getCliFundInstructions(amount: number): string[] {
-  return [
-    'npm install -g irys-git',
-    'igit login',
-    `igit balance --fund ${amount.toFixed(3)}`,
-  ];
+    if (!wallet.connected) {
+      throw new Error('Wallet not connected');
+    }
+
+    // Use the wallet object directly with withProvider as per documentation
+    const irysUploader = await WebUploader(WebSolana).withProvider(wallet);
+
+    return irysUploader;
+  } catch (error) {
+    console.error('Error connecting to Irys:', error);
+    throw new Error('Error connecting to Irys');
+  }
 }
 
 // Test function to check if we can connect to Irys GraphQL
@@ -821,28 +777,6 @@ export const ProfileUtils = {
   validateImageSize: (file: File): Promise<boolean> => {
     return Promise.resolve(true);
   },
-
-  // Calculate estimated upload cost based on file size (in SOL)
-  estimateUploadCost: (fileSizeBytes: number): number => {
-    // Irys pricing for Solana is approximately based on data size
-    // This is a rough estimate - actual costs may vary
-    const fileSizeKB = fileSizeBytes / 1024;
-    const costPerKB = 0.000001; // SOL per KB (approximate)
-    return Math.max(fileSizeKB * costPerKB, 0.000001); // Minimum cost
-  },
-
-  // Format cost for display (in SOL)
-  formatCost: (costSOL: number): string => {
-    if (costSOL < 0.000001) {
-      return '< 0.000001 SOL';
-    }
-    return `${costSOL.toFixed(6)} SOL`;
-  },
-
-  // Check if upload is essentially free (very small cost)
-  isEffectivelyFree: (costSOL: number): boolean => {
-    return costSOL < 0.000001;
-  },
 };
 
 // 닉네임 중복 검사
@@ -1048,7 +982,6 @@ export async function getProfileByNickname(
 
 // 프로필 업로드
 export async function uploadProfile(
-  wallet: any,
   uploader: any,
   profileData: {
     nickname: string;
@@ -1058,11 +991,7 @@ export async function uploadProfile(
     existingRootTxId?: string;
     existingProfileImageUrl?: string;
   }
-): Promise<{
-  success: boolean;
-  txId?: string;
-  error?: string;
-}> {
+): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
     let uploadData: File | Blob;
     let contentType: string;
@@ -1122,13 +1051,12 @@ export async function uploadProfile(
       txId: result.id,
     };
   } catch (error) {
-    console.error('Upload error:', error);
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
     return {
       success: false,
-      error: errorMessage || 'Unknown error occurred during upload.',
+      error:
+        error instanceof Error
+          ? error.message
+          : '알 수 없는 오류가 발생했습니다.',
     };
   }
 }

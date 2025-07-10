@@ -1,0 +1,136 @@
+.universeContainer {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 200px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  line-height: 1.4;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.tooltip h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.tooltip p {
+  margin: 4px 0;
+  color: #cccccc;
+}
+
+.tooltip p:first-of-type {
+  color: #ff6b6b;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #000428 0%, #000000 100%);
+  color: white;
+  font-size: 18px;
+}
+
+.errorContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #000428 0%, #000000 100%);
+  color: #ff6b6b;
+  font-size: 18px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.universeOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.universeUI {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: white;
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+.universeUI h2 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+  font-weight: 300;
+  color: #00d4ff;
+}
+
+.universeUI p {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.navigationHint {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.navigationHint kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.universeStats {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 14px;
+  text-align: right;
+  pointer-events: auto;
+}
+
+.universeStats .stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  min-width: 150px;
+}
+
+.universeStats .statLabel {
+  opacity: 0.7;
+  margin-right: 12px;
+}
+
+.universeStats .statValue {
+  color: #00d4ff;
+  font-weight: 600;
+}
