@@ -1,43 +1,18 @@
-/* HomePage.module.css */
-
-/* 3D Universe Environment */
-.universeContainer {
-  position: relative;
+/* 3D universe environment overlay styles */
+.universeOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: calc(100vh - 80px);
-  overflow: hidden;
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3a 50%, #000011 100%);
-  border-radius: 8px;
-  margin-top: 20px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
 }
 
-.universeContainer canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Container for better integration with header */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .universeContainer {
-    height: calc(100vh - 70px);
-    margin-top: 10px;
-  }
-
-  .container {
-    padding: 0 10px;
-  }
-}
-
-@media (max-width: 640px) {
-  .universeContainer {
-    height: calc(100vh - 60px);
-    border-radius: 4px;
-  }
+/* Hide existing styles (maintain compatibility) */
+.area_search,
+.area_recent_users,
+.area_recent_repositories,
+.area_dashboard {
+  display: none;
 }

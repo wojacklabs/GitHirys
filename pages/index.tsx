@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useClientWallet } from '../lib/useClientWallet';
 import Head from 'next/head';
-import Header from '../components/Header';
 import {
   createIrysUploader,
   getRecentUsers,
@@ -12,7 +11,6 @@ import {
   RecentUser,
   RecentRepository,
 } from '../lib/irys';
-import styles from '../styles/HomePage.module.css';
 import UniverseScene from '../components/UniverseScene';
 
 const Home: NextPage = () => {
@@ -96,9 +94,6 @@ const Home: NextPage = () => {
     return Array.from(userMap.values());
   }, [recentUsers, recentRepositories]);
 
-  // Use only actual user data (remove dummy data)
-  const finalUniverseUsers = universeUsers;
-
   const handlePlanetClick = (user: string, repo: string) => {
     router.push(`/${user}/${repo}`);
   };
@@ -106,19 +101,16 @@ const Home: NextPage = () => {
   return (
     <>
       <Head>
-        <title>GitHirys - 3D Universe</title>
+        <title>GitHirys</title>
       </Head>
 
-      <div className="container">
-        <Header />
+      {/* 3D Universe Environment */}
+      <UniverseScene users={universeUsers} onPlanetClick={handlePlanetClick} />
 
-        {/* 3D Universe Environment */}
-        <div className={styles.universeContainer}>
-          <UniverseScene
-            users={finalUniverseUsers}
-            onPlanetClick={handlePlanetClick}
-          />
-        </div>
+      {/* Standard Header */}
+      <div className="container">
+        <h1>GitHirys</h1>
+        <p>Decentralized Git Repository System</p>
       </div>
     </>
   );
