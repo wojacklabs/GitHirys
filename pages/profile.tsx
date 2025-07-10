@@ -11,6 +11,7 @@ import {
   uploadProfile,
   ProfileUtils,
   UserProfile,
+  getCliFundInstructions,
 } from '../lib/irys';
 import ProfileCard from '../components/ProfileCard';
 import styles from '../styles/ProfilePage.module.css';
@@ -50,7 +51,6 @@ const ProfilePage: NextPage = () => {
   // Fund 팝업 상태
   const [showFundPopup, setShowFundPopup] = useState(false);
   const [fundAmount, setFundAmount] = useState<number>(0);
-  const [isFunding, setIsFunding] = useState(false);
 
   // 명함카드 팝업 상태
   const [showProfileCard, setShowProfileCard] = useState(false);
@@ -257,36 +257,19 @@ const ProfilePage: NextPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Fund account
-  const handleFund = async () => {
-    if (!uploader || fundAmount <= 0) return;
+  // Show CLI fund instructions
+  const handleFund = () => {
+    // Close fund popup after user sees instructions
+    setShowFundPopup(false);
 
-    setIsFunding(true);
-    try {
-      // Convert SOL to lamports for funding (1 SOL = 1,000,000,000 lamports)
-      const lamportsAmount = Math.ceil(fundAmount * 1000000000);
+    // Show success message with CLI instructions
+    const commands = getCliFundInstructions(fundAmount);
+    const instruction = `Please run these commands in your terminal to fund your account:\n\n${commands.join('\n')}\n\nAfter funding, try saving your profile again.`;
 
-      // Fund the account with the specified amount in lamports
-      const result = await uploader.fund(lamportsAmount);
+    alert(instruction);
 
-      console.log('Funding result:', result);
-
-      setShowFundPopup(false);
-      setSuccessMessage(
-        'Account funded successfully! Please try saving your profile again.'
-      );
-      setFundAmount(0);
-    } catch (error) {
-      console.error('Funding error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      setErrors({
-        general: `Failed to fund account: ${errorMessage}. Please try again.`,
-      });
-      setShowFundPopup(false);
-    } finally {
-      setIsFunding(false);
-    }
+    // Reset fund amount
+    setFundAmount(0);
   };
 
   // 프로필 저장
@@ -604,20 +587,35 @@ const ProfilePage: NextPage = () => {
                 (Includes 10% buffer for transaction fees)
               </p>
             </div>
+
+            <div className={styles.cliInstructions}>
+              <h4 className={styles.cliInstructionsTitle}>CLI Commands:</h4>
+              <div className={styles.cliCommandList}>
+                {getCliFundInstructions(fundAmount).map((command, index) => (
+                  <div key={index} className={styles.cliCommand}>
+                    <code>{command}</code>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <p className={styles.fundPopupQuestion}>
-              Would you like to fund your account with the suggested amount?
+              Please run these commands in your terminal to fund your account.
             </p>
+            <div className={styles.fundPopupWarning}>
+              <p className={styles.fundPopupWarningText}>
+                ℹ️ After funding, try saving your profile again.
+              </p>
+            </div>
             <div className={styles.fundPopupButtons}>
               <button
                 onClick={handleFund}
-                disabled={isFunding}
                 className={`${styles.fundPopupButton} ${styles.fundPopupButtonPrimary}`}
               >
-                {isFunding ? 'Funding...' : 'Fund Account'}
+                Show Instructions
               </button>
               <button
                 onClick={() => setShowFundPopup(false)}
-                disabled={isFunding}
                 className={`${styles.fundPopupButton} ${styles.fundPopupButtonSecondary}`}
               >
                 Cancel

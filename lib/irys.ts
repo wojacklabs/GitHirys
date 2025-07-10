@@ -2,6 +2,8 @@
 import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
 
+// Note: Fund functionality now uses irys-git CLI tool
+
 // Timestamp 처리 유틸리티 함수들
 export const TimestampUtils = {
   // 다양한 형식의 timestamp를 Unix timestamp (초)로 정규화
@@ -110,24 +112,66 @@ interface BranchTransactionData {
 }
 
 export async function createIrysUploader(wallet?: any) {
-  try {
-    if (!wallet) {
-      // For read-only operations without wallet
-      return await WebUploader(WebSolana);
+  // Alternative RPC endpoints to try in case of 403 errors
+  const rpcEndpoints = [
+    'https://solana-mainnet.core.chainstack.com',
+    'https://rpc.ankr.com/solana',
+    'https://solana-api.projectserum.com',
+    'https://api.mainnet-beta.solana.com',
+  ];
+
+  for (let i = 0; i < rpcEndpoints.length; i++) {
+    try {
+      const rpcUrl = rpcEndpoints[i];
+      console.log(`Trying RPC endpoint: ${rpcUrl}`);
+
+      if (!wallet) {
+        // For read-only operations without wallet
+        const uploader = await WebUploader(WebSolana);
+        return uploader;
+      }
+
+      if (!wallet.connected) {
+        throw new Error('Wallet not connected');
+      }
+
+      // Create uploader with custom RPC configuration
+      const uploaderConfig = {
+        url: 'https://uploader.irys.xyz',
+        providerUrl: rpcUrl,
+      };
+
+      const irysUploader = await WebUploader(
+        WebSolana,
+        uploaderConfig
+      ).withProvider(wallet);
+
+      console.log(`Successfully connected to Irys with RPC: ${rpcUrl}`);
+      return irysUploader;
+    } catch (error) {
+      console.warn(`Failed to connect with RPC ${rpcEndpoints[i]}:`, error);
+
+      // If this is the last endpoint, throw the error
+      if (i === rpcEndpoints.length - 1) {
+        console.error('All RPC endpoints failed. Last error:', error);
+        throw new Error(
+          'Unable to connect to Solana network. Please try again later.'
+        );
+      }
+
+      // Continue to next RPC endpoint
+      continue;
     }
-
-    if (!wallet.connected) {
-      throw new Error('Wallet not connected');
-    }
-
-    // Use the wallet object directly with withProvider as per documentation
-    const irysUploader = await WebUploader(WebSolana).withProvider(wallet);
-
-    return irysUploader;
-  } catch (error) {
-    console.error('Error connecting to Irys:', error);
-    throw new Error('Error connecting to Irys');
   }
+}
+
+// Get CLI fund commands for user guidance
+export function getCliFundInstructions(amount: number): string[] {
+  return [
+    'npm install -g irys-git',
+    'igit login',
+    `igit balance --fund ${amount.toFixed(3)}`,
+  ];
 }
 
 // Test function to check if we can connect to Irys GraphQL
