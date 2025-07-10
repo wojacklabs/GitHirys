@@ -147,43 +147,6 @@ function UniverseBackground() {
   );
 }
 
-// Nebula component for random placement around star systems
-function Nebula({
-  position,
-  color,
-  size,
-}: {
-  position: [number, number, number];
-  color: string;
-  size: number;
-}) {
-  const nebulaRef = useRef<THREE.Mesh>(null);
-
-  useFrame(state => {
-    if (nebulaRef.current) {
-      const time = state.clock.getElapsedTime();
-      nebulaRef.current.rotation.y += 0.001;
-      nebulaRef.current.rotation.x += 0.0005;
-
-      // Subtle pulsing effect
-      const scale = size * (1 + Math.sin(time * 0.5) * 0.1);
-      nebulaRef.current.scale.setScalar(scale);
-    }
-  });
-
-  return (
-    <mesh ref={nebulaRef} position={position}>
-      <sphereGeometry args={[1, 16, 16]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={0.12}
-        side={THREE.BackSide}
-      />
-    </mesh>
-  );
-}
-
 // Camera controller
 function CameraController({
   focusedUser,
@@ -256,49 +219,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       return [x, y, z] as [number, number, number];
     });
   }, [validUsers]);
-
-  // Generate nebulae around star systems
-  const nebulae = useMemo(() => {
-    if (validUsers.length === 0) return [];
-
-    const nebulaColors = [
-      '#ff6b9d',
-      '#4ecdc4',
-      '#45b7d1',
-      '#96ceb4',
-      '#ffeaa7',
-      '#dda0dd',
-    ];
-    const nebulaeData = [];
-
-    for (let i = 0; i < validUsers.length; i++) {
-      const systemPos = starSystemPositions[i];
-      if (!systemPos) continue;
-
-      // Add 1-3 nebulae around each star system
-      const nebulaCount = Math.floor(Math.random() * 3) + 1;
-
-      for (let j = 0; j < nebulaCount; j++) {
-        const angle = (j / nebulaCount) * Math.PI * 2 + Math.random() * Math.PI;
-        const distance = 20 + Math.random() * 30;
-        const height = (Math.random() - 0.5) * 20;
-
-        const nebulaPos: [number, number, number] = [
-          systemPos[0] + Math.cos(angle) * distance,
-          systemPos[1] + height,
-          systemPos[2] + Math.sin(angle) * distance,
-        ];
-
-        nebulaeData.push({
-          position: nebulaPos,
-          color: nebulaColors[Math.floor(Math.random() * nebulaColors.length)],
-          size: 8 + Math.random() * 12,
-        });
-      }
-    }
-
-    return nebulaeData;
-  }, [validUsers, starSystemPositions]);
 
   const handlePlanetClick = (user: string, repo: string) => {
     if (onPlanetClick) {
@@ -379,16 +299,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
               focusedUser === user.accountAddress ||
               focusedUser === user.nickname
             }
-          />
-        ))}
-
-        {/* Render nebulae */}
-        {nebulae.map((nebula, index) => (
-          <Nebula
-            key={index}
-            position={nebula.position}
-            color={nebula.color}
-            size={nebula.size}
           />
         ))}
 
