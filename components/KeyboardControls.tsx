@@ -14,10 +14,32 @@ const KeyboardControls: React.FC<KeyboardControlsProps> = ({ speed = 2 }) => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore keyboard events when input elements are focused
+      const target = event.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT')
+      ) {
+        return;
+      }
+
       keysPressed.current[event.code.toLowerCase()] = true;
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
+      // Ignore keyboard events when input elements are focused
+      const target = event.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT')
+      ) {
+        return;
+      }
+
       keysPressed.current[event.code.toLowerCase()] = false;
     };
 

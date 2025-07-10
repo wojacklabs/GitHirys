@@ -40,9 +40,10 @@ const Planet: React.FC<PlanetProps> = ({
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const cloudsRef = useRef<THREE.Mesh>(null);
   const oceansRef = useRef<THREE.Mesh>(null);
+  const surfaceDetailRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  // 실제 행성 타입과 색상 결정 (저장소 이름 기반)
+  // Realistic planet type and color determination (based on repository name)
   const planetType = useMemo(() => {
     const hash = repo.name.split('').reduce((acc, char) => {
       return acc + char.charCodeAt(0);
@@ -55,86 +56,106 @@ const Planet: React.FC<PlanetProps> = ({
         atmosphere: '#87CEEB',
         hasOceans: true,
         hasClouds: true,
-      }, // 지구형
+        surfaceRoughness: 0.8,
+        metalness: 0.1,
+      }, // Earth-type
       {
         name: 'Mars-like',
         color: '#CD5C5C',
         atmosphere: '#F4A460',
         hasOceans: false,
         hasClouds: false,
-      }, // 화성형
+        surfaceRoughness: 0.9,
+        metalness: 0.2,
+      }, // Mars-type
       {
         name: 'Gas Giant',
         color: '#DAA520',
         atmosphere: '#FFA500',
         hasOceans: false,
         hasClouds: true,
-      }, // 가스형 (목성)
+        surfaceRoughness: 0.1,
+        metalness: 0.0,
+      }, // Gas giant (Jupiter-like)
       {
         name: 'Ice Planet',
         color: '#E0FFFF',
         atmosphere: '#B0E0E6',
         hasOceans: false,
         hasClouds: false,
-      }, // 얼음형
+        surfaceRoughness: 0.1,
+        metalness: 0.8,
+      }, // Ice world
       {
         name: 'Venus-like',
         color: '#FFA500',
         atmosphere: '#FFFF99',
         hasOceans: false,
         hasClouds: true,
-      }, // 금성형
+        surfaceRoughness: 0.7,
+        metalness: 0.0,
+      }, // Venus-type
       {
         name: 'Desert',
         color: '#DEB887',
         atmosphere: '#F5DEB3',
         hasOceans: false,
         hasClouds: false,
-      }, // 사막형
+        surfaceRoughness: 0.95,
+        metalness: 0.1,
+      }, // Desert world
       {
         name: 'Ocean World',
         color: '#0066CC',
         atmosphere: '#4169E1',
         hasOceans: true,
         hasClouds: true,
-      }, // 해양형
+        surfaceRoughness: 0.2,
+        metalness: 0.6,
+      }, // Ocean world
       {
         name: 'Rocky',
         color: '#696969',
         atmosphere: '#A9A9A9',
         hasOceans: false,
         hasClouds: false,
-      }, // 암석형
+        surfaceRoughness: 1.0,
+        metalness: 0.3,
+      }, // Rocky world
     ];
 
     return planetTypes[hash % planetTypes.length];
   }, [repo.name]);
 
-  // 행성 크기와 속성 결정 (브랜치 수와 행성 타입에 따라)
+  // Planet size and properties (based on branch count and planet type)
   const planetProperties = useMemo(() => {
     const branchCount = repo.branches?.length || 0;
-    let baseSize = 0.4;
-    let maxSize = 1.2;
+    let baseSize = 0.5;
+    let maxSize = 1.4;
 
-    // 가스형 행성은 더 크게
+    // Gas giants are larger
     if (planetType.name === 'Gas Giant') {
-      baseSize = 0.6;
-      maxSize = 1.8;
+      baseSize = 0.8;
+      maxSize = 2.2;
     }
 
-    // 브랜치가 많을수록 큰 크기
+    // Size increases with more branches
     const size = Math.max(
       baseSize,
-      Math.min(baseSize + branchCount * 0.08, maxSize)
+      Math.min(baseSize + branchCount * 0.1, maxSize)
     );
 
-    // 행성 타입에 따른 색상
+    // Planet type-based colors
     const planetColor = new THREE.Color(planetType.color);
     const atmosphereColor = new THREE.Color(planetType.atmosphere);
 
-    // 브랜치 3개 이상이면 링 효과 (가스형은 더 쉽게 링 생성)
+    // Ring system (gas giants get rings more easily)
     const hasRings =
       planetType.name === 'Gas Giant' ? branchCount >= 2 : branchCount >= 4;
+
+    // Surface detail based on planet type
+    const hasSurfaceDetail =
+      !planetType.hasOceans && planetType.name !== 'Gas Giant';
 
     return {
       size,
@@ -142,15 +163,16 @@ const Planet: React.FC<PlanetProps> = ({
       atmosphereColor,
       hasRings,
       planetType,
+      hasSurfaceDetail,
     };
   }, [repo.branches, planetType]);
 
-  // 애니메이션 (공전, 자전, 대기, 구름, 해양 효과)
+  // Advanced animation (orbit, rotation, atmosphere, clouds, ocean effects)
   useFrame(state => {
     if (groupRef.current && planetRef.current && atmosphereRef.current) {
       const time = state.clock.getElapsedTime();
 
-      // 공전 애니메이션
+      // Orbital animation
       const angle = initialAngle + time * orbitSpeed;
       const x = Math.cos(angle) * orbitRadius;
       const z = Math.sin(angle) * orbitRadius;
@@ -158,36 +180,55 @@ const Planet: React.FC<PlanetProps> = ({
 
       groupRef.current.position.set(x, y, z);
 
-      // 자전 효과 (행성 타입에 따라 다른 속도)
+      // Rotation effects (different speeds based on planet type)
       const rotationSpeed =
-        planetProperties.planetType.name === 'Gas Giant' ? 0.02 : 0.01;
+        planetProperties.planetType.name === 'Gas Giant' ? 0.025 : 0.012;
       planetRef.current.rotation.y += rotationSpeed;
 
-      // 대기 효과 (반대 방향 회전)
-      atmosphereRef.current.rotation.y -= 0.005;
+      // Atmospheric effects (counter-rotation)
+      atmosphereRef.current.rotation.y -= 0.006;
 
-      // 구름 효과 (있을 경우)
+      // Cloud effects (if present)
       if (cloudsRef.current && planetProperties.planetType.hasClouds) {
-        cloudsRef.current.rotation.y += 0.008;
-        cloudsRef.current.rotation.x += 0.002;
+        cloudsRef.current.rotation.y += 0.01;
+        cloudsRef.current.rotation.x += 0.003;
       }
 
-      // 해양 효과 (있을 경우)
+      // Ocean effects (if present)
       if (oceansRef.current && planetProperties.planetType.hasOceans) {
-        oceansRef.current.rotation.y += 0.003;
+        oceansRef.current.rotation.y += 0.004;
+
+        // Ocean wave simulation
+        const waveEffect = Math.sin(time * 2.5) * 0.02 + 1;
+        oceansRef.current.scale.setScalar(
+          planetProperties.size * 1.05 * waveEffect
+        );
       }
 
-      // 호버 효과
-      const hoverScale = isFocused ? 1.2 : 1;
-      const pulse = Math.sin(time * 3) * 0.03 + 1;
+      // Surface detail animation
+      if (surfaceDetailRef.current && planetProperties.hasSurfaceDetail) {
+        surfaceDetailRef.current.rotation.y += rotationSpeed * 0.8;
+      }
 
-      planetRef.current.scale.setScalar(hoverScale * pulse);
-      atmosphereRef.current.scale.setScalar(hoverScale * pulse * 1.3);
+      // Enhanced hover effects
+      const hoverScale = isFocused ? 1.25 : 1;
+      const atmosphericPulse = Math.sin(time * 2.8) * 0.04 + 1;
 
-      // 링 회전 (있을 경우)
+      planetRef.current.scale.setScalar(hoverScale * atmosphericPulse);
+      atmosphereRef.current.scale.setScalar(
+        hoverScale * atmosphericPulse * 1.4
+      );
+
+      // Ring rotation (if present)
       if (ringsRef.current) {
-        ringsRef.current.rotation.z += 0.02;
-        ringsRef.current.rotation.y += 0.005;
+        ringsRef.current.rotation.z += 0.015;
+        ringsRef.current.rotation.y += 0.003;
+
+        // Ring particle effect
+        const ringPulse = Math.sin(time * 1.8) * 0.05 + 1;
+        ringsRef.current.scale.setScalar(
+          planetProperties.size * 2.2 * ringPulse
+        );
       }
     }
   });
@@ -209,24 +250,27 @@ const Planet: React.FC<PlanetProps> = ({
 
   return (
     <group ref={groupRef}>
-      {/* 대기층 (행성 타입에 따라) */}
+      {/* Atmospheric layer (varies by planet type) */}
       <mesh
         ref={atmosphereRef}
         scale={[
-          planetProperties.size * 1.4,
-          planetProperties.size * 1.4,
-          planetProperties.size * 1.4,
+          planetProperties.size * 1.5,
+          planetProperties.size * 1.5,
+          planetProperties.size * 1.5,
         ]}
       >
-        <sphereGeometry args={[1, 24, 24]} />
+        <icosahedronGeometry args={[1, 2]} />
         <meshBasicMaterial
           color={planetProperties.atmosphereColor}
           transparent
-          opacity={0.2}
+          opacity={
+            planetProperties.planetType.name === 'Venus-like' ? 0.4 : 0.15
+          }
+          blending={THREE.AdditiveBlending}
         />
       </mesh>
 
-      {/* 해양 레이어 (해양 행성의 경우) */}
+      {/* Ocean layer (for ocean worlds) */}
       {planetProperties.planetType.hasOceans && (
         <mesh
           ref={oceansRef}
@@ -236,34 +280,64 @@ const Planet: React.FC<PlanetProps> = ({
             planetProperties.size * 1.05,
           ]}
         >
-          <sphereGeometry args={[1, 28, 28]} />
+          <icosahedronGeometry args={[1, 3]} />
           <meshStandardMaterial
             color="#1E90FF"
             transparent
-            opacity={0.8}
-            roughness={0.1}
-            metalness={0.9}
-            envMapIntensity={0.8}
+            opacity={0.85}
+            roughness={0.05}
+            metalness={0.8}
+            envMapIntensity={1.2}
+            clearcoat={1.0}
+            clearcoatRoughness={0.1}
           />
         </mesh>
       )}
 
-      {/* 구름 레이어 (구름이 있는 행성의 경우) */}
+      {/* Cloud layer (for planets with clouds) */}
       {planetProperties.planetType.hasClouds && (
         <mesh
           ref={cloudsRef}
           scale={[
-            planetProperties.size * 1.1,
-            planetProperties.size * 1.1,
-            planetProperties.size * 1.1,
+            planetProperties.size * 1.12,
+            planetProperties.size * 1.12,
+            planetProperties.size * 1.12,
           ]}
         >
-          <sphereGeometry args={[1, 20, 20]} />
-          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.3} />
+          <icosahedronGeometry args={[1, 2]} />
+          <meshBasicMaterial
+            color="#FFFFFF"
+            transparent
+            opacity={
+              planetProperties.planetType.name === 'Gas Giant' ? 0.6 : 0.25
+            }
+            blending={THREE.AdditiveBlending}
+          />
         </mesh>
       )}
 
-      {/* 행성 본체 */}
+      {/* Surface detail layer (for rocky planets) */}
+      {planetProperties.hasSurfaceDetail && (
+        <mesh
+          ref={surfaceDetailRef}
+          scale={[
+            planetProperties.size * 1.01,
+            planetProperties.size * 1.01,
+            planetProperties.size * 1.01,
+          ]}
+        >
+          <icosahedronGeometry args={[1, 3]} />
+          <meshStandardMaterial
+            color={planetProperties.planetColor.clone().multiplyScalar(0.8)}
+            roughness={0.95}
+            metalness={0.1}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+      )}
+
+      {/* Planet core - high detail surface */}
       <mesh
         ref={planetRef}
         scale={[
@@ -275,20 +349,20 @@ const Planet: React.FC<PlanetProps> = ({
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
       >
-        <sphereGeometry args={[1, 32, 32]} />
+        <icosahedronGeometry args={[1, 4]} />
         <meshStandardMaterial
           color={planetProperties.planetColor}
-          roughness={
-            planetProperties.planetType.name === 'Gas Giant' ? 0.3 : 0.8
+          roughness={planetProperties.planetType.surfaceRoughness}
+          metalness={planetProperties.planetType.metalness}
+          envMapIntensity={0.6}
+          clearcoat={
+            planetProperties.planetType.name === 'Ice Planet' ? 0.9 : 0.0
           }
-          metalness={
-            planetProperties.planetType.name === 'Ice Planet' ? 0.6 : 0.2
-          }
-          envMapIntensity={0.4}
+          clearcoatRoughness={0.1}
         />
       </mesh>
 
-      {/* 링 시스템 (조건에 따라) */}
+      {/* Ring system (conditional) */}
       {planetProperties.hasRings && (
         <mesh
           ref={ringsRef}
@@ -299,7 +373,7 @@ const Planet: React.FC<PlanetProps> = ({
             planetProperties.size * 2.2,
           ]}
         >
-          <ringGeometry args={[1.3, 2.0, 64]} />
+          <ringGeometry args={[1.4, 2.2, 128]} />
           <meshStandardMaterial
             color={
               planetProperties.planetType.name === 'Gas Giant'
@@ -307,12 +381,24 @@ const Planet: React.FC<PlanetProps> = ({
                 : '#C0C0C0'
             }
             transparent
-            opacity={0.6}
-            roughness={0.8}
-            metalness={0.3}
+            opacity={0.7}
+            roughness={0.6}
+            metalness={0.4}
             side={THREE.DoubleSide}
+            envMapIntensity={0.8}
           />
         </mesh>
+      )}
+
+      {/* Planetary lighting (subtle) */}
+      {planetProperties.planetType.name !== 'Gas Giant' && (
+        <pointLight
+          position={[0, 0, 0]}
+          intensity={0.1}
+          color={planetProperties.planetColor}
+          distance={planetProperties.size * 8}
+          decay={2.0}
+        />
       )}
     </group>
   );

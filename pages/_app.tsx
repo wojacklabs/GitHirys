@@ -25,9 +25,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
-  // 홈 화면에서는 검색 UI를 숨김
-  const showSearch = router.pathname !== '/';
-
   // 클라이언트 사이드에서만 실행
   useEffect(() => {
     setMounted(true);
@@ -91,7 +88,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         <meta name="theme-color" content="#ffffff" />
       </Head>
       <SolanaProvider>
-        <Header showSearch={showSearch} />
+        <Header showSearch />
         <Component {...pageProps} />
         <CustomCursor />
       </SolanaProvider>

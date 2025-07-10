@@ -106,12 +106,6 @@ const Home: NextPage = () => {
 
       {/* 3D Universe Environment */}
       <UniverseScene users={universeUsers} onPlanetClick={handlePlanetClick} />
-
-      {/* Standard Header */}
-      <div className="container">
-        <h1>GitHirys</h1>
-        <p>Decentralized Git Repository System</p>
-      </div>
     </>
   );
 };

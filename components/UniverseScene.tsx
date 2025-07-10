@@ -25,12 +25,166 @@ interface UniverseSceneProps {
   onPlanetClick?: (user: string, repo: string) => void;
 }
 
-// 우주 배경 컴포넌트 (fog 효과 제거로 거리 제한 없음)
+// Realistic space background with stars and nebulae
 function UniverseBackground() {
-  return <></>;
+  const nebulaRef = useRef<THREE.Mesh>(null);
+  const distantStarsRef = useRef<THREE.Points>(null);
+
+  // Create distant star field
+  const distantStars = useMemo(() => {
+    const positions = new Float32Array(8000 * 3);
+    const colors = new Float32Array(8000 * 3);
+
+    for (let i = 0; i < 8000; i++) {
+      // Distribute stars in a large sphere
+      const radius = 800 + Math.random() * 400;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI;
+
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+
+      // Star colors (realistic star colors)
+      const starType = Math.random();
+      if (starType < 0.3) {
+        // Blue-white stars
+        colors[i * 3] = 0.8 + Math.random() * 0.2;
+        colors[i * 3 + 1] = 0.9 + Math.random() * 0.1;
+        colors[i * 3 + 2] = 1.0;
+      } else if (starType < 0.6) {
+        // Yellow-white stars
+        colors[i * 3] = 1.0;
+        colors[i * 3 + 1] = 0.9 + Math.random() * 0.1;
+        colors[i * 3 + 2] = 0.7 + Math.random() * 0.2;
+      } else {
+        // Red stars
+        colors[i * 3] = 1.0;
+        colors[i * 3 + 1] = 0.5 + Math.random() * 0.3;
+        colors[i * 3 + 2] = 0.3 + Math.random() * 0.2;
+      }
+    }
+
+    return { positions, colors };
+  }, []);
+
+  // Nebula animation
+  useFrame(state => {
+    if (nebulaRef.current) {
+      const time = state.clock.getElapsedTime();
+      nebulaRef.current.rotation.y += 0.0005;
+      nebulaRef.current.rotation.x += 0.0002;
+
+      // Subtle nebula breathing effect
+      const scale = 1 + Math.sin(time * 0.1) * 0.02;
+      nebulaRef.current.scale.setScalar(scale);
+    }
+
+    if (distantStarsRef.current) {
+      distantStarsRef.current.rotation.y += 0.0001;
+    }
+  });
+
+  return (
+    <>
+      {/* Distant star field */}
+      <points ref={distantStarsRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={distantStars.positions}
+            count={distantStars.positions.length / 3}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={distantStars.colors}
+            count={distantStars.colors.length / 3}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.8}
+          vertexColors
+          transparent
+          opacity={0.8}
+          sizeAttenuation
+        />
+      </points>
+
+      {/* Nebula background */}
+      <mesh ref={nebulaRef} position={[0, 0, -300]}>
+        <sphereGeometry args={[200, 32, 32]} />
+        <meshBasicMaterial
+          color="#1a0033"
+          transparent
+          opacity={0.15}
+          side={THREE.BackSide}
+        />
+      </mesh>
+
+      {/* Additional nebula layers */}
+      <mesh position={[150, 100, -250]} rotation={[0.5, 0.3, 0]}>
+        <sphereGeometry args={[80, 16, 16]} />
+        <meshBasicMaterial
+          color="#330066"
+          transparent
+          opacity={0.08}
+          side={THREE.BackSide}
+        />
+      </mesh>
+
+      <mesh position={[-120, -80, -280]} rotation={[0.8, -0.4, 0.2]}>
+        <sphereGeometry args={[60, 16, 16]} />
+        <meshBasicMaterial
+          color="#003366"
+          transparent
+          opacity={0.06}
+          side={THREE.BackSide}
+        />
+      </mesh>
+    </>
+  );
 }
 
-// 카메라 컨트롤러
+// Nebula component for random placement around star systems
+function Nebula({
+  position,
+  color,
+  size,
+}: {
+  position: [number, number, number];
+  color: string;
+  size: number;
+}) {
+  const nebulaRef = useRef<THREE.Mesh>(null);
+
+  useFrame(state => {
+    if (nebulaRef.current) {
+      const time = state.clock.getElapsedTime();
+      nebulaRef.current.rotation.y += 0.001;
+      nebulaRef.current.rotation.x += 0.0005;
+
+      // Subtle pulsing effect
+      const scale = size * (1 + Math.sin(time * 0.5) * 0.1);
+      nebulaRef.current.scale.setScalar(scale);
+    }
+  });
+
+  return (
+    <mesh ref={nebulaRef} position={position}>
+      <sphereGeometry args={[1, 16, 16]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.12}
+        side={THREE.BackSide}
+      />
+    </mesh>
+  );
+}
+
+// Camera controller
 function CameraController({
   focusedUser,
   users,
@@ -42,7 +196,7 @@ function CameraController({
 
   useEffect(() => {
     if (focusedUser && controlsRef.current && users.length > 0) {
-      // 포커스된 사용자의 위치를 찾아서 카메라 이동
+      // Find focused user position and move camera
       const userIndex = users.findIndex(
         u => u.accountAddress === focusedUser || u.nickname === focusedUser
       );
@@ -66,7 +220,7 @@ function CameraController({
       enableZoom={true}
       enableRotate={true}
       minDistance={20}
-      maxDistance={500}
+      maxDistance={800}
       autoRotate={!focusedUser}
       autoRotateSpeed={0.1}
     />
@@ -84,26 +238,67 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     position: [number, number, number];
   } | null>(null);
 
-  // 빈 사용자 배열 처리
+  // Handle empty user array
   const validUsers = users || [];
 
-  // 사용자 배치 계산
-
-  // 사용자들을 넓은 3D 공간에 배치하는 위치 계산
+  // Calculate user positions in wide 3D space
   const starSystemPositions = useMemo(() => {
     if (validUsers.length === 0) return [];
 
     return validUsers.map((user, index) => {
-      // 더 넓은 원형 배치
+      // Wider circular arrangement
       const angle = (index / validUsers.length) * Math.PI * 2;
-      const radius = 80 + Math.random() * 40; // 80-120 범위의 랜덤 거리
+      const radius = 80 + Math.random() * 40; // 80-120 range random distance
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      const y = (Math.random() - 0.5) * 40; // 더 큰 높이 변화
+      const y = (Math.random() - 0.5) * 40; // Larger height variation
 
       return [x, y, z] as [number, number, number];
     });
   }, [validUsers]);
+
+  // Generate nebulae around star systems
+  const nebulae = useMemo(() => {
+    if (validUsers.length === 0) return [];
+
+    const nebulaColors = [
+      '#ff6b9d',
+      '#4ecdc4',
+      '#45b7d1',
+      '#96ceb4',
+      '#ffeaa7',
+      '#dda0dd',
+    ];
+    const nebulaeData = [];
+
+    for (let i = 0; i < validUsers.length; i++) {
+      const systemPos = starSystemPositions[i];
+      if (!systemPos) continue;
+
+      // Add 1-3 nebulae around each star system
+      const nebulaCount = Math.floor(Math.random() * 3) + 1;
+
+      for (let j = 0; j < nebulaCount; j++) {
+        const angle = (j / nebulaCount) * Math.PI * 2 + Math.random() * Math.PI;
+        const distance = 20 + Math.random() * 30;
+        const height = (Math.random() - 0.5) * 20;
+
+        const nebulaPos: [number, number, number] = [
+          systemPos[0] + Math.cos(angle) * distance,
+          systemPos[1] + height,
+          systemPos[2] + Math.sin(angle) * distance,
+        ];
+
+        nebulaeData.push({
+          position: nebulaPos,
+          color: nebulaColors[Math.floor(Math.random() * nebulaColors.length)],
+          size: 8 + Math.random() * 12,
+        });
+      }
+    }
+
+    return nebulaeData;
+  }, [validUsers, starSystemPositions]);
 
   const handlePlanetClick = (user: string, repo: string) => {
     if (onPlanetClick) {
@@ -126,40 +321,52 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       <Canvas
         camera={{ position: [0, 50, 200], fov: 75 }}
         style={{
-          background: 'radial-gradient(circle, #000428 0%, #000000 100%)',
+          background:
+            'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 25%, #16213e 50%, #0f0f23 75%, #000000 100%)',
         }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
       >
         <UniverseBackground />
 
-        {/* 조명 개선 - 3D 효과 강화 */}
-        <ambientLight intensity={0.3} color="#ffffff" />
+        {/* Enhanced lighting for realistic space */}
+        <ambientLight intensity={0.15} color="#ffffff" />
         <directionalLight
-          position={[50, 50, 50]}
-          intensity={0.8}
+          position={[200, 200, 200]}
+          intensity={0.3}
           color="#ffffff"
           castShadow
         />
-        <pointLight
-          position={[100, 100, 100]}
-          intensity={0.6}
-          color="#ffffff"
-        />
-        <pointLight
-          position={[-100, -100, -100]}
-          intensity={0.4}
-          color="#aaccff"
-        />
-        <pointLight position={[0, 100, 0]} intensity={0.3} color="#ffeeaa" />
 
-        {/* WASD 키보드 컨트롤 */}
+        {/* Multiple directional lights for depth */}
+        <directionalLight
+          position={[-100, 100, -100]}
+          intensity={0.2}
+          color="#4169e1"
+        />
+        <directionalLight
+          position={[100, -100, 100]}
+          intensity={0.15}
+          color="#ff6b6b"
+        />
+
+        {/* Bright star field */}
+        <Stars
+          radius={600}
+          depth={100}
+          count={3000}
+          factor={4}
+          saturation={0.8}
+          fade={true}
+        />
+
+        {/* WASD keyboard controls */}
         <KeyboardControls speed={50} />
 
-        {/* 카메라 컨트롤 */}
+        {/* Camera controls */}
         <CameraController focusedUser={focusedUser} users={validUsers} />
 
-        {/* 행성계들 렌더링 */}
+        {/* Render star systems */}
         {validUsers.map((user, index) => (
           <StarSystem
             key={user.accountAddress}
@@ -175,7 +382,17 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
           />
         ))}
 
-        {/* 툴팁 */}
+        {/* Render nebulae */}
+        {nebulae.map((nebula, index) => (
+          <Nebula
+            key={index}
+            position={nebula.position}
+            color={nebula.color}
+            size={nebula.size}
+          />
+        ))}
+
+        {/* Tooltip */}
         {hoveredPlanet && (
           <Html position={hoveredPlanet.position}>
             <div className={styles.tooltip}>
