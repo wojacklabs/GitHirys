@@ -120,6 +120,55 @@
   line-height: 18px;
   margin-top: 6px;
 }
+
+/* 업로드 비용 정보 스타일 */
+.costInfo {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.costEstimate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.costEstimate:last-child {
+  margin-bottom: 0;
+}
+
+.costLabel {
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.costValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.freeIndicator {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.costHelp {
+  margin-top: 8px;
+}
+
+.costHelpText {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .submitButton {
   width: 100%;
   padding: 12px;
@@ -166,4 +215,115 @@
 .loadingText {
   padding: 20px;
   text-align: center;
-} 
+}
+
+/* Fund Popup Styles */
+.fundPopupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.fundPopup {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.fundPopupTitle {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1f2937;
+}
+
+.fundPopupMessage {
+  font-size: 16px;
+  margin-bottom: 20px;
+  color: #4b5563;
+}
+
+.fundPopupInfo {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.fundPopupInfo p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.fundPopupNote {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.fundPopupQuestion {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 24px;
+  color: #1f2937;
+}
+
+.fundPopupButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.fundPopupButton {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.fundPopupButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.fundPopupButtonPrimary {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.fundPopupButtonPrimary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.fundPopupButtonSecondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.fundPopupButtonSecondary:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}

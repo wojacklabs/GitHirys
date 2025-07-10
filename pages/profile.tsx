@@ -44,6 +44,14 @@ const ProfilePage: NextPage = () => {
     null
   );
 
+  // 비용 상태
+  const [estimatedCost, setEstimatedCost] = useState<number>(0);
+
+  // Fund 팝업 상태
+  const [showFundPopup, setShowFundPopup] = useState(false);
+  const [fundAmount, setFundAmount] = useState<number>(0);
+  const [isFunding, setIsFunding] = useState(false);
+
   // 명함카드 팝업 상태
   const [showProfileCard, setShowProfileCard] = useState(false);
   const [profileCardData, setProfileCardData] = useState<{
@@ -85,6 +93,8 @@ const ProfilePage: NextPage = () => {
       try {
         const newUploader = await createIrysUploader(wallet);
         setUploader(newUploader);
+
+        // Uploader ready
       } catch (error) {
         console.error('Irys 업로더 생성 실패:', error);
         setUploader(null);
@@ -106,9 +116,15 @@ const ProfilePage: NextPage = () => {
           setExistingProfile(profile);
           setNickname(profile.nickname);
           setTwitterHandle(profile.twitterHandle);
-          if (profile.profileImageUrl) {
+          // 새로운 프로필 이미지를 선택하지 않은 경우에만 기존 이미지를 설정
+          if (profile.profileImageUrl && !profileImage) {
             setPreviewUrl(profile.profileImageUrl);
           }
+        }
+
+        // If no profile image is selected, calculate cost for default image
+        if (!profileImage) {
+          estimateDefaultImageCost();
         }
       } catch (error) {
         console.error('프로필 로드 오류:', error);
@@ -118,7 +134,21 @@ const ProfilePage: NextPage = () => {
     };
 
     loadExistingProfile();
-  }, [publicKey]);
+  }, [publicKey, profileImage]);
+
+  // 기본 이미지 비용 추정
+  const estimateDefaultImageCost = () => {
+    try {
+      // Default image is typically around 5-10KB
+      const estimatedDefaultImageSize = 8192; // 8KB
+      const cost = ProfileUtils.estimateUploadCost(estimatedDefaultImageSize);
+      if (!profileImage) {
+        setEstimatedCost(cost);
+      }
+    } catch (error) {
+      console.error('Default image cost estimation error:', error);
+    }
+  };
 
   // 닉네임 중복 검사 (디바운스)
   useEffect(() => {
@@ -153,7 +183,13 @@ const ProfilePage: NextPage = () => {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setProfileImage(null);
+      // 기존 프로필 이미지가 있으면 그것을 유지, 없으면 빈 문자열로 설정
+      setPreviewUrl(existingProfile?.profileImageUrl || '');
+      setEstimatedCost(0);
+      return;
+    }
 
     // 파일 타입 검증
     if (!file.type.startsWith('image/')) {
@@ -161,6 +197,9 @@ const ProfilePage: NextPage = () => {
         ...prev,
         image: 'Upload only image file.',
       }));
+      // 에러가 있어도 기존 프로필 이미지는 유지
+      setProfileImage(null);
+      setPreviewUrl(existingProfile?.profileImageUrl || '');
       return;
     }
 
@@ -170,6 +209,9 @@ const ProfilePage: NextPage = () => {
         ...prev,
         image: 'Image should be smaller than 5MB.',
       }));
+      // 에러가 있어도 기존 프로필 이미지는 유지
+      setProfileImage(null);
+      setPreviewUrl(existingProfile?.profileImageUrl || '');
       return;
     }
 
@@ -178,6 +220,14 @@ const ProfilePage: NextPage = () => {
     setProfileImage(file);
     setPreviewUrl(URL.createObjectURL(file));
     setErrors(prev => ({ ...prev, image: '' }));
+
+    // Calculate estimated cost
+    try {
+      const cost = ProfileUtils.estimateUploadCost(file.size);
+      setEstimatedCost(cost);
+    } catch (error) {
+      console.error('Cost estimation error:', error);
+    }
   };
 
   // 폼 검증
@@ -207,6 +257,38 @@ const ProfilePage: NextPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Fund account
+  const handleFund = async () => {
+    if (!uploader || fundAmount <= 0) return;
+
+    setIsFunding(true);
+    try {
+      // Convert SOL to lamports for funding (1 SOL = 1,000,000,000 lamports)
+      const lamportsAmount = Math.ceil(fundAmount * 1000000000);
+
+      // Fund the account with the specified amount in lamports
+      const result = await uploader.fund(lamportsAmount);
+
+      console.log('Funding result:', result);
+
+      setShowFundPopup(false);
+      setSuccessMessage(
+        'Account funded successfully! Please try saving your profile again.'
+      );
+      setFundAmount(0);
+    } catch (error) {
+      console.error('Funding error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      setErrors({
+        general: `Failed to fund account: ${errorMessage}. Please try again.`,
+      });
+      setShowFundPopup(false);
+    } finally {
+      setIsFunding(false);
+    }
+  };
+
   // 프로필 저장
   const handleSave = async () => {
     if (!validateForm() || !uploader) return;
@@ -227,7 +309,7 @@ const ProfilePage: NextPage = () => {
             : undefined,
       };
 
-      const result = await uploadProfile(uploader, profileData);
+      const result = await uploadProfile(wallet, uploader, profileData);
 
       if (result.success) {
         setSuccessMessage('Profile Saved!');
@@ -250,11 +332,42 @@ const ProfilePage: NextPage = () => {
         setShowProfileCard(true);
         setShouldRefreshAfterClose(true);
       } else {
-        setErrors({ general: result.error || 'Failed to save Profile.' });
+        // Check if the error is related to insufficient balance
+        if (
+          result.error &&
+          (result.error.toLowerCase().includes('insufficient') ||
+            result.error.toLowerCase().includes('balance') ||
+            result.error.toLowerCase().includes('fund'))
+        ) {
+          // Calculate fund amount (estimated cost + 10%), with minimum of 0.001 SOL
+          const requiredAmount = Math.max(estimatedCost * 1.1, 0.001);
+          setFundAmount(requiredAmount);
+          setShowFundPopup(true);
+          setSuccessMessage(''); // Clear any existing success messages
+        } else {
+          setErrors({ general: result.error || 'Failed to save Profile.' });
+        }
       }
     } catch (error) {
-      console.error('프로필 저장 오류:', error);
-      setErrors({ general: 'Failed to save Profile.' });
+      console.error('Profile save error:', error);
+
+      // Check if the error is related to insufficient balance
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const isBalanceError =
+        errorMessage.toLowerCase().includes('insufficient') ||
+        errorMessage.toLowerCase().includes('balance') ||
+        errorMessage.toLowerCase().includes('fund');
+
+      if (isBalanceError) {
+        // Calculate fund amount (estimated cost + 10%), with minimum of 0.001 SOL
+        const requiredAmount = Math.max(estimatedCost * 1.1, 0.001);
+        setFundAmount(requiredAmount);
+        setShowFundPopup(true);
+        setSuccessMessage(''); // Clear any existing success messages
+      } else {
+        setErrors({ general: 'Failed to save Profile.' });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -332,6 +445,29 @@ const ProfilePage: NextPage = () => {
               </div>
               {errors.image && (
                 <p className={styles.error_message}>{errors.image}</p>
+              )}
+
+              {/* 업로드 비용 정보 */}
+              {estimatedCost > 0 && (
+                <div className={styles.costInfo}>
+                  <div className={styles.costEstimate}>
+                    <span className={styles.costLabel}>Upload Cost:</span>
+                    <span className={styles.costValue}>
+                      {ProfileUtils.formatCost(estimatedCost)}
+                    </span>
+                    {ProfileUtils.isEffectivelyFree(estimatedCost) && (
+                      <span className={styles.freeIndicator}>
+                        (Almost Free)
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.costHelp}>
+                    <span className={styles.costHelpText}>
+                      💡 This amount will be deducted from your wallet when
+                      uploading.
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -445,6 +581,50 @@ const ProfilePage: NextPage = () => {
           profileImageUrl={profileCardData.profileImageUrl}
           onClose={handleCloseProfileCard}
         />
+      )}
+
+      {/* Fund Balance Popup */}
+      {showFundPopup && (
+        <div className={styles.fundPopupOverlay}>
+          <div className={styles.fundPopup}>
+            <h3 className={styles.fundPopupTitle}>Insufficient Balance</h3>
+            <p className={styles.fundPopupMessage}>
+              Your account doesn't have enough balance to upload the profile.
+            </p>
+            <div className={styles.fundPopupInfo}>
+              <p>
+                Required Amount:{' '}
+                <strong>{ProfileUtils.formatCost(estimatedCost)}</strong>
+              </p>
+              <p>
+                Suggested Fund Amount:{' '}
+                <strong>{ProfileUtils.formatCost(fundAmount)}</strong>
+              </p>
+              <p className={styles.fundPopupNote}>
+                (Includes 10% buffer for transaction fees)
+              </p>
+            </div>
+            <p className={styles.fundPopupQuestion}>
+              Would you like to fund your account with the suggested amount?
+            </p>
+            <div className={styles.fundPopupButtons}>
+              <button
+                onClick={handleFund}
+                disabled={isFunding}
+                className={`${styles.fundPopupButton} ${styles.fundPopupButtonPrimary}`}
+              >
+                {isFunding ? 'Funding...' : 'Fund Account'}
+              </button>
+              <button
+                onClick={() => setShowFundPopup(false)}
+                disabled={isFunding}
+                className={`${styles.fundPopupButton} ${styles.fundPopupButtonSecondary}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

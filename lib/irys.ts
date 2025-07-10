@@ -777,6 +777,28 @@ export const ProfileUtils = {
   validateImageSize: (file: File): Promise<boolean> => {
     return Promise.resolve(true);
   },
+
+  // Calculate estimated upload cost based on file size (in SOL)
+  estimateUploadCost: (fileSizeBytes: number): number => {
+    // Irys pricing for Solana is approximately based on data size
+    // This is a rough estimate - actual costs may vary
+    const fileSizeKB = fileSizeBytes / 1024;
+    const costPerKB = 0.000001; // SOL per KB (approximate)
+    return Math.max(fileSizeKB * costPerKB, 0.000001); // Minimum cost
+  },
+
+  // Format cost for display (in SOL)
+  formatCost: (costSOL: number): string => {
+    if (costSOL < 0.000001) {
+      return '< 0.000001 SOL';
+    }
+    return `${costSOL.toFixed(6)} SOL`;
+  },
+
+  // Check if upload is essentially free (very small cost)
+  isEffectivelyFree: (costSOL: number): boolean => {
+    return costSOL < 0.000001;
+  },
 };
 
 // 닉네임 중복 검사
@@ -982,6 +1004,7 @@ export async function getProfileByNickname(
 
 // 프로필 업로드
 export async function uploadProfile(
+  wallet: any,
   uploader: any,
   profileData: {
     nickname: string;
@@ -991,7 +1014,11 @@ export async function uploadProfile(
     existingRootTxId?: string;
     existingProfileImageUrl?: string;
   }
-): Promise<{ success: boolean; txId?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  txId?: string;
+  error?: string;
+}> {
   try {
     let uploadData: File | Blob;
     let contentType: string;
@@ -1051,12 +1078,13 @@ export async function uploadProfile(
       txId: result.id,
     };
   } catch (error) {
+    console.error('Upload error:', error);
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : '알 수 없는 오류가 발생했습니다.',
+      error: errorMessage || 'Unknown error occurred during upload.',
     };
   }
 }
