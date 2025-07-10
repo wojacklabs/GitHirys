@@ -35,18 +35,16 @@ const StarSystem: React.FC<StarSystemProps> = ({
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
 
-  // 실제 저장소 데이터만 사용 (더미 데이터 제거)
+  // Use only actual repository data (remove dummy data)
   const repositories = user.repositories || [];
 
-  // 공전 궤도 시각적 표시
-
-  // 행성들의 궤도 정보 계산
+  // Calculate planet orbit information
   const planetOrbits = useMemo(() => {
     return repositories.map((repo, index) => {
-      const radius = 6 + index * 3; // 궤도 반지름 더 크게
-      const speed = 0.2 / (radius * 0.2); // 궤도 속도 (더 느리게)
+      const radius = 6 + index * 3; // Larger orbit radius
+      const speed = 0.2 / (radius * 0.2); // Orbit speed (slower)
       const initialAngle = (index / repositories.length) * Math.PI * 2;
-      const inclination = (Math.random() - 0.5) * 0.5; // 궤도 경사 줄임
+      const inclination = (Math.random() - 0.5) * 0.5; // Reduced orbit inclination
 
       return {
         radius,
@@ -58,10 +56,10 @@ const StarSystem: React.FC<StarSystemProps> = ({
     });
   }, [repositories]);
 
-  // 애니메이션 프레임
+  // Animation frame
   useFrame(state => {
     if (groupRef.current) {
-      // 포커스 상태에 따른 애니메이션
+      // Animation based on focus state
       if (isFocused) {
         groupRef.current.scale.lerp(new THREE.Vector3(1.5, 1.5, 1.5), 0.02);
       } else {
@@ -71,7 +69,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
   });
 
   const handleStarClick = () => {
-    // 사용자 프로필 페이지로 이동
+    // Navigate to user profile page
     window.open(`/${user.nickname || user.accountAddress}`, '_blank');
   };
 
@@ -79,9 +77,14 @@ const StarSystem: React.FC<StarSystemProps> = ({
     setHovered(hover);
   };
 
+  // Create abbreviated display name while keeping full address for links
+  const displayName =
+    user.nickname ||
+    `${user.accountAddress.substring(0, 6)}...${user.accountAddress.slice(-4)}`;
+
   return (
     <group ref={groupRef} position={position}>
-      {/* 항성 (사용자) */}
+      {/* Star (user) */}
       <Star
         user={user}
         onClick={handleStarClick}
@@ -90,7 +93,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
         isFocused={isFocused}
       />
 
-      {/* 사용자 닉네임 표시 */}
+      {/* User nickname display */}
       <Text
         position={[0, -2, 0]}
         fontSize={0.5}
@@ -99,13 +102,13 @@ const StarSystem: React.FC<StarSystemProps> = ({
         anchorY="middle"
         opacity={isFocused ? 1 : 0.7}
       >
-        {user.nickname || `${user.accountAddress.substring(0, 8)}...`}
+        {displayName}
       </Text>
 
-      {/* 저장소가 있는 경우에만 궤도와 행성 렌더링 */}
+      {/* Render orbits and planets only if repositories exist */}
       {repositories.length > 0 && (
         <>
-          {/* 공전 궤도들 (항성 중심) */}
+          {/* Orbital rings (around star) */}
           {planetOrbits.map((orbit, index) => (
             <mesh
               key={`orbit-${orbit.repo.name}`}
@@ -123,7 +126,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
             </mesh>
           ))}
 
-          {/* 궤도 글로우 효과 (포커스 상태일 때) */}
+          {/* Orbit glow effect (when focused) */}
           {isFocused &&
             planetOrbits.map((orbit, index) => (
               <mesh
@@ -142,7 +145,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
               </mesh>
             ))}
 
-          {/* 행성들 (저장소) */}
+          {/* Planets (repositories) */}
           {planetOrbits.map((orbit, index) => (
             <Planet
               key={orbit.repo.name}
@@ -161,29 +164,65 @@ const StarSystem: React.FC<StarSystemProps> = ({
         </>
       )}
 
-      {/* 사용자 정보 (항성 호버 상태일 때) */}
+      {/* User information (when star is hovered) */}
       {hovered && (
         <Html position={[0, 3, 0]} center>
           <div
             style={{
-              background: 'rgba(0, 0, 0, 0.8)',
+              background: 'rgba(0, 0, 0, 0.9)',
               color: 'white',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              fontSize: '13px',
               whiteSpace: 'nowrap',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(0, 212, 255, 0.3)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              maxWidth: '300px',
             }}
           >
-            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-              👤 {user.nickname || 'Anonymous User'}
-            </div>
-            <div style={{ opacity: 0.8 }}>
-              📊 {repositories.length} repositories
-            </div>
-            <div style={{ opacity: 0.6, fontSize: '10px', marginTop: '2px' }}>
-              {user.accountAddress.substring(0, 8)}...
-              {user.accountAddress.slice(-4)}
+            {/* Profile image */}
+            {user.profileImageUrl && (
+              <img
+                src={user.profileImageUrl}
+                alt="Profile"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid #00d4ff',
+                  flexShrink: 0,
+                }}
+              />
+            )}
+
+            {/* User info */}
+            <div>
+              <div
+                style={{
+                  fontWeight: 'bold',
+                  marginBottom: '4px',
+                  color: '#00d4ff',
+                }}
+              >
+                👤 {user.nickname || 'Anonymous User'}
+              </div>
+              <div style={{ opacity: 0.8, marginBottom: '2px' }}>
+                📊 {repositories.length} repositories
+              </div>
+              <div
+                style={{
+                  opacity: 0.6,
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                }}
+              >
+                {user.accountAddress.substring(0, 8)}...
+                {user.accountAddress.slice(-4)}
+              </div>
             </div>
           </div>
         </Html>

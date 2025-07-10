@@ -308,7 +308,12 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
             <div className={styles.tooltip}>
               <h3>{hoveredPlanet.repo.name}</h3>
               <p>Owner: {hoveredPlanet.repo.owner}</p>
-              <p>Branches: {hoveredPlanet.repo.branches?.length || 0}</p>
+              <p>
+                Branches:{' '}
+                {Array.isArray(hoveredPlanet.repo.branches)
+                  ? hoveredPlanet.repo.branches.length
+                  : 0}
+              </p>
               <p>Default: {hoveredPlanet.repo.defaultBranch || 'N/A'}</p>
             </div>
           </Html>

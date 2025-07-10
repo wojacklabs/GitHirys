@@ -53,15 +53,15 @@ const Star: React.FC<StarProps> = ({
     const repositoryCount = user.repositories?.length || 0;
 
     // Size calculation based on repositories
-    const baseSize = 1.5;
-    const maxSize = 4.0;
+    const baseSize = 1.8;
+    const maxSize = 5.0;
     const size = Math.max(
       baseSize,
-      Math.min(baseSize + repositoryCount * 0.4, maxSize)
+      Math.min(baseSize + repositoryCount * 0.5, maxSize)
     );
 
-    // Brightness calculation
-    const brightness = Math.min(2.0 + repositoryCount * 0.3, 3.5);
+    // Enhanced brightness calculation
+    const brightness = Math.min(3.5 + repositoryCount * 0.4, 6.0);
     const baseColor = new THREE.Color(starType.color);
     const brightColor = baseColor.clone().multiplyScalar(brightness);
 
@@ -117,7 +117,7 @@ const Star: React.FC<StarProps> = ({
 
       // Dynamic material properties
       if (starRef.current.material instanceof THREE.MeshStandardMaterial) {
-        const emissiveIntensity = 1.2 + Math.sin(time * 2.1) * 0.3;
+        const emissiveIntensity = 2.5 + Math.sin(time * 2.1) * 0.5;
         starRef.current.material.emissiveIntensity = emissiveIntensity;
       }
     }
@@ -134,11 +134,11 @@ const Star: React.FC<StarProps> = ({
           starProperties.size * 2.5,
         ]}
       >
-        <sphereGeometry args={[1, 16, 16]} />
+        <sphereGeometry args={[1, 24, 24]} />
         <meshBasicMaterial
           color={starProperties.baseColor}
           transparent
-          opacity={0.08}
+          opacity={0.12}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -152,11 +152,11 @@ const Star: React.FC<StarProps> = ({
           starProperties.size * 1.8,
         ]}
       >
-        <sphereGeometry args={[1, 20, 20]} />
+        <sphereGeometry args={[1, 32, 32]} />
         <meshBasicMaterial
           color={starProperties.brightColor}
           transparent
-          opacity={0.15}
+          opacity={0.25}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -170,11 +170,11 @@ const Star: React.FC<StarProps> = ({
           starProperties.size * 1.3,
         ]}
       >
-        <sphereGeometry args={[1, 24, 24]} />
+        <sphereGeometry args={[1, 32, 32]} />
         <meshBasicMaterial
           color={starProperties.brightColor}
           transparent
-          opacity={0.6}
+          opacity={0.8}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -187,44 +187,42 @@ const Star: React.FC<StarProps> = ({
         onPointerLeave={() => onHover(false)}
         onClick={onClick}
       >
-        <icosahedronGeometry args={[1, 4]} />
+        <icosahedronGeometry args={[1, 5]} />
         <meshStandardMaterial
           color={starProperties.baseColor}
           emissive={starProperties.brightColor}
-          emissiveIntensity={1.5}
-          roughness={0.1}
+          emissiveIntensity={2.8}
+          roughness={0.05}
           metalness={0.0}
-          transparent
-          opacity={0.95}
         />
       </mesh>
 
       {/* Primary stellar light */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={starProperties.brightness * starProperties.size * 3.0}
+        intensity={starProperties.brightness * starProperties.size * 5.0}
         color={starProperties.brightColor}
-        distance={starProperties.size * 40}
-        decay={1.5}
+        distance={starProperties.size * 50}
+        decay={1.2}
         castShadow
       />
 
       {/* Secondary ambient light */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={starProperties.brightness * starProperties.size * 1.2}
+        intensity={starProperties.brightness * starProperties.size * 2.5}
         color={starProperties.baseColor}
-        distance={starProperties.size * 60}
-        decay={2.0}
+        distance={starProperties.size * 80}
+        decay={1.8}
       />
 
       {/* Stellar wind simulation */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={starProperties.brightness * 0.5}
+        intensity={starProperties.brightness * 1.2}
         color={starProperties.brightColor}
-        distance={starProperties.size * 80}
-        decay={2.5}
+        distance={starProperties.size * 120}
+        decay={2.2}
       />
     </group>
   );
