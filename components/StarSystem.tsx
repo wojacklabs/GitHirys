@@ -10,6 +10,7 @@ interface StarSystemProps {
   user: {
     accountAddress: string;
     nickname?: string;
+    hasNickName?: boolean;
     profileImageUrl?: string;
     repositories?: Array<{
       name: string;
@@ -33,7 +34,12 @@ const StarSystem: React.FC<StarSystemProps> = ({
   isFocused,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const [hovered, setHovered] = useState(false);
+  const [showStarTooltip, setShowStarTooltip] = useState(false);
+  const [showPlanetTooltip, setShowPlanetTooltip] = useState(false);
+  const [currentPlanet, setCurrentPlanet] = useState<any>(null);
+  const [planetPosition, setPlanetPosition] = useState<
+    [number, number, number]
+  >([0, 0, 0]);
 
   // Use only actual repository data (remove dummy data)
   const repositories = user.repositories || [];
@@ -69,18 +75,66 @@ const StarSystem: React.FC<StarSystemProps> = ({
   });
 
   const handleStarClick = () => {
-    // Navigate to user profile page
-    window.open(`/${user.nickname || user.accountAddress}`, '_blank');
+    setShowStarTooltip(true);
+    setShowPlanetTooltip(false);
   };
 
   const handleStarHover = (hover: boolean) => {
-    setHovered(hover);
+    // Remove hover tooltip functionality - tooltips only appear on click
   };
 
-  // Create abbreviated display name while keeping full address for links
-  const displayName =
-    user.nickname ||
-    `${user.accountAddress.substring(0, 6)}...${user.accountAddress.slice(-4)}`;
+  const handlePlanetClick = (
+    repo: any,
+    planetPos: [number, number, number]
+  ) => {
+    setCurrentPlanet(repo);
+    setPlanetPosition(planetPos);
+    setShowPlanetTooltip(true);
+    setShowStarTooltip(false);
+  };
+
+  const handlePlanetHover = (
+    repo: any,
+    planetPos: [number, number, number]
+  ) => {
+    // Remove hover tooltip functionality - tooltips only appear on click
+  };
+
+  const handlePlanetLeave = () => {
+    // Remove hover tooltip functionality - tooltips only appear on click
+  };
+
+  const handleVisitStar = () => {
+    const targetUrl =
+      user.hasNickName && user.nickname
+        ? `/${user.nickname}`
+        : `/${user.accountAddress}`;
+    window.open(targetUrl, '_blank');
+    setShowStarTooltip(false);
+  };
+
+  const handleVisitPlanet = () => {
+    if (currentPlanet) {
+      onPlanetClick(user.nickname || user.accountAddress, currentPlanet.name);
+      setShowPlanetTooltip(false);
+      setCurrentPlanet(null);
+    }
+  };
+
+  const handleCloseTooltips = () => {
+    setShowStarTooltip(false);
+    setShowPlanetTooltip(false);
+    setCurrentPlanet(null);
+  };
+
+  // Display name logic using hasNickName to distinguish real nicknames from wallet addresses
+  const getDisplayName = () => {
+    if (user.hasNickName && user.nickname && user.nickname.trim() !== '') {
+      return user.nickname;
+    }
+    // Always return abbreviated address if no real nickname
+    return `${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`;
+  };
 
   return (
     <group ref={groupRef} position={position}>
@@ -89,7 +143,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
         user={user}
         onClick={handleStarClick}
         onHover={handleStarHover}
-        isHovered={hovered}
+        isHovered={false} // Always false for click-only tooltips
         isFocused={isFocused}
       />
 
@@ -97,12 +151,11 @@ const StarSystem: React.FC<StarSystemProps> = ({
       <Text
         position={[0, -2, 0]}
         fontSize={0.5}
-        color={isFocused ? '#00d4ff' : '#ffffff'}
+        color={isFocused ? '#00d4ff' : '#b3b3b3'}
         anchorX="center"
         anchorY="middle"
-        opacity={isFocused ? 1 : 0.7}
       >
-        {displayName}
+        {getDisplayName()}
       </Text>
 
       {/* Render orbits and planets only if repositories exist */}
@@ -173,17 +226,17 @@ const StarSystem: React.FC<StarSystemProps> = ({
               orbitSpeed={orbit.speed}
               initialAngle={orbit.initialAngle}
               inclination={orbit.inclination}
-              onPlanetClick={onPlanetClick}
-              onPlanetHover={onPlanetHover}
-              onPlanetLeave={onPlanetLeave}
+              onPlanetClick={handlePlanetClick}
+              onPlanetHover={handlePlanetHover}
+              onPlanetLeave={handlePlanetLeave}
               isFocused={isFocused}
             />
           ))}
         </>
       )}
 
-      {/* User information (when star is hovered) */}
-      {hovered && (
+      {/* User information (when star is clicked) */}
+      {showStarTooltip && (
         <Html position={[0, 3, 0]} center>
           <div
             style={{
@@ -218,18 +271,20 @@ const StarSystem: React.FC<StarSystemProps> = ({
             )}
 
             {/* User info */}
-            <div>
+            <div style={{ flex: 1 }}>
               <div
                 style={{
                   fontWeight: 'bold',
                   marginBottom: '4px',
-                  color: '#00d4ff',
+                  color: '#white',
                 }}
               >
-                👤 {user.nickname || 'Anonymous User'}
+                {user.hasNickName
+                  ? user.nickname
+                  : `${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`}
               </div>
               <div style={{ opacity: 0.8, marginBottom: '2px' }}>
-                📊 {repositories.length} repositories
+                {repositories.length} repositories
               </div>
               <div
                 style={{
@@ -238,9 +293,130 @@ const StarSystem: React.FC<StarSystemProps> = ({
                   fontFamily: 'monospace',
                 }}
               >
-                {user.accountAddress.substring(0, 8)}...
-                {user.accountAddress.slice(-4)}
+                {`${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`}
               </div>
+            </div>
+
+            {/* Action buttons */}
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+            >
+              <button
+                onClick={handleVisitStar}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#00d4ff',
+                  color: 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}
+              >
+                Visit
+              </button>
+              <button
+                onClick={handleCloseTooltips}
+                style={{
+                  padding: '4px 8px',
+                  backgroundColor: 'transparent',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Html>
+      )}
+
+      {/* Planet tooltip (when planet is clicked) */}
+      {showPlanetTooltip && currentPlanet && (
+        <Html position={planetPosition} center>
+          <div
+            style={{
+              background: 'rgba(0, 0, 0, 0.9)',
+              color: 'white',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              whiteSpace: 'nowrap',
+              border: '1px solid rgba(0, 212, 255, 0.3)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              maxWidth: '300px',
+            }}
+          >
+            {/* Planet info */}
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontWeight: 'bold',
+                  marginBottom: '4px',
+                  color: '#00d4ff',
+                }}
+              >
+                {currentPlanet.name}
+              </div>
+              <div style={{ opacity: 0.8, marginBottom: '2px' }}>
+                {currentPlanet.branchCount ||
+                  currentPlanet.branches?.length ||
+                  0}{' '}
+                branches
+              </div>
+              <div
+                style={{
+                  opacity: 0.6,
+                  fontSize: '11px',
+                }}
+              >
+                Owner:{' '}
+                {user.hasNickName
+                  ? user.nickname
+                  : `${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+            >
+              <button
+                onClick={handleVisitPlanet}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#00d4ff',
+                  color: 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}
+              >
+                Visit
+              </button>
+              <button
+                onClick={handleCloseTooltips}
+                style={{
+                  padding: '4px 8px',
+                  backgroundColor: 'transparent',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </Html>

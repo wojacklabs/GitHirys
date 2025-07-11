@@ -777,6 +777,23 @@ export const ProfileUtils = {
   validateImageSize: (file: File): Promise<boolean> => {
     return Promise.resolve(true);
   },
+
+  // Estimate upload cost (simplified)
+  estimateUploadCost: (sizeInBytes: number): number => {
+    // Simple cost estimation: approximately 0.0001 SOL per KB
+    const sizeInKB = sizeInBytes / 1024;
+    return Math.max(0.0001, sizeInKB * 0.0001);
+  },
+
+  // Format cost for display
+  formatCost: (cost: number): string => {
+    return `${cost.toFixed(6)} SOL`;
+  },
+
+  // Check if cost is effectively free
+  isEffectivelyFree: (cost: number): boolean => {
+    return cost < 0.001; // Less than 0.001 SOL considered free
+  },
 };
 
 // 닉네임 중복 검사
@@ -2205,7 +2222,7 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
     // Sort by timestamp (newest first) and return top 10
     const recentUsers = Array.from(userMap.values())
       .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 10);
+      .slice(0, 100);
 
     return recentUsers;
   } catch (error) {
@@ -2219,7 +2236,7 @@ export async function getRecentRepositories(): Promise<RecentRepository[]> {
     query getRecentRepositories {
       transactions(
         tags: [{ name: "App-Name", values: ["irys-git"] }],
-        first: 200,
+        first: 500,
         order: DESC
       ) {
         edges {

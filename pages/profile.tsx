@@ -11,7 +11,6 @@ import {
   uploadProfile,
   ProfileUtils,
   UserProfile,
-  getCliFundInstructions,
 } from '../lib/irys';
 import ProfileCard from '../components/ProfileCard';
 import styles from '../styles/ProfilePage.module.css';
@@ -257,14 +256,13 @@ const ProfilePage: NextPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Show CLI fund instructions
+  // Show fund instructions
   const handleFund = () => {
     // Close fund popup after user sees instructions
     setShowFundPopup(false);
 
-    // Show success message with CLI instructions
-    const commands = getCliFundInstructions(fundAmount);
-    const instruction = `Please run these commands in your terminal to fund your account:\n\n${commands.join('\n')}\n\nAfter funding, try saving your profile again.`;
+    // Show success message with funding instructions
+    const instruction = `Please fund your account with ${fundAmount.toFixed(4)} SOL to complete the profile upload.\n\nAfter funding, try saving your profile again.`;
 
     alert(instruction);
 
@@ -292,7 +290,7 @@ const ProfilePage: NextPage = () => {
             : undefined,
       };
 
-      const result = await uploadProfile(wallet, uploader, profileData);
+      const result = await uploadProfile(uploader, profileData);
 
       if (result.success) {
         setSuccessMessage('Profile Saved!');
@@ -589,13 +587,15 @@ const ProfilePage: NextPage = () => {
             </div>
 
             <div className={styles.cliInstructions}>
-              <h4 className={styles.cliInstructionsTitle}>CLI Commands:</h4>
+              <h4 className={styles.cliInstructionsTitle}>
+                Fund Instructions:
+              </h4>
               <div className={styles.cliCommandList}>
-                {getCliFundInstructions(fundAmount).map((command, index) => (
-                  <div key={index} className={styles.cliCommand}>
-                    <code>{command}</code>
-                  </div>
-                ))}
+                <div className={styles.cliCommand}>
+                  <code>
+                    Please fund your account with {fundAmount.toFixed(4)} SOL
+                  </code>
+                </div>
               </div>
             </div>
 

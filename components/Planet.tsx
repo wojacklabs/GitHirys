@@ -17,7 +17,7 @@ interface PlanetProps {
   orbitSpeed: number;
   initialAngle: number;
   inclination: number;
-  onPlanetClick: (user: string, repo: string) => void;
+  onPlanetClick: (repo: any, position: [number, number, number]) => void;
   onPlanetHover: (repo: any, position: [number, number, number]) => void;
   onPlanetLeave: () => void;
   isFocused: boolean;
@@ -36,7 +36,6 @@ const Planet: React.FC<PlanetProps> = ({
   isFocused,
 }) => {
   const planetRef = useRef<THREE.Mesh>(null);
-  const ringsRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const cloudsRef = useRef<THREE.Mesh>(null);
   const oceansRef = useRef<THREE.Mesh>(null);
@@ -133,34 +132,6 @@ const Planet: React.FC<PlanetProps> = ({
         surfaceRoughness: 0.3,
         metalness: 0.6,
       }, // Arctic world
-      // Gas Giants
-      {
-        name: 'Gas Giant',
-        color: '#DAA520',
-        atmosphere: '#FFA500',
-        hasOceans: false,
-        hasClouds: true,
-        surfaceRoughness: 0.1,
-        metalness: 0.0,
-      }, // Jupiter-like
-      {
-        name: 'Ice Giant',
-        color: '#4682B4',
-        atmosphere: '#87CEEB',
-        hasOceans: false,
-        hasClouds: true,
-        surfaceRoughness: 0.1,
-        metalness: 0.0,
-      }, // Neptune-like
-      {
-        name: 'Storm Giant',
-        color: '#8B4513',
-        atmosphere: '#CD853F',
-        hasOceans: false,
-        hasClouds: true,
-        surfaceRoughness: 0.1,
-        metalness: 0.0,
-      }, // Storm giant
       // Exotic Worlds
       {
         name: 'Volcanic World',
@@ -252,15 +223,6 @@ const Planet: React.FC<PlanetProps> = ({
         surfaceRoughness: 0.95,
         metalness: 0.2,
       }, // Rogue planet
-      {
-        name: 'Ring World',
-        color: '#CD853F',
-        atmosphere: '#DAA520',
-        hasOceans: true,
-        hasClouds: false,
-        surfaceRoughness: 0.3,
-        metalness: 0.7,
-      }, // Ring world
     ];
 
     return planetTypes[hash % planetTypes.length];
@@ -269,14 +231,8 @@ const Planet: React.FC<PlanetProps> = ({
   // Planet size and properties (based on branch count and planet type)
   const planetProperties = useMemo(() => {
     const branchCount = Array.isArray(repo.branches) ? repo.branches.length : 0;
-    let baseSize = 0.6;
-    let maxSize = 1.6;
-
-    // Gas giants and special types are larger
-    if (planetType.name.includes('Giant') || planetType.name === 'Ring World') {
-      baseSize = 1.0;
-      maxSize = 2.5;
-    }
+    const baseSize = 0.6;
+    const maxSize = 1.6;
 
     // Size increases with more branches
     const size = Math.max(
@@ -288,23 +244,14 @@ const Planet: React.FC<PlanetProps> = ({
     const planetColor = new THREE.Color(planetType.color);
     const atmosphereColor = new THREE.Color(planetType.atmosphere);
 
-    // Ring system (gas giants and special types get rings more easily)
-    const hasRings =
-      planetType.name.includes('Giant') || planetType.name === 'Ring World'
-        ? branchCount >= 1
-        : branchCount >= 3;
-
     // Surface detail based on planet type
     const hasSurfaceDetail =
-      !planetType.hasOceans &&
-      !planetType.name.includes('Giant') &&
-      planetType.name !== 'Cloud City';
+      !planetType.hasOceans && planetType.name !== 'Cloud City';
 
     return {
       size,
       planetColor,
       atmosphereColor,
-      hasRings,
       planetType,
       hasSurfaceDetail,
       branchCount, // Store branch count for debugging
@@ -353,48 +300,59 @@ const Planet: React.FC<PlanetProps> = ({
         surfaceDetailRef.current.rotation.y += rotationSpeed * 0.8;
       }
 
-      // Enhanced hover effects
-      const hoverScale = isFocused ? 1.3 : 1;
-      const atmosphericPulse = Math.sin(time * 3.2) * 0.05 + 1;
+      // Simple hover effect (no atmospheric pulse)
+      const hoverScale = isFocused ? 1.3 : 1.0;
 
-      planetRef.current.scale.setScalar(hoverScale * atmosphericPulse);
-      atmosphereRef.current.scale.setScalar(
-        hoverScale * atmosphericPulse * 1.5
-      );
-
-      // Ring rotation (if present)
-      if (ringsRef.current) {
-        ringsRef.current.rotation.z += 0.018;
-        ringsRef.current.rotation.y += 0.004;
-
-        // Ring particle effect
-        const ringPulse = Math.sin(time * 2.1) * 0.06 + 1;
-        ringsRef.current.scale.setScalar(
-          planetProperties.size * 2.4 * ringPulse
-        );
-      }
+      planetRef.current.scale.setScalar(hoverScale);
+      atmosphereRef.current.scale.setScalar(hoverScale * 1.5);
     }
   });
-
-  const handleClick = () => {
-    onPlanetClick(user.nickname || user.accountAddress, repo.name);
-  };
 
   const handlePointerEnter = () => {
     if (groupRef.current) {
       const position = groupRef.current.position;
-      // Ensure branches array is properly passed
-      const repoWithBranches = {
+      // Properly calculate branch count and ensure it's passed correctly
+      const actualBranchCount = Array.isArray(repo.branches)
+        ? repo.branches.length
+        : 0;
+      const repoWithBranchInfo = {
         ...repo,
         branches: Array.isArray(repo.branches) ? repo.branches : [],
-        branchCount: planetProperties.branchCount, // Add explicit branch count
+        actualBranchCount: actualBranchCount, // Explicit branch count
+        debugInfo: {
+          originalBranches: repo.branches,
+          isArray: Array.isArray(repo.branches),
+          length: actualBranchCount,
+        },
       };
-      onPlanetHover(repoWithBranches, [position.x, position.y, position.z]);
+      onPlanetHover(repoWithBranchInfo, [position.x, position.y, position.z]);
     }
   };
 
   const handlePointerLeave = () => {
     onPlanetLeave();
+  };
+
+  const handleClick = () => {
+    // Show tooltip instead of direct navigation
+    if (groupRef.current) {
+      const position = groupRef.current.position;
+      const actualBranchCount = Array.isArray(repo.branches)
+        ? repo.branches.length
+        : 0;
+      const repoWithBranchInfo = {
+        ...repo,
+        branches: Array.isArray(repo.branches) ? repo.branches : [],
+        actualBranchCount: actualBranchCount,
+        branchCount: actualBranchCount,
+        debugInfo: {
+          originalBranches: repo.branches,
+          isArray: Array.isArray(repo.branches),
+          length: actualBranchCount,
+        },
+      };
+      onPlanetClick(repoWithBranchInfo, [position.x, position.y, position.z]);
+    }
   };
 
   return (
@@ -440,8 +398,6 @@ const Planet: React.FC<PlanetProps> = ({
             roughness={0.03}
             metalness={0.85}
             envMapIntensity={1.5}
-            clearcoat={1.0}
-            clearcoatRoughness={0.05}
           />
         </mesh>
       )}
@@ -505,13 +461,6 @@ const Planet: React.FC<PlanetProps> = ({
           roughness={planetProperties.planetType.surfaceRoughness}
           metalness={planetProperties.planetType.metalness}
           envMapIntensity={0.8}
-          clearcoat={
-            planetType.name === 'Ice Planet' ||
-            planetType.name === 'Crystal World'
-              ? 0.95
-              : 0.0
-          }
-          clearcoatRoughness={0.05}
           emissive={
             planetType.name === 'Lava World' ||
             planetType.name === 'Plasma World'
@@ -527,46 +476,14 @@ const Planet: React.FC<PlanetProps> = ({
         />
       </mesh>
 
-      {/* Enhanced ring system */}
-      {planetProperties.hasRings && (
-        <mesh
-          ref={ringsRef}
-          rotation={[Math.PI / 2, 0, 0]}
-          scale={[
-            planetProperties.size * 2.4,
-            planetProperties.size * 2.4,
-            planetProperties.size * 2.4,
-          ]}
-        >
-          <ringGeometry args={[1.5, 2.4, 256]} />
-          <meshStandardMaterial
-            color={
-              planetType.name.includes('Giant')
-                ? '#DAA520'
-                : planetType.name === 'Ring World'
-                  ? '#CD853F'
-                  : '#C0C0C0'
-            }
-            transparent
-            opacity={0.8}
-            roughness={0.4}
-            metalness={0.6}
-            side={THREE.DoubleSide}
-            envMapIntensity={1.0}
-          />
-        </mesh>
-      )}
-
       {/* Enhanced planetary lighting */}
-      {!planetType.name.includes('Giant') && (
-        <pointLight
-          position={[0, 0, 0]}
-          intensity={0.15}
-          color={planetProperties.planetColor}
-          distance={planetProperties.size * 10}
-          decay={1.8}
-        />
-      )}
+      <pointLight
+        position={[0, 0, 0]}
+        intensity={0.15}
+        color={planetProperties.planetColor}
+        distance={planetProperties.size * 10}
+        decay={1.8}
+      />
     </group>
   );
 };
