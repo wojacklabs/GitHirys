@@ -414,14 +414,12 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                       {uploader && (
                         <>
                           <Link href="/profile" className={styles.dropdownItem}>
-                            <span className={styles.dropdownIcon}>👤</span>
                             My Profile
                           </Link>
                           <Link
                             href={`/${wallet.publicKey?.toBase58()}`}
                             className={styles.dropdownItem}
                           >
-                            <span className={styles.dropdownIcon}>📁</span>
                             My Repositories
                           </Link>
                         </>
@@ -433,7 +431,6 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                         rel="noopener noreferrer"
                         className={styles.dropdownItem}
                       >
-                        <span className={styles.dropdownIcon}>📚</span>
                         Docs
                       </a>
 
@@ -443,7 +440,6 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                         onClick={handleDisconnect}
                         className={`${styles.dropdownItem} ${styles.disconnectButton}`}
                       >
-                        <span className={styles.dropdownIcon}>🔌</span>
                         Disconnect
                       </button>
                     </div>
