@@ -18,6 +18,7 @@ interface StarProps {
   onHover: (hover: boolean) => void;
   isHovered: boolean;
   isFocused: boolean;
+  isCurrentUser?: boolean;
 }
 
 const Star: React.FC<StarProps> = ({
@@ -26,11 +27,37 @@ const Star: React.FC<StarProps> = ({
   onHover,
   isHovered,
   isFocused,
+  isCurrentUser,
 }) => {
   const starRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const coronaRef = useRef<THREE.Mesh>(null);
   const flareRef = useRef<THREE.Mesh>(null);
+  const currentUserIndicatorRef = useRef<THREE.Mesh>(null);
+
+  // Create star shape geometry for current user indicator
+  const createStarShape = useMemo(() => {
+    const starShape = new THREE.Shape();
+    const outerRadius = 0.5;
+    const innerRadius = 0.2;
+    const points = 5;
+
+    for (let i = 0; i < points * 2; i++) {
+      const angle = (i / (points * 2)) * Math.PI * 2;
+      const radius = i % 2 === 0 ? outerRadius : innerRadius;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+
+      if (i === 0) {
+        starShape.moveTo(x, y);
+      } else {
+        starShape.lineTo(x, y);
+      }
+    }
+
+    const geometry = new THREE.ShapeGeometry(starShape);
+    return geometry;
+  }, []);
 
   // Determine star color and type (using only solar colors)
   const starProperties = useMemo(() => {
@@ -119,6 +146,19 @@ const Star: React.FC<StarProps> = ({
       if (starRef.current.material instanceof THREE.MeshStandardMaterial) {
         const emissiveIntensity = 2.5 + Math.sin(time * 2.1) * 0.5;
         starRef.current.material.emissiveIntensity = emissiveIntensity;
+      }
+
+      // Animate current user indicator
+      if (currentUserIndicatorRef.current && isCurrentUser) {
+        const indicatorPulse = Math.sin(time * 2.5) * 0.1 + 1;
+        const indicatorScale = 1.5 + indicatorPulse * 0.3;
+        currentUserIndicatorRef.current.scale.setScalar(indicatorScale);
+        currentUserIndicatorRef.current.rotation.z += 0.02;
+
+        // Floating animation
+        const floatOffset = Math.sin(time * 1.8) * 0.5;
+        currentUserIndicatorRef.current.position.y =
+          starProperties.size * 0.825 + floatOffset;
       }
     }
   });
@@ -229,6 +269,40 @@ const Star: React.FC<StarProps> = ({
         distance={starProperties.size * 120}
         decay={2.2}
       />
+
+      {/* Current user indicator - star shape above user's star */}
+      {isCurrentUser && (
+        <mesh
+          ref={currentUserIndicatorRef}
+          position={[0, starProperties.size * 0.825, 0]}
+          rotation={[0, 0, 0]}
+        >
+          <primitive object={createStarShape} />
+          <meshBasicMaterial
+            color="#FFD700"
+            transparent
+            opacity={0.9}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+
+      {/* Current user indicator glow effect */}
+      {isCurrentUser && (
+        <mesh
+          position={[0, starProperties.size * 0.825, 0]}
+          rotation={[0, 0, 0]}
+        >
+          <primitive object={createStarShape} />
+          <meshBasicMaterial
+            color="#FFD700"
+            transparent
+            opacity={0.3}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      )}
     </group>
   );
 };

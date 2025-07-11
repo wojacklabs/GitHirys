@@ -148,7 +148,13 @@ const Home: NextPage = () => {
       </Head>
 
       {/* 3D Universe Environment */}
-      <UniverseScene users={universeUsers} onPlanetClick={handlePlanetClick} />
+      <UniverseScene
+        users={universeUsers}
+        onPlanetClick={handlePlanetClick}
+        currentWallet={
+          wallet.connected ? wallet.publicKey?.toBase58() : undefined
+        }
+      />
     </>
   );
 };

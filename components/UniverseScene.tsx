@@ -24,6 +24,7 @@ interface UniverseSceneProps {
   }>;
   focusedUser?: string;
   onPlanetClick?: (user: string, repo: string) => void;
+  currentWallet?: string;
 }
 
 // Realistic space background with enhanced stars
@@ -154,6 +155,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
   users,
   focusedUser,
   onPlanetClick,
+  currentWallet,
 }) => {
   const router = useRouter();
   const [tooltipData, setTooltipData] = useState<{
@@ -293,6 +295,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
               focusedUser === user.accountAddress ||
               focusedUser === user.nickname
             }
+            currentWallet={currentWallet}
           />
         ))}
       </Canvas>

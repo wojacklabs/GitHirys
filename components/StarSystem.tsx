@@ -26,6 +26,7 @@ interface StarSystemProps {
   onShowPlanetTooltip: (user: any, repo: any) => void;
   onHideTooltip: () => void;
   isFocused: boolean;
+  currentWallet?: string;
 }
 
 const StarSystem: React.FC<StarSystemProps> = ({
@@ -38,11 +39,17 @@ const StarSystem: React.FC<StarSystemProps> = ({
   onShowPlanetTooltip,
   onHideTooltip,
   isFocused,
+  currentWallet,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
 
   // Use only actual repository data (remove dummy data)
   const repositories = user.repositories || [];
+
+  // Check if this is the current user's star
+  const isCurrentUser = Boolean(
+    currentWallet && user.accountAddress === currentWallet
+  );
 
   // Calculate planet orbit information
   const planetOrbits = useMemo(() => {
@@ -130,6 +137,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
         onHover={handleStarHover}
         isHovered={false} // Always false for click-only tooltips
         isFocused={isFocused}
+        isCurrentUser={isCurrentUser}
       />
 
       {/* User nickname display */}
