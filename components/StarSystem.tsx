@@ -22,6 +22,9 @@ interface StarSystemProps {
   onPlanetClick: (user: string, repo: string) => void;
   onPlanetHover: (repo: any, position: [number, number, number]) => void;
   onPlanetLeave: () => void;
+  onShowStarTooltip: (user: any) => void;
+  onShowPlanetTooltip: (user: any, repo: any) => void;
+  onHideTooltip: () => void;
   isFocused: boolean;
 }
 
@@ -31,15 +34,12 @@ const StarSystem: React.FC<StarSystemProps> = ({
   onPlanetClick,
   onPlanetHover,
   onPlanetLeave,
+  onShowStarTooltip,
+  onShowPlanetTooltip,
+  onHideTooltip,
   isFocused,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const [showStarTooltip, setShowStarTooltip] = useState(false);
-  const [showPlanetTooltip, setShowPlanetTooltip] = useState(false);
-  const [currentPlanet, setCurrentPlanet] = useState<any>(null);
-  const [planetPosition, setPlanetPosition] = useState<
-    [number, number, number]
-  >([0, 0, 0]);
 
   // Use only actual repository data (remove dummy data)
   const repositories = user.repositories || [];
@@ -75,8 +75,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
   });
 
   const handleStarClick = () => {
-    setShowStarTooltip(true);
-    setShowPlanetTooltip(false);
+    onShowStarTooltip(user);
   };
 
   const handleStarHover = (hover: boolean) => {
@@ -87,10 +86,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
     repo: any,
     planetPos: [number, number, number]
   ) => {
-    setCurrentPlanet(repo);
-    setPlanetPosition(planetPos);
-    setShowPlanetTooltip(true);
-    setShowStarTooltip(false);
+    onShowPlanetTooltip(user, repo);
   };
 
   const handlePlanetHover = (
@@ -110,21 +106,10 @@ const StarSystem: React.FC<StarSystemProps> = ({
         ? `/${user.nickname}`
         : `/${user.accountAddress}`;
     window.open(targetUrl, '_blank');
-    setShowStarTooltip(false);
   };
 
-  const handleVisitPlanet = () => {
-    if (currentPlanet) {
-      onPlanetClick(user.nickname || user.accountAddress, currentPlanet.name);
-      setShowPlanetTooltip(false);
-      setCurrentPlanet(null);
-    }
-  };
-
-  const handleCloseTooltips = () => {
-    setShowStarTooltip(false);
-    setShowPlanetTooltip(false);
-    setCurrentPlanet(null);
+  const handleVisitPlanet = (repo: any) => {
+    onPlanetClick(user.nickname || user.accountAddress, repo.name);
   };
 
   // Display name logic using hasNickName to distinguish real nicknames from wallet addresses
@@ -236,191 +221,10 @@ const StarSystem: React.FC<StarSystemProps> = ({
       )}
 
       {/* User information (when star is clicked) */}
-      {showStarTooltip && (
-        <Html position={[0, 3, 0]} center>
-          <div
-            style={{
-              background: 'rgba(0, 0, 0, 0.9)',
-              color: 'white',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              whiteSpace: 'nowrap',
-              border: '1px solid rgba(0, 212, 255, 0.3)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              maxWidth: '300px',
-            }}
-          >
-            {/* Profile image */}
-            {user.profileImageUrl && (
-              <img
-                src={user.profileImageUrl}
-                alt="Profile"
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '2px solid #00d4ff',
-                  flexShrink: 0,
-                }}
-              />
-            )}
-
-            {/* User info */}
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontWeight: 'bold',
-                  marginBottom: '4px',
-                  color: '#white',
-                }}
-              >
-                {user.hasNickName
-                  ? user.nickname
-                  : `${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`}
-              </div>
-              <div style={{ opacity: 0.8, marginBottom: '2px' }}>
-                {repositories.length} repositories
-              </div>
-              <div
-                style={{
-                  opacity: 0.6,
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                }}
-              >
-                {`${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-            >
-              <button
-                onClick={handleVisitStar}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#00d4ff',
-                  color: 'black',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}
-              >
-                Visit
-              </button>
-              <button
-                onClick={handleCloseTooltips}
-                style={{
-                  padding: '4px 8px',
-                  backgroundColor: 'transparent',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '10px',
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </Html>
-      )}
+      {/* Removed local tooltip state and Html tooltips */}
 
       {/* Planet tooltip (when planet is clicked) */}
-      {showPlanetTooltip && currentPlanet && (
-        <Html position={planetPosition} center>
-          <div
-            style={{
-              background: 'rgba(0, 0, 0, 0.9)',
-              color: 'white',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              whiteSpace: 'nowrap',
-              border: '1px solid rgba(0, 212, 255, 0.3)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              maxWidth: '300px',
-            }}
-          >
-            {/* Planet info */}
-            <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontWeight: 'bold',
-                  marginBottom: '4px',
-                  color: '#00d4ff',
-                }}
-              >
-                {currentPlanet.name}
-              </div>
-              <div style={{ opacity: 0.8, marginBottom: '2px' }}>
-                {currentPlanet.branchCount ||
-                  currentPlanet.branches?.length ||
-                  0}{' '}
-                branches
-              </div>
-              <div
-                style={{
-                  opacity: 0.6,
-                  fontSize: '11px',
-                }}
-              >
-                Owner:{' '}
-                {user.hasNickName
-                  ? user.nickname
-                  : `${user.accountAddress.substring(0, 4)}...${user.accountAddress.slice(-4)}`}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-            >
-              <button
-                onClick={handleVisitPlanet}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#00d4ff',
-                  color: 'black',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                }}
-              >
-                Visit
-              </button>
-              <button
-                onClick={handleCloseTooltips}
-                style={{
-                  padding: '4px 8px',
-                  backgroundColor: 'transparent',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '10px',
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </Html>
-      )}
+      {/* Removed local tooltip state and Html tooltips */}
     </group>
   );
 };

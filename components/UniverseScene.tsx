@@ -156,6 +156,11 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
   onPlanetClick,
 }) => {
   const router = useRouter();
+  const [tooltipData, setTooltipData] = useState<{
+    type: 'star' | 'planet';
+    user: any;
+    repo?: any;
+  } | null>(null);
 
   // Handle empty user array
   const validUsers = users || [];
@@ -181,6 +186,40 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       onPlanetClick(user, repo);
     } else {
       router.push(`/${user}/${repo}`);
+    }
+  };
+
+  const handleShowStarTooltip = (user: any) => {
+    setTooltipData({ type: 'star', user });
+  };
+
+  const handleShowPlanetTooltip = (user: any, repo: any) => {
+    setTooltipData({ type: 'planet', user, repo });
+  };
+
+  const handleHideTooltip = () => {
+    setTooltipData(null);
+  };
+
+  const handleVisitStar = () => {
+    if (tooltipData?.user) {
+      const user = tooltipData.user;
+      const targetUrl =
+        user.hasNickName && user.nickname
+          ? `/${user.nickname}`
+          : `/${user.accountAddress}`;
+      window.open(targetUrl, '_blank');
+      handleHideTooltip();
+    }
+  };
+
+  const handleVisitPlanet = () => {
+    if (tooltipData?.user && tooltipData?.repo) {
+      handlePlanetClick(
+        tooltipData.user.nickname || tooltipData.user.accountAddress,
+        tooltipData.repo.name
+      );
+      handleHideTooltip();
     }
   };
 
@@ -247,6 +286,9 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
             onPlanetClick={handlePlanetClick}
             onPlanetHover={handlePlanetHover}
             onPlanetLeave={handlePlanetLeave}
+            onShowStarTooltip={handleShowStarTooltip}
+            onShowPlanetTooltip={handleShowPlanetTooltip}
+            onHideTooltip={handleHideTooltip}
             isFocused={
               focusedUser === user.accountAddress ||
               focusedUser === user.nickname
@@ -254,6 +296,92 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
           />
         ))}
       </Canvas>
+
+      {/* Fixed bottom tooltip */}
+      {tooltipData && (
+        <div className={styles.fixedTooltip}>
+          {tooltipData.type === 'star' ? (
+            <div className={styles.tooltipContent}>
+              {/* Profile image */}
+              {tooltipData.user.profileImageUrl && (
+                <img
+                  src={tooltipData.user.profileImageUrl}
+                  alt="Profile"
+                  className={styles.profileImage}
+                />
+              )}
+
+              {/* User info */}
+              <div className={styles.tooltipInfo}>
+                <div className={styles.tooltipTitle}>
+                  {tooltipData.user.hasNickName
+                    ? tooltipData.user.nickname
+                    : `${tooltipData.user.accountAddress.substring(0, 4)}...${tooltipData.user.accountAddress.slice(-4)}`}
+                </div>
+                <div className={styles.tooltipSubtitle}>
+                  {tooltipData.user.repositories?.length || 0} repositories
+                </div>
+                <div className={styles.tooltipAddress}>
+                  {`${tooltipData.user.accountAddress.substring(0, 4)}...${tooltipData.user.accountAddress.slice(-4)}`}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className={styles.tooltipActions}>
+                <button
+                  onClick={handleVisitStar}
+                  className={styles.visitButton}
+                >
+                  Visit
+                </button>
+                <button
+                  onClick={handleHideTooltip}
+                  className={styles.closeButton}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.tooltipContent}>
+              {/* Planet info */}
+              <div className={styles.tooltipInfo}>
+                <div className={styles.tooltipTitle}>
+                  {tooltipData.repo?.name}
+                </div>
+                <div className={styles.tooltipSubtitle}>
+                  {tooltipData.repo?.branchCount ||
+                    tooltipData.repo?.branches?.length ||
+                    0}{' '}
+                  branches
+                </div>
+                <div className={styles.tooltipAddress}>
+                  Owner:{' '}
+                  {tooltipData.user.hasNickName
+                    ? tooltipData.user.nickname
+                    : `${tooltipData.user.accountAddress.substring(0, 4)}...${tooltipData.user.accountAddress.slice(-4)}`}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className={styles.tooltipActions}>
+                <button
+                  onClick={handleVisitPlanet}
+                  className={styles.visitButton}
+                >
+                  Visit
+                </button>
+                <button
+                  onClick={handleHideTooltip}
+                  className={styles.closeButton}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
