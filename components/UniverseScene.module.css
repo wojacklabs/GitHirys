@@ -135,6 +135,247 @@
   font-weight: 600;
 }
 
+
+/* Search UI Styles */
+.searchContainer {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 1000;
+  width: 220px;
+}
+
+.searchInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 12px;
+  padding-right: 32px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.searchInput:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.searchInput:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+.clearButton {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.clearButton:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.searchSpinner {
+  position: absolute;
+  right: 28px;
+  color: rgba(59, 130, 246, 0.6);
+  animation: spin 1s linear infinite;
+  font-size: 12px;
+}
+
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Search Results */
+.searchResults {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-top: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.searchResultItem {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+
+.searchResultItem:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.resultAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.resultInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resultDisplayName {
+  color: white;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.resultWalletAddress {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 9px;
+  font-family: monospace;
+}
+
+.resultTwitter {
+  color: rgba(29, 161, 242, 0.7);
+  font-size: 9px;
+}
+
+.noResults {
+  padding: 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Custom scrollbar for search results */
+.searchResults::-webkit-scrollbar {
+  width: 3px;
+}
+
+.searchResults::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.searchResults::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.searchResults::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .searchContainer {
+    top: 10px;
+    right: 10px;
+    width: 180px;
+  }
+
+  .searchInput {
+    font-size: 14px; /* Prevent zoom on iOS */
+    padding: 6px 10px;
+    padding-right: 28px;
+  }
+
+  .clearButton {
+    right: 6px;
+    font-size: 12px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .searchSpinner {
+    right: 22px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .searchContainer {
+    width: 160px;
+  }
+
+  .searchResults {
+    max-height: 150px;
+  }
+
+  .resultInfo {
+    gap: 0px;
+  }
+
+  .resultDisplayName {
+    font-size: 10px;
+  }
+
+  .resultWalletAddress,
+  .resultTwitter {
+    font-size: 8px;
+  }
+
+  .resultAvatar {
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+  }
+
+  .searchResultItem {
+    padding: 6px 8px;
+  }
+}
+
+
 /* Fixed bottom tooltip styles */
 .fixedTooltip {
   position: fixed;

@@ -165,71 +165,120 @@ export async function searchAllRepositories(
   query: string,
   currentWallet?: string
 ): Promise<Repository[]> {
+  // If query is empty or too short, return empty results
+  if (!query.trim() || query.trim().length < 1) {
+    return [];
+  }
+
   // Test Irys connection first
   const canConnect = await testIrysConnection();
 
-  const searchStrategy = {
-    name: 'irys-git 태그로 모든 저장소 검색',
-    endpoint: 'https://uploader.irys.xyz/graphql',
-    query: `
-      query getAllRepositories {
-        transactions(
-          tags: [{ name: "App-Name", values: ["irys-git"] }],
-          first: 1000,
-          order: DESC
-        ) {
-          edges {
-            node {
-              id
-              tags {
-                name
-                value
-              }
-              timestamp
-            }
-          }
-        }
-      }
-    `,
-  };
+  const endpoint = 'https://uploader.irys.xyz/graphql';
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
+    // 병렬로 닉네임과 저장소 데이터 로드
+    const [nicknameData, repositoryData] = await Promise.all([
+      // 닉네임 데이터 로드
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `
+            query getAllNicknames {
+              transactions(
+                tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+                first: 1000,
+                order: DESC
+              ) {
+                edges {
+                  node {
+                    id
+                    tags {
+                      name
+                      value
+                    }
+                    timestamp
+                  }
+                }
+              }
+            }
+          `,
+        }),
       }),
-    });
+      // 저장소 데이터 로드
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `
+            query getAllRepositories {
+              transactions(
+                tags: [{ name: "App-Name", values: ["irys-git"] }],
+                first: 1000,
+                order: DESC
+              ) {
+                edges {
+                  node {
+                    id
+                    tags {
+                      name
+                      value
+                    }
+                    timestamp
+                  }
+                }
+              }
+            }
+          `,
+        }),
+      }),
+    ]);
 
-    if (!response.ok) {
+    if (!nicknameData.ok || !repositoryData.ok) {
       return [];
     }
 
-    const result = await response.json();
+    const [nicknameResult, repositoryResult] = await Promise.all([
+      nicknameData.json(),
+      repositoryData.json(),
+    ]);
 
-    if (result.errors) {
+    if (nicknameResult.errors || repositoryResult.errors) {
       return [];
     }
 
-    const transactions = result.data?.transactions?.edges || [];
+    const nicknameTransactions = nicknameResult.data?.transactions?.edges || [];
+    const repositoryTransactions =
+      repositoryResult.data?.transactions?.edges || [];
 
-    if (transactions.length === 0) {
-      return [];
+    // 닉네임 맵 생성 (wallet address -> nickname)
+    const nicknameMap = new Map<string, string>();
+    for (const edge of nicknameTransactions) {
+      const node = edge.node;
+      const nicknameTag = node.tags?.find(
+        (tag: any) => tag.name === 'githirys_nickname'
+      );
+      const accountTag = node.tags?.find(
+        (tag: any) => tag.name === 'githirys_account_address'
+      );
+
+      if (nicknameTag && accountTag) {
+        nicknameMap.set(accountTag.value, nicknameTag.value);
+      }
     }
 
     // 저장소별로 그룹핑
     const repositoryMap = new Map<string, Repository>();
-
-    // 브랜치별 최신 트랜잭션 맵
     const branchTransactionMap = new Map<
       string,
       Map<string, BranchTransactionData>
     >();
 
-    for (const edge of transactions) {
+    for (const edge of repositoryTransactions) {
       const node = edge.node;
 
       // 태그에서 필요한 정보 추출
@@ -258,12 +307,6 @@ export async function searchAllRepositories(
 
       const repoName = repositoryTag.value;
       const owner = ownerTag.value;
-
-      // Query filter - search by repository name
-      if (!repoName.toLowerCase().includes(query.toLowerCase())) {
-        continue;
-      }
-
       const branchName = branchTag?.value || 'main';
 
       // Timestamp 처리 개선
@@ -354,15 +397,15 @@ export async function searchAllRepositories(
       });
     }
 
-    const repositories = Array.from(repositoryMap.values());
+    const allRepositories = Array.from(repositoryMap.values());
 
-    // 노출 권한 필터링 - private 저장소는 편집 권한이 있는 사용자만 볼 수 있음
-    const filteredRepositories: Repository[] = [];
+    // First filter by visibility permissions
+    const visibleRepositories: Repository[] = [];
 
-    for (const repo of repositories) {
-      // 현재 지갑이 소유자인 경우 항상 표시
+    for (const repo of allRepositories) {
+      // 현재 지갑이 소유자인 경우 항상 포함
       if (repo.owner === currentWallet) {
-        filteredRepositories.push(repo);
+        visibleRepositories.push(repo);
         continue;
       }
 
@@ -372,7 +415,7 @@ export async function searchAllRepositories(
 
         if (!visibility || visibility.visibility === 'public') {
           // 노출 권한 정보가 없거나 public인 경우 표시
-          filteredRepositories.push(repo);
+          visibleRepositories.push(repo);
         } else if (visibility.visibility === 'private' && currentWallet) {
           // private인 경우 편집 권한 확인
           const permissions = await getRepositoryPermissions(
@@ -380,16 +423,36 @@ export async function searchAllRepositories(
             repo.owner
           );
           if (permissions && permissions.contributors.includes(currentWallet)) {
-            filteredRepositories.push(repo);
+            visibleRepositories.push(repo);
           }
         }
       } catch (error) {
         // 오류 발생 시 안전하게 public으로 처리
-        filteredRepositories.push(repo);
+        visibleRepositories.push(repo);
       }
     }
 
-    return filteredRepositories;
+    // 검색 쿼리와 매칭 처리
+    const searchQuery = query.toLowerCase();
+    const matchingRepositories: Repository[] = [];
+
+    for (const repo of visibleRepositories) {
+      const repoName = repo.name.toLowerCase();
+      const ownerAddress = repo.owner.toLowerCase();
+      const ownerNickname = nicknameMap.get(repo.owner)?.toLowerCase() || '';
+
+      // 저장소명, 소유자 주소, 닉네임 중 하나라도 매칭되면 포함
+      if (
+        repoName.includes(searchQuery) ||
+        ownerAddress.includes(searchQuery) ||
+        ownerNickname.includes(searchQuery)
+      ) {
+        matchingRepositories.push(repo);
+      }
+    }
+
+    // Limit results to prevent overwhelming UI
+    return matchingRepositories.slice(0, 50);
   } catch (error) {
     return [];
   }
@@ -1244,6 +1307,40 @@ export interface UserSearchResult {
   twitterHandle?: string;
 }
 
+// Issue-related interfaces
+export interface Issue {
+  id: string;
+  repository: string;
+  owner: string;
+  issueCount: number;
+  title: string;
+  content: string;
+  author: string;
+  createdAt: number;
+  updatedAt: number;
+  rootTxId?: string;
+  mutableAddress?: string;
+  commentCount?: number;
+  tags?: any[];
+}
+
+export interface IssueComment {
+  id: string;
+  repository: string;
+  owner: string;
+  issueCount: number;
+  issueTitle: string;
+  issueAuthor: string;
+  commentCount: number;
+  content: string;
+  author: string;
+  createdAt: number;
+  updatedAt: number;
+  rootTxId?: string;
+  mutableAddress?: string;
+  tags?: any[];
+}
+
 // 저장소 권한 정보 조회
 export async function getRepositoryPermissions(
   repository: string,
@@ -1419,9 +1516,15 @@ export async function updateRepositoryPermissions(
   }
 }
 
-// 사용자 검색 (닉네임 또는 지갑 주소)
+// 사용자 검색 (닉네임 또는 지갑 주소) - 부분검색 지원
 export async function searchUsers(query: string): Promise<UserSearchResult[]> {
   const results: UserSearchResult[] = [];
+
+  if (!query.trim()) {
+    return results;
+  }
+
+  const searchQuery = query.toLowerCase();
 
   // 솔라나 지갑 주소 형식인지 확인
   const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(query);
@@ -1449,51 +1552,112 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
       });
     }
   } else {
-    // 닉네임으로 검색
-    const profile = await getProfileByNickname(query);
-
-    if (profile) {
-      results.push({
-        type: 'nickname',
-        displayName: profile.nickname,
-        walletAddress: profile.accountAddress,
-        nickname: profile.nickname,
-        profileImageUrl: profile.profileImageUrl,
-        twitterHandle: profile.twitterHandle,
+    // 닉네임으로 부분검색 지원
+    try {
+      const endpoint = 'https://uploader.irys.xyz/graphql';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `
+            query getAllNicknames {
+              transactions(
+                tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+                first: 1000,
+                order: DESC
+              ) {
+                edges {
+                  node {
+                    id
+                    tags {
+                      name
+                      value
+                    }
+                    timestamp
+                  }
+                }
+              }
+            }
+          `,
+        }),
       });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        if (!result.errors) {
+          const nicknameTransactions = result.data?.transactions?.edges || [];
+
+          // 고유한 프로필 맵 생성 (중복 제거)
+          const uniqueProfiles = new Map<string, UserProfile>();
+
+          for (const edge of nicknameTransactions) {
+            const node = edge.node;
+            const nicknameTag = node.tags?.find(
+              (tag: any) => tag.name === 'githirys_nickname'
+            );
+            const accountTag = node.tags?.find(
+              (tag: any) => tag.name === 'githirys_account_address'
+            );
+            const twitterTag = node.tags?.find(
+              (tag: any) => tag.name === 'githirys_twitter'
+            );
+            const rootTxTag = node.tags?.find(
+              (tag: any) => tag.name === 'Root-TX'
+            );
+
+            if (nicknameTag && accountTag) {
+              const profile: UserProfile = {
+                nickname: nicknameTag.value,
+                accountAddress: accountTag.value,
+                twitterHandle: twitterTag?.value || '',
+                profileImageUrl: rootTxTag?.value
+                  ? `https://gateway.irys.xyz/mutable/${rootTxTag.value}`
+                  : undefined,
+                rootTxId: rootTxTag?.value || node.id,
+                timestamp: node.timestamp,
+              };
+
+              // 같은 지갑 주소의 최신 프로필만 유지
+              const existingProfile = uniqueProfiles.get(accountTag.value);
+              if (
+                !existingProfile ||
+                profile.timestamp > existingProfile.timestamp
+              ) {
+                uniqueProfiles.set(accountTag.value, profile);
+              }
+            }
+          }
+
+          // 검색 쿼리와 매칭 처리 (case-insensitive)
+          for (const profile of Array.from(uniqueProfiles.values())) {
+            const nickname = profile.nickname.toLowerCase();
+            const walletAddress = profile.accountAddress.toLowerCase();
+
+            if (
+              nickname.includes(searchQuery) ||
+              walletAddress.includes(searchQuery)
+            ) {
+              results.push({
+                type: 'nickname',
+                displayName: profile.nickname,
+                walletAddress: profile.accountAddress,
+                nickname: profile.nickname,
+                profileImageUrl: profile.profileImageUrl,
+                twitterHandle: profile.twitterHandle,
+              });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Search error:', error);
     }
   }
 
   return results;
-}
-
-// 부분 닉네임 검색 (자동완성용)
-export async function searchNicknamesPartial(
-  partialNickname: string
-): Promise<UserSearchResult[]> {
-  if (partialNickname.length < 2) {
-    return [];
-  }
-
-  // GraphQL에서 부분 검색은 지원하지 않으므로,
-  // 일반적인 닉네임 패턴들을 시도해볼 수 있지만
-  // 현재는 정확한 일치만 지원
-  const exactMatch = await getProfileByNickname(partialNickname);
-
-  if (exactMatch) {
-    return [
-      {
-        type: 'nickname',
-        displayName: exactMatch.nickname,
-        walletAddress: exactMatch.accountAddress,
-        nickname: exactMatch.nickname,
-        profileImageUrl: exactMatch.profileImageUrl,
-        twitterHandle: exactMatch.twitterHandle,
-      },
-    ];
-  }
-
-  return [];
 }
 
 // 저장소 노출 권한 정보 조회
@@ -1920,7 +2084,7 @@ export async function debugAllTags(): Promise<void> {
 
 // 사용자 수 통계 가져오기 (개선된 버전)
 export async function getUserStats(): Promise<number> {
-  // App-Name이 "irys-git-nickname"인 트랜잭션들만 쿼리
+  // App-Name이 "c"인 트랜잭션들만 쿼리
   const query = `
     query getUserStats {
       transactions(
@@ -2341,5 +2505,793 @@ export async function getRecentRepositories(): Promise<RecentRepository[]> {
     return recentRepositories;
   } catch (error) {
     return [];
+  }
+}
+
+// Issue-related functions
+export async function getRepositoryIssues(
+  repository: string,
+  owner: string
+): Promise<Issue[]> {
+  const searchStrategy = {
+    name: 'irys-git-issues 태그로 이슈 검색',
+    endpoint: 'https://uploader.irys.xyz/graphql',
+    query: `
+      query getRepositoryIssues($repository: String!, $owner: String!) {
+        transactions(
+          tags: [
+            { name: "App-Name", values: ["irys-git-issues"] },
+            { name: "Repository", values: [$repository] },
+            { name: "git-owner", values: [$owner] }
+          ],
+          first: 100,
+          order: DESC
+        ) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
+            }
+          }
+        }
+      }
+    `,
+    variables: { repository, owner },
+  };
+
+  try {
+    const response = await fetch(searchStrategy.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchStrategy.query,
+        variables: searchStrategy.variables,
+      }),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return [];
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+    const issueMap = new Map<number, Issue>();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const issueCountTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-count'
+      );
+      const issueNameTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-name'
+      );
+      const issueOwnerTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-owner'
+      );
+      const rootTxTag = node.tags?.find((tag: any) => tag.name === 'Root-TX');
+
+      if (!issueCountTag || !issueNameTag || !issueOwnerTag) {
+        continue;
+      }
+
+      const issueCount = parseInt(issueCountTag.value, 10);
+      const issueTitle = issueNameTag.value;
+      const issueAuthor = issueOwnerTag.value;
+      const rootTxId = rootTxTag?.value;
+      const timestamp = TimestampUtils.normalize(node.timestamp);
+
+      const existingIssue = issueMap.get(issueCount);
+      if (!existingIssue || timestamp > existingIssue.updatedAt) {
+        // Load issue content
+        const issueContent = await downloadData(node.id);
+        const content = issueContent
+          ? new TextDecoder().decode(issueContent)
+          : '';
+
+        issueMap.set(issueCount, {
+          id: node.id,
+          repository,
+          owner,
+          issueCount,
+          title: issueTitle,
+          content,
+          author: issueAuthor,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          rootTxId,
+          mutableAddress: node.id,
+          tags: node.tags,
+        });
+      }
+    }
+
+    const issues = Array.from(issueMap.values());
+
+    // Filter issues by visibility
+    const visibleIssues: Issue[] = [];
+    for (const issue of issues) {
+      const isVisible = await getIssueVisibility(
+        issue.repository,
+        issue.owner,
+        issue.issueCount,
+        issue.title,
+        issue.author
+      );
+      if (isVisible) {
+        visibleIssues.push(issue);
+      }
+    }
+
+    return visibleIssues.sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch (error) {
+    console.error('Error fetching repository issues:', error);
+    return [];
+  }
+}
+
+export async function getIssueComments(
+  repository: string,
+  owner: string,
+  issueCount: number,
+  issueTitle: string,
+  issueAuthor: string
+): Promise<IssueComment[]> {
+  const searchStrategy = {
+    name: 'irys-git-issue-comments 태그로 이슈 댓글 검색',
+    endpoint: 'https://uploader.irys.xyz/graphql',
+    query: `
+      query getIssueComments($repository: String!, $owner: String!, $issueCount: String!, $issueTitle: String!, $issueAuthor: String!) {
+        transactions(
+          tags: [
+            { name: "App-Name", values: ["irys-git-issue-comments"] },
+            { name: "Repository", values: [$repository] },
+            { name: "git-owner", values: [$owner] },
+            { name: "issue-count", values: [$issueCount] },
+            { name: "issue-name", values: [$issueTitle] },
+            { name: "issue-owner", values: [$issueAuthor] }
+          ],
+          first: 100,
+          order: DESC
+        ) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      repository,
+      owner,
+      issueCount: issueCount.toString(),
+      issueTitle,
+      issueAuthor,
+    },
+  };
+
+  try {
+    const response = await fetch(searchStrategy.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchStrategy.query,
+        variables: searchStrategy.variables,
+      }),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return [];
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+    const commentMap = new Map<number, IssueComment>();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const commentCountTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-comment-count'
+      );
+      const commentOwnerTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-comment-owner'
+      );
+      const rootTxTag = node.tags?.find((tag: any) => tag.name === 'Root-TX');
+
+      if (!commentCountTag || !commentOwnerTag) {
+        continue;
+      }
+
+      const commentCount = parseInt(commentCountTag.value, 10);
+      const commentAuthor = commentOwnerTag.value;
+      const rootTxId = rootTxTag?.value;
+      const timestamp = TimestampUtils.normalize(node.timestamp);
+
+      const existingComment = commentMap.get(commentCount);
+      if (!existingComment || timestamp > existingComment.updatedAt) {
+        // Load comment content
+        const commentContent = await downloadData(node.id);
+        const content = commentContent
+          ? new TextDecoder().decode(commentContent)
+          : '';
+
+        commentMap.set(commentCount, {
+          id: node.id,
+          repository,
+          owner,
+          issueCount,
+          issueTitle,
+          issueAuthor,
+          commentCount,
+          content,
+          author: commentAuthor,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          rootTxId,
+          mutableAddress: node.id,
+          tags: node.tags,
+        });
+      }
+    }
+
+    const comments = Array.from(commentMap.values());
+
+    // Filter comments by visibility
+    const visibleComments: IssueComment[] = [];
+    for (const comment of comments) {
+      const isVisible = await getCommentVisibility(
+        comment.repository,
+        comment.owner,
+        comment.issueCount,
+        comment.issueTitle,
+        comment.issueAuthor,
+        comment.commentCount,
+        comment.author
+      );
+      if (isVisible) {
+        visibleComments.push(comment);
+      }
+    }
+
+    return visibleComments.sort((a, b) => a.createdAt - b.createdAt);
+  } catch (error) {
+    console.error('Error fetching issue comments:', error);
+    return [];
+  }
+}
+
+export async function createIssue(
+  uploader: any,
+  issueData: {
+    repository: string;
+    owner: string;
+    title: string;
+    content: string;
+    author: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Get next issue count
+    const existingIssues = await getRepositoryIssues(
+      issueData.repository,
+      issueData.owner
+    );
+    const nextIssueCount = existingIssues.length + 1;
+
+    // Create tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-issues' },
+      { name: 'Repository', value: issueData.repository },
+      { name: 'git-owner', value: issueData.owner },
+      { name: 'issue-count', value: nextIssueCount.toString() },
+      { name: 'issue-name', value: issueData.title },
+      { name: 'issue-owner', value: issueData.author },
+      { name: 'issue-visibility', value: 'true' },
+      { name: 'Timestamp', value: new Date().toISOString() },
+    ];
+
+    // Upload issue - pass content as string directly
+    const receipt = await uploader.upload(issueData.content, { tags });
+
+    return {
+      success: true,
+      txId: receipt.id,
+    };
+  } catch (error) {
+    console.error('Error creating issue:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function updateIssue(
+  uploader: any,
+  issueData: {
+    repository: string;
+    owner: string;
+    issueCount: number;
+    title: string;
+    content: string;
+    author: string;
+    existingRootTxId?: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Create tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-issues' },
+      { name: 'Repository', value: issueData.repository },
+      { name: 'git-owner', value: issueData.owner },
+      { name: 'issue-count', value: issueData.issueCount.toString() },
+      { name: 'issue-name', value: issueData.title },
+      { name: 'issue-owner', value: issueData.author },
+      { name: 'issue-visibility', value: 'true' },
+      { name: 'Timestamp', value: new Date().toISOString() },
+    ];
+
+    // Add Root-TX tag if updating existing issue
+    if (issueData.existingRootTxId) {
+      tags.push({ name: 'Root-TX', value: issueData.existingRootTxId });
+    }
+
+    // Upload updated issue - pass content as string directly
+    const receipt = await uploader.upload(issueData.content, { tags });
+
+    return {
+      success: true,
+      txId: receipt.id,
+    };
+  } catch (error) {
+    console.error('Error updating issue:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function createIssueComment(
+  uploader: any,
+  commentData: {
+    repository: string;
+    owner: string;
+    issueCount: number;
+    issueTitle: string;
+    issueAuthor: string;
+    content: string;
+    author: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Get next comment count
+    const existingComments = await getIssueComments(
+      commentData.repository,
+      commentData.owner,
+      commentData.issueCount,
+      commentData.issueTitle,
+      commentData.issueAuthor
+    );
+    const nextCommentCount = existingComments.length + 1;
+
+    // Create tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-issue-comments' },
+      { name: 'Repository', value: commentData.repository },
+      { name: 'git-owner', value: commentData.owner },
+      { name: 'issue-count', value: commentData.issueCount.toString() },
+      { name: 'issue-name', value: commentData.issueTitle },
+      { name: 'issue-owner', value: commentData.issueAuthor },
+      { name: 'issue-comment-count', value: nextCommentCount.toString() },
+      { name: 'issue-comment-owner', value: commentData.author },
+      { name: 'issue-comment-visibility', value: 'true' },
+      { name: 'Timestamp', value: new Date().toISOString() },
+    ];
+
+    // Upload comment - pass content as string directly
+    const receipt = await uploader.upload(commentData.content, { tags });
+
+    return {
+      success: true,
+      txId: receipt.id,
+    };
+  } catch (error) {
+    console.error('Error creating issue comment:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function updateIssueComment(
+  uploader: any,
+  commentData: {
+    repository: string;
+    owner: string;
+    issueCount: number;
+    issueTitle: string;
+    issueAuthor: string;
+    commentCount: number;
+    content: string;
+    author: string;
+    existingRootTxId?: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Create tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-issue-comments' },
+      { name: 'Repository', value: commentData.repository },
+      { name: 'git-owner', value: commentData.owner },
+      { name: 'issue-count', value: commentData.issueCount.toString() },
+      { name: 'issue-name', value: commentData.issueTitle },
+      { name: 'issue-owner', value: commentData.issueAuthor },
+      {
+        name: 'issue-comment-count',
+        value: commentData.commentCount.toString(),
+      },
+      { name: 'issue-comment-owner', value: commentData.author },
+      { name: 'issue-comment-visibility', value: 'true' },
+      { name: 'Timestamp', value: new Date().toISOString() },
+    ];
+
+    // Add Root-TX tag if updating existing comment
+    if (commentData.existingRootTxId) {
+      tags.push({ name: 'Root-TX', value: commentData.existingRootTxId });
+    }
+
+    // Upload updated comment - pass content as string directly
+    const receipt = await uploader.upload(commentData.content, { tags });
+
+    return {
+      success: true,
+      txId: receipt.id,
+    };
+  } catch (error) {
+    console.error('Error updating issue comment:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// Issue visibility management functions
+export async function updateIssueVisibility(
+  uploader: any,
+  visibilityData: {
+    repository: string;
+    owner: string;
+    issueCount: number;
+    issueTitle: string;
+    issueAuthor: string;
+    visibility: boolean;
+    existingRootTxId?: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Create visibility update content
+    const visibilityContent = JSON.stringify({
+      visibility: visibilityData.visibility,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Create tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-issues' },
+      { name: 'Repository', value: visibilityData.repository },
+      { name: 'git-owner', value: visibilityData.owner },
+      { name: 'issue-count', value: visibilityData.issueCount.toString() },
+      { name: 'issue-name', value: visibilityData.issueTitle },
+      { name: 'issue-owner', value: visibilityData.issueAuthor },
+      { name: 'issue-visibility', value: visibilityData.visibility.toString() },
+      { name: 'Timestamp', value: new Date().toISOString() },
+    ];
+
+    // Add Root-TX tag if updating existing visibility
+    if (visibilityData.existingRootTxId) {
+      tags.push({ name: 'Root-TX', value: visibilityData.existingRootTxId });
+    }
+
+    // Upload visibility update
+    const receipt = await uploader.upload(visibilityContent, { tags });
+
+    return {
+      success: true,
+      txId: receipt.id,
+    };
+  } catch (error) {
+    console.error('Error updating issue visibility:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+export async function updateCommentVisibility(
+  uploader: any,
+  visibilityData: {
+    repository: string;
+    owner: string;
+    issueCount: number;
+    issueTitle: string;
+    issueAuthor: string;
+    commentCount: number;
+    commentAuthor: string;
+    visibility: boolean;
+    existingRootTxId?: string;
+  }
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // Create visibility update content
+    const visibilityContent = JSON.stringify({
+      visibility: visibilityData.visibility,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Create tags
+    const tags = [
+      { name: 'App-Name', value: 'irys-git-issue-comments-visibility' },
+      { name: 'Repository', value: visibilityData.repository },
+      { name: 'git-owner', value: visibilityData.owner },
+      { name: 'issue-count', value: visibilityData.issueCount.toString() },
+      { name: 'issue-name', value: visibilityData.issueTitle },
+      { name: 'issue-owner', value: visibilityData.issueAuthor },
+      {
+        name: 'issue-comment-count',
+        value: visibilityData.commentCount.toString(),
+      },
+      { name: 'issue-comment-owner', value: visibilityData.commentAuthor },
+      {
+        name: 'issue-comment-visibility',
+        value: visibilityData.visibility.toString(),
+      },
+      { name: 'Timestamp', value: new Date().toISOString() },
+    ];
+
+    // Add Root-TX tag if updating existing visibility
+    if (visibilityData.existingRootTxId) {
+      tags.push({ name: 'Root-TX', value: visibilityData.existingRootTxId });
+    }
+
+    // Upload visibility update
+    const receipt = await uploader.upload(visibilityContent, { tags });
+
+    return {
+      success: true,
+      txId: receipt.id,
+    };
+  } catch (error) {
+    console.error('Error updating comment visibility:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// Get issue visibility status
+export async function getIssueVisibility(
+  repository: string,
+  owner: string,
+  issueCount: number,
+  issueTitle: string,
+  issueAuthor: string
+): Promise<boolean> {
+  const searchStrategy = {
+    name: 'Check issue visibility',
+    endpoint: 'https://uploader.irys.xyz/graphql',
+    query: `
+      query getIssueVisibility($repository: String!, $owner: String!, $issueCount: String!, $issueTitle: String!, $issueAuthor: String!) {
+        transactions(
+          tags: [
+            { name: "App-Name", values: ["irys-git-issues"] },
+            { name: "Repository", values: [$repository] },
+            { name: "git-owner", values: [$owner] },
+            { name: "issue-count", values: [$issueCount] },
+            { name: "issue-name", values: [$issueTitle] },
+            { name: "issue-owner", values: [$issueAuthor] }
+          ],
+          first: 10,
+          order: DESC
+        ) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      repository,
+      owner,
+      issueCount: issueCount.toString(),
+      issueTitle,
+      issueAuthor,
+    },
+  };
+
+  try {
+    const response = await fetch(searchStrategy.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchStrategy.query,
+        variables: searchStrategy.variables,
+      }),
+    });
+
+    if (!response.ok) {
+      return true; // Default to visible if can't check
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return true; // Default to visible if can't check
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    // Find the latest transaction with visibility tag
+    let latestVisibility = true; // Default to visible
+    let latestTimestamp = 0;
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const visibilityTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-visibility'
+      );
+
+      if (visibilityTag) {
+        const timestamp = TimestampUtils.normalize(node.timestamp);
+        if (timestamp > latestTimestamp) {
+          latestTimestamp = timestamp;
+          latestVisibility = visibilityTag.value === 'true';
+        }
+      }
+    }
+
+    return latestVisibility;
+  } catch (error) {
+    console.error('Error checking issue visibility:', error);
+    return true; // Default to visible if error
+  }
+}
+
+// Get comment visibility status
+export async function getCommentVisibility(
+  repository: string,
+  owner: string,
+  issueCount: number,
+  issueTitle: string,
+  issueAuthor: string,
+  commentCount: number,
+  commentAuthor: string
+): Promise<boolean> {
+  const searchStrategy = {
+    name: 'Check comment visibility',
+    endpoint: 'https://uploader.irys.xyz/graphql',
+    query: `
+      query getCommentVisibility($repository: String!, $owner: String!, $issueCount: String!, $issueTitle: String!, $issueAuthor: String!, $commentCount: String!, $commentAuthor: String!) {
+        transactions(
+          tags: [
+            { name: "App-Name", values: ["irys-git-issue-comments-visibility"] },
+            { name: "Repository", values: [$repository] },
+            { name: "git-owner", values: [$owner] },
+            { name: "issue-count", values: [$issueCount] },
+            { name: "issue-name", values: [$issueTitle] },
+            { name: "issue-owner", values: [$issueAuthor] },
+            { name: "issue-comment-count", values: [$commentCount] },
+            { name: "issue-comment-owner", values: [$commentAuthor] }
+          ],
+          first: 10,
+          order: DESC
+        ) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      repository,
+      owner,
+      issueCount: issueCount.toString(),
+      issueTitle,
+      issueAuthor,
+      commentCount: commentCount.toString(),
+      commentAuthor,
+    },
+  };
+
+  try {
+    const response = await fetch(searchStrategy.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchStrategy.query,
+        variables: searchStrategy.variables,
+      }),
+    });
+
+    if (!response.ok) {
+      return true; // Default to visible if can't check
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return true; // Default to visible if can't check
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    // Find the latest transaction with visibility tag
+    let latestVisibility = true; // Default to visible
+    let latestTimestamp = 0;
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const visibilityTag = node.tags?.find(
+        (tag: any) => tag.name === 'issue-comment-visibility'
+      );
+
+      if (visibilityTag) {
+        const timestamp = TimestampUtils.normalize(node.timestamp);
+        if (timestamp > latestTimestamp) {
+          latestTimestamp = timestamp;
+          latestVisibility = visibilityTag.value === 'true';
+        }
+      }
+    }
+
+    return latestVisibility;
+  } catch (error) {
+    console.error('Error checking comment visibility:', error);
+    return true; // Default to visible if error
   }
 }

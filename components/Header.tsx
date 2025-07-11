@@ -6,6 +6,7 @@ import {
   createIrysUploader,
   getProfileByAddress,
   searchRepositories,
+  searchAllRepositories,
   getProfileByNickname,
   ProfileUtils,
 } from '../lib/irys';
@@ -184,53 +185,151 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
           setSearchError('Not a valid Solana address.');
         }
       } else if (searchType === 'nickname') {
-        if (!ProfileUtils.isValidNickname(searchQuery.trim())) {
-          setSearchError(
-            'Not a valid nickname. (3-20 english letter, number, underbar)'
-          );
-          return;
-        }
-
         try {
-          const profile = await getProfileByNickname(searchQuery.trim());
-          if (profile) {
-            setSearchResults([
-              {
-                ...profile,
-                type: 'profile',
-              },
-            ]);
-            setShowSearchResults(true);
+          const endpoint = 'https://uploader.irys.xyz/graphql';
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: `
+                query getAllNicknames {
+                  transactions(
+                    tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+                    first: 1000,
+                    order: DESC
+                  ) {
+                    edges {
+                      node {
+                        id
+                        tags {
+                          name
+                          value
+                        }
+                        timestamp
+                      }
+                    }
+                  }
+                }
+              `,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+
+            if (!result.errors) {
+              const nicknameTransactions =
+                result.data?.transactions?.edges || [];
+
+              // 고유한 프로필 맵 생성 (중복 제거)
+              const uniqueProfiles = new Map<string, any>();
+
+              for (const edge of nicknameTransactions) {
+                const node = edge.node;
+                const nicknameTag = node.tags?.find(
+                  (tag: any) => tag.name === 'githirys_nickname'
+                );
+                const accountTag = node.tags?.find(
+                  (tag: any) => tag.name === 'githirys_account_address'
+                );
+                const twitterTag = node.tags?.find(
+                  (tag: any) => tag.name === 'githirys_twitter'
+                );
+                const rootTxTag = node.tags?.find(
+                  (tag: any) => tag.name === 'Root-TX'
+                );
+
+                if (nicknameTag && accountTag) {
+                  const profile = {
+                    nickname: nicknameTag.value,
+                    accountAddress: accountTag.value,
+                    twitterHandle: twitterTag?.value || '',
+                    profileImageUrl: rootTxTag?.value
+                      ? `https://gateway.irys.xyz/mutable/${rootTxTag.value}`
+                      : undefined,
+                    rootTxId: rootTxTag?.value || node.id,
+                    timestamp: node.timestamp,
+                  };
+
+                  // 같은 지갑 주소의 최신 프로필만 유지
+                  const existingProfile = uniqueProfiles.get(accountTag.value);
+                  if (
+                    !existingProfile ||
+                    profile.timestamp > existingProfile.timestamp
+                  ) {
+                    uniqueProfiles.set(accountTag.value, profile);
+                  }
+                }
+              }
+
+              // 검색 쿼리와 매칭 처리 (case-insensitive)
+              const matchingProfiles = [];
+              const lowerSearchQuery = searchQuery.toLowerCase();
+
+              for (const profile of Array.from(uniqueProfiles.values())) {
+                const nickname = profile.nickname.toLowerCase();
+                const walletAddress = profile.accountAddress.toLowerCase();
+
+                if (
+                  nickname.includes(lowerSearchQuery) ||
+                  walletAddress.includes(lowerSearchQuery)
+                ) {
+                  matchingProfiles.push({
+                    ...profile,
+                    type: 'profile',
+                  });
+                }
+              }
+
+              if (matchingProfiles.length > 0) {
+                setSearchResults(matchingProfiles);
+                setShowSearchResults(true);
+              } else {
+                setSearchError(`No nickname found for '${searchQuery}'`);
+              }
+            } else {
+              setSearchError('Error occurred while searching');
+            }
           } else {
-            setSearchError(`Nickname called '${searchQuery}' not found`);
+            setSearchError('Error occurred while searching');
           }
         } catch (error) {
           setSearchError('Error occurred while searching');
         }
       } else {
-        if (wallet.publicKey) {
-          const publicKeyString = wallet.publicKey.toBase58();
-          const repos = await searchRepositories(
-            publicKeyString,
-            publicKeyString
-          );
-          const matchingRepos = repos.filter(repo =>
-            repo.name.toLowerCase().includes(searchQuery.toLowerCase())
+        const currentWallet = wallet.publicKey?.toBase58();
+        const repos = await searchAllRepositories(
+          searchQuery.trim(),
+          currentWallet
+        );
+
+        if (repos.length > 0) {
+          // 각 저장소의 소유자 닉네임 정보를 가져옴
+          const reposWithNicknames = await Promise.all(
+            repos.map(async repo => {
+              try {
+                const ownerProfile = await getProfileByAddress(repo.owner);
+                return {
+                  ...repo,
+                  type: 'repository',
+                  ownerNickname: ownerProfile?.nickname || null,
+                };
+              } catch (error) {
+                return {
+                  ...repo,
+                  type: 'repository',
+                  ownerNickname: null,
+                };
+              }
+            })
           );
 
-          if (matchingRepos.length > 0) {
-            setSearchResults(
-              matchingRepos.map(repo => ({
-                ...repo,
-                type: 'repository',
-              }))
-            );
-            setShowSearchResults(true);
-          } else {
-            setSearchError(`Repository called '${searchQuery}' not found`);
-          }
+          setSearchResults(reposWithNicknames);
+          setShowSearchResults(true);
         } else {
-          setSearchError('Connect your wallet to search repositories.');
+          setSearchError(`Repository called '${searchQuery}' not found`);
         }
       }
     } catch (error) {
@@ -365,7 +464,9 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                         <span>📁</span>
                         <span className={styles.repoName}>{result.name}</span>
                         <span className={styles.repoOwner}>
-                          by {result.owner.substring(0, 8)}...
+                          by{' '}
+                          {result.ownerNickname ||
+                            `${result.owner.substring(0, 8)}...`}
                         </span>
                       </div>
                     )}

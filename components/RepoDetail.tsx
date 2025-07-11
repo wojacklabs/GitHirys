@@ -13,6 +13,16 @@ import {
   getRepositoryDescription,
   updateRepositoryDescription,
   RepositoryDescription,
+  Issue,
+  IssueComment,
+  getRepositoryIssues,
+  getIssueComments,
+  createIssue,
+  updateIssue,
+  createIssueComment,
+  updateIssueComment,
+  updateIssueVisibility,
+  updateCommentVisibility,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -528,6 +538,29 @@ export default function RepoDetail({
   const [repositoryDescription, setRepositoryDescription] =
     useState<RepositoryDescription | null>(null);
   const [showRepoShareCard, setShowRepoShareCard] = useState(false);
+
+  // Issue-related states
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [loadingIssues, setLoadingIssues] = useState(false);
+  const [showIssueCreateModal, setShowIssueCreateModal] = useState(false);
+  const [showIssueDetailModal, setShowIssueDetailModal] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [issueComments, setIssueComments] = useState<IssueComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newIssueTitle, setNewIssueTitle] = useState('');
+  const [newIssueContent, setNewIssueContent] = useState('');
+  const [newCommentContent, setNewCommentContent] = useState('');
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [editingComment, setEditingComment] = useState<IssueComment | null>(
+    null
+  );
+  const [editingIssueTitle, setEditingIssueTitle] = useState('');
+  const [editingIssueContent, setEditingIssueContent] = useState('');
+  const [editingCommentContent, setEditingCommentContent] = useState('');
+  const [savingIssue, setSavingIssue] = useState(false);
+  const [savingComment, setSavingComment] = useState(false);
+  const [refreshIssues, setRefreshIssues] = useState(0);
+
   const router = useRouter();
 
   // 브랜치 변경 핸들러
@@ -975,6 +1008,11 @@ export default function RepoDetail({
     loadRepositoryDescription();
   }, [repository, owner]);
 
+  // Load repository issues
+  useEffect(() => {
+    loadIssues();
+  }, [repository, owner, refreshIssues]);
+
   // Save repository description
   const handleSaveDescription = async () => {
     if (!repository || !owner || !uploader || !currentWallet) return;
@@ -1048,6 +1086,273 @@ export default function RepoDetail({
   // 저장소 공유 카드 닫기 핸들러
   const handleCloseRepoShareCard = () => {
     setShowRepoShareCard(false);
+  };
+
+  // Issue-related handlers
+  const loadIssues = async () => {
+    if (!repository || !owner) return;
+
+    try {
+      setLoadingIssues(true);
+      const repoIssues = await getRepositoryIssues(repository.name, owner);
+      setIssues(repoIssues);
+    } catch (error) {
+      console.error('Error loading issues:', error);
+    } finally {
+      setLoadingIssues(false);
+    }
+  };
+
+  const loadIssueComments = async (issue: Issue) => {
+    try {
+      setLoadingComments(true);
+      const comments = await getIssueComments(
+        issue.repository,
+        issue.owner,
+        issue.issueCount,
+        issue.title,
+        issue.author
+      );
+      setIssueComments(comments);
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleCreateIssue = async () => {
+    if (!repository || !owner || !uploader || !currentWallet) return;
+    if (!newIssueTitle.trim() || !newIssueContent.trim()) return;
+
+    try {
+      setSavingIssue(true);
+      const result = await createIssue(uploader, {
+        repository: repository.name,
+        owner: owner,
+        title: newIssueTitle.trim(),
+        content: newIssueContent.trim(),
+        author: currentWallet,
+      });
+
+      if (result.success) {
+        setNewIssueTitle('');
+        setNewIssueContent('');
+        setShowIssueCreateModal(false);
+        setRefreshIssues(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error creating issue:', error);
+    } finally {
+      setSavingIssue(false);
+    }
+  };
+
+  const handleUpdateIssue = async () => {
+    if (!editingIssue || !repository || !owner || !uploader || !currentWallet)
+      return;
+    if (!editingIssueTitle.trim() || !editingIssueContent.trim()) return;
+
+    try {
+      setSavingIssue(true);
+      const result = await updateIssue(uploader, {
+        repository: repository.name,
+        owner: owner,
+        issueCount: editingIssue.issueCount,
+        title: editingIssueTitle.trim(),
+        content: editingIssueContent.trim(),
+        author: editingIssue.author,
+        existingRootTxId: editingIssue.rootTxId,
+      });
+
+      if (result.success) {
+        setEditingIssue(null);
+        setEditingIssueTitle('');
+        setEditingIssueContent('');
+        setRefreshIssues(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error updating issue:', error);
+    } finally {
+      setSavingIssue(false);
+    }
+  };
+
+  const handleCreateComment = async () => {
+    if (!selectedIssue || !repository || !owner || !uploader || !currentWallet)
+      return;
+    if (!newCommentContent.trim()) return;
+
+    try {
+      setSavingComment(true);
+      const result = await createIssueComment(uploader, {
+        repository: repository.name,
+        owner: owner,
+        issueCount: selectedIssue.issueCount,
+        issueTitle: selectedIssue.title,
+        issueAuthor: selectedIssue.author,
+        content: newCommentContent.trim(),
+        author: currentWallet,
+      });
+
+      if (result.success) {
+        setNewCommentContent('');
+        await loadIssueComments(selectedIssue);
+      }
+    } catch (error) {
+      console.error('Error creating comment:', error);
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  const handleUpdateComment = async () => {
+    if (
+      !editingComment ||
+      !selectedIssue ||
+      !repository ||
+      !owner ||
+      !uploader ||
+      !currentWallet
+    )
+      return;
+    if (!editingCommentContent.trim()) return;
+
+    try {
+      setSavingComment(true);
+      const result = await updateIssueComment(uploader, {
+        repository: repository.name,
+        owner: owner,
+        issueCount: selectedIssue.issueCount,
+        issueTitle: selectedIssue.title,
+        issueAuthor: selectedIssue.author,
+        commentCount: editingComment.commentCount,
+        content: editingCommentContent.trim(),
+        author: editingComment.author,
+        existingRootTxId: editingComment.rootTxId,
+      });
+
+      if (result.success) {
+        setEditingComment(null);
+        setEditingCommentContent('');
+        await loadIssueComments(selectedIssue);
+      }
+    } catch (error) {
+      console.error('Error updating comment:', error);
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  const handleOpenIssueDetail = async (issue: Issue) => {
+    setSelectedIssue(issue);
+    setShowIssueDetailModal(true);
+    await loadIssueComments(issue);
+  };
+
+  const handleCloseIssueDetail = () => {
+    setShowIssueDetailModal(false);
+    setSelectedIssue(null);
+    setIssueComments([]);
+    setEditingIssue(null);
+    setEditingComment(null);
+    setEditingIssueTitle('');
+    setEditingIssueContent('');
+    setEditingCommentContent('');
+    setNewCommentContent('');
+  };
+
+  const handleStartEditIssue = (issue: Issue) => {
+    setEditingIssue(issue);
+    setEditingIssueTitle(issue.title);
+    setEditingIssueContent(issue.content);
+  };
+
+  const handleCancelEditIssue = () => {
+    setEditingIssue(null);
+    setEditingIssueTitle('');
+    setEditingIssueContent('');
+  };
+
+  const handleStartEditComment = (comment: IssueComment) => {
+    setEditingComment(comment);
+    setEditingCommentContent(comment.content);
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingComment(null);
+    setEditingCommentContent('');
+  };
+
+  const canEditIssue = (issue: Issue) => {
+    return currentWallet === issue.author;
+  };
+
+  const canDeleteIssue = (issue: Issue) => {
+    return currentWallet === issue.author || currentWallet === owner;
+  };
+
+  const canEditComment = (comment: IssueComment) => {
+    return currentWallet === comment.author;
+  };
+
+  const canDeleteComment = (comment: IssueComment) => {
+    return currentWallet === comment.author || currentWallet === owner;
+  };
+
+  const truncateText = (text: string, maxLines: number = 3) => {
+    const lines = text.split('\n');
+    if (lines.length <= maxLines) return text;
+    return lines.slice(0, maxLines).join('\n') + '...';
+  };
+
+  const handleDeleteIssue = async (issue: Issue) => {
+    if (!confirm('Are you sure you want to delete this issue?')) return;
+    if (!repository || !owner || !uploader || !currentWallet) return;
+
+    try {
+      const result = await updateIssueVisibility(uploader, {
+        repository: repository.name,
+        owner: owner,
+        issueCount: issue.issueCount,
+        issueTitle: issue.title,
+        issueAuthor: issue.author,
+        visibility: false,
+        existingRootTxId: issue.rootTxId,
+      });
+
+      if (result.success) {
+        setRefreshIssues(prev => prev + 1);
+        handleCloseIssueDetail();
+      }
+    } catch (error) {
+      console.error('Error deleting issue:', error);
+    }
+  };
+
+  const handleDeleteComment = async (comment: IssueComment) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+    if (!repository || !owner || !uploader || !currentWallet) return;
+
+    try {
+      const result = await updateCommentVisibility(uploader, {
+        repository: repository.name,
+        owner: owner,
+        issueCount: comment.issueCount,
+        issueTitle: comment.issueTitle,
+        issueAuthor: comment.issueAuthor,
+        commentCount: comment.commentCount,
+        commentAuthor: comment.author,
+        visibility: false,
+        existingRootTxId: comment.rootTxId,
+      });
+
+      if (result.success && selectedIssue) {
+        await loadIssueComments(selectedIssue);
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
   };
 
   const handleFileClick = (item: any) => {
@@ -1386,7 +1691,7 @@ export default function RepoDetail({
   if (loading) {
     return (
       <div className={styles.repoHeader}>
-        <h2>📁 {repository?.name || repoName}</h2>
+        <h2>{repository?.name || repoName}</h2>
         <p className={styles.repoLoading}>Fetching Repo Data...</p>
       </div>
     );
@@ -1395,7 +1700,7 @@ export default function RepoDetail({
   if (error) {
     return (
       <div className={styles.repoHeader}>
-        <h2>📁 {repository?.name || repoName}</h2>
+        <h2>{repository?.name || repoName}</h2>
         <div className="error">
           <p>❌ {error}</p>
           <p style={{ fontSize: '14px', marginTop: '8px' }}>
@@ -1415,8 +1720,8 @@ export default function RepoDetail({
   if (!transaction) {
     return (
       <div className={styles.repoHeader}>
-        <h2>📁 {repository?.name || repoName}</h2>
-        <p>저장소를 찾을 수 없습니다.</p>
+        <h2>{repository?.name || repoName}</h2>
+        <p>Can't find such repository</p>
       </div>
     );
   }
@@ -1425,9 +1730,7 @@ export default function RepoDetail({
     <div>
       <div className={styles.repoHeader}>
         <div className={styles.repoTitleRow}>
-          <h2 className={styles.repoTitle}>
-            📁 {repository?.name || repoName}
-          </h2>
+          <h2 className={styles.repoTitle}>{repository?.name || repoName}</h2>
           <button
             className={styles.shareButton}
             onClick={handleOpenRepoShareCard}
@@ -1542,6 +1845,58 @@ export default function RepoDetail({
               </div>
             </div>
           )}
+
+        {/* Issues Section */}
+        {repository && owner && (
+          <div className={styles.issuesSection}>
+            <div className={styles.issuesHeader}>
+              <h3 className={styles.issuesTitle}>Issues ({issues.length})</h3>
+              {currentWallet && (
+                <button
+                  onClick={() => setShowIssueCreateModal(true)}
+                  className={styles.createIssueButton}
+                >
+                  Create Issue
+                </button>
+              )}
+            </div>
+
+            {loadingIssues ? (
+              <div className={styles.issuesLoading}>Loading issues...</div>
+            ) : issues.length === 0 ? (
+              <div className={styles.noIssues}>
+                No issues yet. Create the first one!
+              </div>
+            ) : (
+              <div className={styles.issuesContainer}>
+                {issues.map(issue => (
+                  <div key={issue.id} className={styles.issueCard}>
+                    <div className={styles.issueHeader}>
+                      <h4 className={styles.issueTitle}>{issue.title}</h4>
+                      <span className={styles.issueAuthor}>
+                        by {issue.author.substring(0, 8)}...
+                      </span>
+                    </div>
+                    <div className={styles.issueContent}>
+                      {truncateText(issue.content, 3)}
+                    </div>
+                    <div className={styles.issueFooter}>
+                      <span className={styles.issueDate}>
+                        {TimestampUtils.formatRelative(issue.createdAt)}
+                      </span>
+                      <button
+                        onClick={() => handleOpenIssueDetail(issue)}
+                        className={styles.viewMoreButton}
+                      >
+                        View More
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 저장소 소유자와 contributor 정보 */}
         {repositoryOwner && (
@@ -1971,6 +2326,299 @@ export default function RepoDetail({
           }
           onClose={handleCloseRepoShareCard}
         />
+      )}
+
+      {/* Issue Create Modal */}
+      {showIssueCreateModal && (
+        <div
+          className={styles.modalOverlay}
+          onClick={e => {
+            if (e.target === e.currentTarget) {
+              setShowIssueCreateModal(false);
+              setNewIssueTitle('');
+              setNewIssueContent('');
+            }
+          }}
+        >
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Create New Issue</h3>
+              <button
+                className={styles.modalCloseButton}
+                onClick={() => {
+                  setShowIssueCreateModal(false);
+                  setNewIssueTitle('');
+                  setNewIssueContent('');
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.formGroup}>
+                <label htmlFor="issueTitle" className={styles.formLabel}>
+                  Issue Title
+                </label>
+                <input
+                  id="issueTitle"
+                  type="text"
+                  value={newIssueTitle}
+                  onChange={e => setNewIssueTitle(e.target.value)}
+                  placeholder="Enter issue title..."
+                  className={styles.formInput}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label htmlFor="issueContent" className={styles.formLabel}>
+                  Issue Content
+                </label>
+                <textarea
+                  id="issueContent"
+                  value={newIssueContent}
+                  onChange={e => setNewIssueContent(e.target.value)}
+                  placeholder="Describe the issue in detail..."
+                  className={styles.formTextarea}
+                  rows={8}
+                />
+              </div>
+              <div className={styles.formActions}>
+                <button
+                  onClick={handleCreateIssue}
+                  disabled={
+                    savingIssue ||
+                    !newIssueTitle.trim() ||
+                    !newIssueContent.trim()
+                  }
+                  className={styles.primaryButton}
+                >
+                  {savingIssue ? 'Creating...' : 'Create Issue'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowIssueCreateModal(false);
+                    setNewIssueTitle('');
+                    setNewIssueContent('');
+                  }}
+                  disabled={savingIssue}
+                  className={styles.secondaryButton}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Detail Modal */}
+      {showIssueDetailModal && selectedIssue && (
+        <div
+          className={styles.modalOverlay}
+          onClick={e => {
+            if (e.target === e.currentTarget) {
+              handleCloseIssueDetail();
+            }
+          }}
+        >
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>{selectedIssue.title}</h3>
+              <button
+                className={styles.modalCloseButton}
+                onClick={handleCloseIssueDetail}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.modalBody}>
+              {/* Issue Content */}
+              <div className={styles.issueDetail}>
+                <div className={styles.issueDetailHeader}>
+                  <span className={styles.issueAuthor}>
+                    by {selectedIssue.author.substring(0, 8)}...
+                  </span>
+                  {(canEditIssue(selectedIssue) ||
+                    canDeleteIssue(selectedIssue)) && (
+                    <div className={styles.issueActions}>
+                      {canEditIssue(selectedIssue) && (
+                        <button
+                          onClick={() => handleStartEditIssue(selectedIssue)}
+                          className={styles.actionButton}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canDeleteIssue(selectedIssue) && (
+                        <button
+                          onClick={() => handleDeleteIssue(selectedIssue)}
+                          className={styles.deleteButton}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {editingIssue && editingIssue.id === selectedIssue.id ? (
+                  <div className={styles.editForm}>
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Issue Title</label>
+                      <input
+                        type="text"
+                        value={editingIssueTitle}
+                        onChange={e => setEditingIssueTitle(e.target.value)}
+                        className={styles.formInput}
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Issue Content</label>
+                      <textarea
+                        value={editingIssueContent}
+                        onChange={e => setEditingIssueContent(e.target.value)}
+                        className={styles.formTextarea}
+                        rows={6}
+                      />
+                    </div>
+                    <div className={styles.formActions}>
+                      <button
+                        onClick={handleUpdateIssue}
+                        disabled={savingIssue}
+                        className={styles.primaryButton}
+                      >
+                        {savingIssue ? 'Saving...' : 'Save Changes'}
+                      </button>
+                      <button
+                        onClick={handleCancelEditIssue}
+                        disabled={savingIssue}
+                        className={styles.secondaryButton}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.issueDetailContent}>
+                      {selectedIssue.content}
+                    </div>
+                    <div className={styles.issueDetailDate}>
+                      {TimestampUtils.formatRelative(selectedIssue.createdAt)}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Comments Section */}
+              <div className={styles.commentsSection}>
+                <h4 className={styles.commentsTitle}>
+                  Comments ({issueComments.length})
+                </h4>
+
+                {loadingComments ? (
+                  <div className={styles.commentsLoading}>
+                    Loading comments...
+                  </div>
+                ) : (
+                  <>
+                    {issueComments.map(comment => (
+                      <div key={comment.id} className={styles.commentCard}>
+                        <div className={styles.commentHeader}>
+                          <span className={styles.commentAuthor}>
+                            {comment.author.substring(0, 8)}...
+                          </span>
+                          {(canEditComment(comment) ||
+                            canDeleteComment(comment)) && (
+                            <div className={styles.commentActions}>
+                              {canEditComment(comment) && (
+                                <button
+                                  onClick={() =>
+                                    handleStartEditComment(comment)
+                                  }
+                                  className={styles.actionButton}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {canDeleteComment(comment) && (
+                                <button
+                                  onClick={() => handleDeleteComment(comment)}
+                                  className={styles.deleteButton}
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {editingComment && editingComment.id === comment.id ? (
+                          <div className={styles.editForm}>
+                            <textarea
+                              value={editingCommentContent}
+                              onChange={e =>
+                                setEditingCommentContent(e.target.value)
+                              }
+                              className={styles.formTextarea}
+                              rows={3}
+                            />
+                            <div className={styles.formActions}>
+                              <button
+                                onClick={handleUpdateComment}
+                                disabled={savingComment}
+                                className={styles.primaryButton}
+                              >
+                                {savingComment ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={handleCancelEditComment}
+                                disabled={savingComment}
+                                className={styles.secondaryButton}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className={styles.commentContent}>
+                              {comment.content}
+                            </div>
+                            <div className={styles.issueDetailDate}>
+                              {TimestampUtils.formatRelative(comment.createdAt)}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Add Comment Form */}
+                {currentWallet && (
+                  <div className={styles.addCommentForm}>
+                    <textarea
+                      value={newCommentContent}
+                      onChange={e => setNewCommentContent(e.target.value)}
+                      placeholder="Add a comment..."
+                      className={styles.formTextarea}
+                      rows={3}
+                    />
+                    <div className={styles.formActions}>
+                      <button
+                        onClick={handleCreateComment}
+                        disabled={savingComment || !newCommentContent.trim()}
+                        className={styles.primaryButton}
+                      >
+                        {savingComment ? 'Adding...' : 'Add Comment'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

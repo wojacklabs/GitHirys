@@ -1,10 +1,17 @@
-import React, { useRef, useMemo, useEffect, useState } from 'react';
+import React, {
+  useRef,
+  useMemo,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react';
 import { Canvas, useFrame, extend } from '@react-three/fiber';
 import { OrbitControls, Stars, Text, Html } from '@react-three/drei';
 import { useRouter } from 'next/router';
 import * as THREE from 'three';
 import StarSystem from './StarSystem';
 import KeyboardControls from './KeyboardControls';
+import { searchUsers, UserSearchResult } from '../lib/irys';
 import styles from './UniverseScene.module.css';
 
 extend({ OrbitControls });
@@ -108,34 +115,68 @@ function UniverseBackground() {
   );
 }
 
-// Camera controller
+// Camera controller with smooth animation
 function CameraController({
   focusedUser,
   users,
+  userPositions,
 }: {
   focusedUser?: string;
   users: any[];
+  userPositions: [number, number, number][];
 }) {
   const controlsRef = useRef<any>();
+  const targetPosition = useRef(new THREE.Vector3());
+  const cameraPosition = useRef(new THREE.Vector3());
+  const isAnimating = useRef(false);
 
   useEffect(() => {
     if (focusedUser && controlsRef.current && users.length > 0) {
-      // Find focused user position and move camera
+      // Find focused user position
       const userIndex = users.findIndex(
         u => u.accountAddress === focusedUser || u.nickname === focusedUser
       );
 
-      if (userIndex !== -1) {
-        const angle = (userIndex / users.length) * Math.PI * 2;
-        const radius = 80 + Math.random() * 40;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
+      if (userIndex !== -1 && userPositions[userIndex]) {
+        const [x, y, z] = userPositions[userIndex];
 
-        controlsRef.current.target.set(x, 0, z);
-        controlsRef.current.update();
+        // Set target position for smooth animation
+        targetPosition.current.set(x, y, z);
+
+        // Position camera at a good viewing distance
+        const cameraOffset = new THREE.Vector3(30, 20, 30);
+        cameraPosition.current.copy(targetPosition.current).add(cameraOffset);
+
+        isAnimating.current = true;
+
+        // Smooth animation to target
+        const animateCamera = () => {
+          if (controlsRef.current && isAnimating.current) {
+            // Animate target
+            controlsRef.current.target.lerp(targetPosition.current, 0.05);
+
+            // Animate camera position
+            const currentCameraPos = controlsRef.current.object.position;
+            currentCameraPos.lerp(cameraPosition.current, 0.05);
+
+            controlsRef.current.update();
+
+            // Check if animation is close enough to stop
+            if (
+              controlsRef.current.target.distanceTo(targetPosition.current) <
+              0.1
+            ) {
+              isAnimating.current = false;
+            } else {
+              requestAnimationFrame(animateCamera);
+            }
+          }
+        };
+
+        requestAnimationFrame(animateCamera);
       }
     }
-  }, [focusedUser, users]);
+  }, [focusedUser, users, userPositions]);
 
   return (
     <OrbitControls
@@ -143,10 +184,12 @@ function CameraController({
       enablePan={true}
       enableZoom={true}
       enableRotate={true}
-      minDistance={20}
+      minDistance={10}
       maxDistance={800}
-      autoRotate={!focusedUser}
+      autoRotate={!focusedUser && !isAnimating.current}
       autoRotateSpeed={0.1}
+      enableDamping={true}
+      dampingFactor={0.05}
     />
   );
 }
@@ -164,8 +207,75 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     repo?: any;
   } | null>(null);
 
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [internalFocusedUser, setInternalFocusedUser] = useState<
+    string | undefined
+  >(focusedUser);
+
   // Handle empty user array
   const validUsers = users || [];
+
+  // Search functionality
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await searchUsers(query);
+      setSearchResults(results);
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      performSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, performSearch]);
+
+  // Handle search result selection
+  const handleSelectUser = useCallback((result: UserSearchResult) => {
+    setInternalFocusedUser(result.walletAddress);
+    setSearchQuery(result.displayName);
+    setShowSearchResults(false);
+  }, []);
+
+  // Handle search input changes
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (!value.trim()) {
+      setShowSearchResults(false);
+    }
+  }, []);
+
+  // Handle clear search
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setInternalFocusedUser(undefined);
+  }, []);
+
+  // Update internal focused user when prop changes
+  useEffect(() => {
+    setInternalFocusedUser(focusedUser);
+  }, [focusedUser]);
 
   // Calculate user positions in wide 3D space
   const starSystemPositions = useMemo(() => {
@@ -231,6 +341,72 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
 
   return (
     <div className={styles.universeContainer}>
+      {/* Search UI */}
+      <div className={styles.searchContainer}>
+        <div className={styles.searchInputWrapper}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => handleSearchChange(e.target.value)}
+            placeholder="Search users or addresses..."
+            className={styles.searchInput}
+          />
+          {searchQuery && (
+            <button onClick={handleClearSearch} className={styles.clearButton}>
+              ✕
+            </button>
+          )}
+          {isSearching && <div className={styles.searchSpinner}>⟳</div>}
+        </div>
+
+        {/* Search Results */}
+        {showSearchResults && searchResults.length > 0 && (
+          <div className={styles.searchResults}>
+            {searchResults.slice(0, 10).map((result, index) => (
+              <div
+                key={`${result.walletAddress}-${index}`}
+                className={styles.searchResultItem}
+                onClick={() => handleSelectUser(result)}
+              >
+                {result.profileImageUrl && (
+                  <img
+                    src={result.profileImageUrl}
+                    alt="Profile"
+                    className={styles.resultAvatar}
+                  />
+                )}
+                <div className={styles.resultInfo}>
+                  <div className={styles.resultDisplayName}>
+                    {result.displayName}
+                  </div>
+                  <div className={styles.resultWalletAddress}>
+                    {result.walletAddress.substring(0, 4)}...
+                    {result.walletAddress.slice(-4)}
+                  </div>
+                  {result.twitterHandle && (
+                    <div className={styles.resultTwitter}>
+                      @{result.twitterHandle}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* No Results */}
+        {showSearchResults &&
+          searchResults.length === 0 &&
+          !isSearching &&
+          searchQuery.trim() && (
+            <div className={styles.searchResults}>
+              <div className={styles.noResults}>
+                No users found for "{searchQuery}"
+              </div>
+            </div>
+          )}
+      </div>
+
       <Canvas
         camera={{ position: [0, 50, 200], fov: 75 }}
         style={{
@@ -277,7 +453,11 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
         <KeyboardControls speed={50} />
 
         {/* Camera controls */}
-        <CameraController focusedUser={focusedUser} users={validUsers} />
+        <CameraController
+          focusedUser={internalFocusedUser}
+          users={validUsers}
+          userPositions={starSystemPositions}
+        />
 
         {/* Render star systems */}
         {validUsers.map((user, index) => (
@@ -292,8 +472,8 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
             onShowPlanetTooltip={handleShowPlanetTooltip}
             onHideTooltip={handleHideTooltip}
             isFocused={
-              focusedUser === user.accountAddress ||
-              focusedUser === user.nickname
+              internalFocusedUser === user.accountAddress ||
+              internalFocusedUser === user.nickname
             }
             currentWallet={currentWallet}
           />
