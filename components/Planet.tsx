@@ -271,22 +271,22 @@ const Planet: React.FC<PlanetProps> = ({
 
       groupRef.current.position.set(x, y, z);
 
-      // Rotation effects (different speeds based on planet type)
-      const rotationSpeed = planetType.name.includes('Giant') ? 0.03 : 0.015;
+      // Rotation effects (different speeds based on planet type) - faster
+      const rotationSpeed = planetType.name.includes('Giant') ? 0.04 : 0.025; // Further increased
       planetRef.current.rotation.y += rotationSpeed;
 
-      // Atmospheric effects (counter-rotation)
-      atmosphereRef.current.rotation.y -= 0.008;
+      // Atmospheric effects (counter-rotation) - faster
+      atmosphereRef.current.rotation.y -= 0.008; // Increased from 0.006
 
-      // Cloud effects (if present)
+      // Cloud effects (if present) - faster
       if (cloudsRef.current && planetProperties.planetType.hasClouds) {
-        cloudsRef.current.rotation.y += 0.012;
-        cloudsRef.current.rotation.x += 0.004;
+        cloudsRef.current.rotation.y += 0.01; // Increased from 0.008
+        cloudsRef.current.rotation.x += 0.003; // Increased from 0.002
       }
 
-      // Ocean effects (if present)
+      // Ocean effects (if present) - faster
       if (oceansRef.current && planetProperties.planetType.hasOceans) {
-        oceansRef.current.rotation.y += 0.005;
+        oceansRef.current.rotation.y += 0.005; // Increased from 0.004
 
         // Ocean wave simulation
         const waveEffect = Math.sin(time * 2.5) * 0.02 + 1;
@@ -295,7 +295,7 @@ const Planet: React.FC<PlanetProps> = ({
         );
       }
 
-      // Surface detail animation
+      // Surface detail animation - faster
       if (surfaceDetailRef.current && planetProperties.hasSurfaceDetail) {
         surfaceDetailRef.current.rotation.y += rotationSpeed * 0.8;
       }

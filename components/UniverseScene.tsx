@@ -115,20 +115,656 @@ function UniverseBackground() {
   );
 }
 
+// Comet tail particle system
+function CometTail({
+  velocity,
+  cometType,
+  distance,
+}: {
+  velocity: THREE.Vector3;
+  cometType: string;
+  distance: number;
+}) {
+  const particlesRef = useRef<THREE.Points>(null);
+  const particleCount = 60;
+
+  const particleData = useMemo(() => {
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    const ages = new Float32Array(particleCount);
+    const maxAges = new Float32Array(particleCount);
+    const colors = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 0.5;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+
+      ages[i] = Math.random() * 2;
+      maxAges[i] = 0.5 + Math.random() * 1.5;
+      sizes[i] = 0;
+
+      // More varied colors based on comet type
+      const variation = 0.2;
+      switch (cometType) {
+        case 'ice':
+          colors[i * 3] = 0.7 + Math.random() * variation;
+          colors[i * 3 + 1] = 0.9 + Math.random() * variation;
+          colors[i * 3 + 2] = 1.0;
+          break;
+        case 'dust':
+          colors[i * 3] = 1.0;
+          colors[i * 3 + 1] = 0.8 + Math.random() * variation;
+          colors[i * 3 + 2] = 0.5 + Math.random() * variation;
+          break;
+        case 'rock':
+          colors[i * 3] = 0.6 + Math.random() * variation;
+          colors[i * 3 + 1] = 0.5 + Math.random() * variation;
+          colors[i * 3 + 2] = 0.4 + Math.random() * variation;
+          break;
+      }
+    }
+
+    return { positions, velocities, ages, maxAges, colors, sizes };
+  }, [particleCount, cometType]);
+
+  useFrame((state, delta) => {
+    if (!particlesRef.current) return;
+
+    const positions = particlesRef.current.geometry.attributes.position;
+    const sizes = particlesRef.current.geometry.attributes.size;
+    const ages = particlesRef.current.geometry.attributes.age;
+    const maxAges = particlesRef.current.geometry.attributes.maxAge;
+
+    const hasVelocity = velocity.length() > 0.01;
+    const tailDir = hasVelocity
+      ? velocity.clone().normalize().multiplyScalar(-1)
+      : new THREE.Vector3(0, 0, -1);
+    const speed = velocity.length();
+
+    // Tail intensity based on distance (closer = more intense)
+    const intensityFactor = Math.max(0.3, 1 - distance / 200);
+
+    for (let i = 0; i < particleCount; i++) {
+      let age = ages.array[i];
+      const maxAge = maxAges.array[i];
+      age += delta * (1 + intensityFactor);
+
+      if (age > maxAge) {
+        positions.array[i * 3] = (Math.random() - 0.5) * 0.5;
+        positions.array[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
+        positions.array[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+        age = 0;
+
+        const spread = 0.5 * intensityFactor;
+        const vel = new THREE.Vector3(
+          tailDir.x + (Math.random() - 0.5) * spread,
+          tailDir.y + (Math.random() - 0.5) * spread,
+          tailDir.z + (Math.random() - 0.5) * spread
+        ).normalize();
+
+        const particleSpeed = speed * (2 + intensityFactor * 3);
+        particleData.velocities[i * 3] = vel.x * particleSpeed;
+        particleData.velocities[i * 3 + 1] = vel.y * particleSpeed;
+        particleData.velocities[i * 3 + 2] = vel.z * particleSpeed;
+      }
+
+      const ageRatio = age / maxAge;
+      const ageMultiplier = 1 + ageRatio * intensityFactor * 2;
+
+      positions.array[i * 3] +=
+        particleData.velocities[i * 3] * delta * ageMultiplier;
+      positions.array[i * 3 + 1] +=
+        particleData.velocities[i * 3 + 1] * delta * ageMultiplier;
+      positions.array[i * 3 + 2] +=
+        particleData.velocities[i * 3 + 2] * delta * ageMultiplier;
+
+      sizes.array[i] =
+        Math.pow(1 - ageRatio, 0.5) * 0.5 * (1 + intensityFactor);
+      ages.array[i] = age;
+    }
+
+    positions.needsUpdate = true;
+    sizes.needsUpdate = true;
+    ages.needsUpdate = true;
+    if (maxAges) maxAges.needsUpdate = true;
+  });
+
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          array={particleData.positions}
+          count={particleCount}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          array={particleData.colors}
+          count={particleCount}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-size"
+          array={particleData.sizes}
+          count={particleCount}
+          itemSize={1}
+        />
+        <bufferAttribute
+          attach="attributes-age"
+          array={particleData.ages}
+          count={particleCount}
+          itemSize={1}
+        />
+        <bufferAttribute
+          attach="attributes-maxAge"
+          array={particleData.maxAges}
+          count={particleCount}
+          itemSize={1}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        vertexColors
+        size={0.4}
+        sizeAttenuation
+        transparent
+        opacity={0.7}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </points>
+  );
+}
+
+// Enhanced comet component with realistic physics
+function Comet({
+  id,
+  onComplete,
+}: {
+  id: number;
+  onComplete: (id: number) => void;
+}) {
+  const cometRef = useRef<THREE.Group>(null);
+  const positionRef = useRef(new THREE.Vector3());
+  const velocityRef = useRef(new THREE.Vector3());
+  const [currentVelocity, setCurrentVelocity] = useState(new THREE.Vector3());
+  const [currentDistance, setCurrentDistance] = useState(500);
+
+  // More comet types with different behaviors
+  const cometData = useMemo(() => {
+    const types = [
+      {
+        type: 'ice',
+        behavior: 'normal',
+        color: '#b0e0ff',
+        glow: '#88ccff',
+        size: 0.4,
+      },
+      {
+        type: 'dust',
+        behavior: 'capture',
+        color: '#ffcc88',
+        glow: '#ffaa44',
+        size: 0.5,
+      },
+      {
+        type: 'rock',
+        behavior: 'absorb',
+        color: '#8b7355',
+        glow: '#a0826d',
+        size: 0.6,
+      },
+    ];
+
+    return types[Math.floor(Math.random() * types.length)];
+  }, []);
+
+  // Initialize position and velocity
+  useEffect(() => {
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 350 + Math.random() * 150;
+    const height = (Math.random() - 0.5) * 40;
+
+    positionRef.current.set(
+      Math.cos(angle) * distance,
+      height,
+      Math.sin(angle) * distance
+    );
+
+    let speed, targetAngle;
+    switch (cometData.behavior) {
+      case 'capture':
+        targetAngle = angle + Math.PI + (Math.random() - 0.5) * 0.3;
+        speed = 0.5 + Math.random() * 0.3;
+        break;
+      case 'absorb':
+        targetAngle = angle + Math.PI + (Math.random() - 0.5) * 0.1;
+        speed = 0.3 + Math.random() * 0.2;
+        break;
+      default: // 'normal'
+        targetAngle = angle + Math.PI + (Math.random() - 0.5) * 0.3;
+        speed = 0.8 + Math.random() * 0.4;
+    }
+
+    velocityRef.current.set(
+      Math.cos(targetAngle) * speed,
+      (Math.random() - 0.5) * 0.2,
+      Math.sin(targetAngle) * speed
+    );
+  }, [cometData]);
+
+  // Physics with realistic gravity
+  useFrame((state, delta) => {
+    if (!cometRef.current) return;
+
+    const pos = positionRef.current;
+    const vel = velocityRef.current;
+    const distance = pos.length();
+
+    setCurrentDistance(distance);
+
+    // Check absorption
+    if (cometData.behavior === 'absorb' && distance < 8) {
+      onComplete(id);
+      return;
+    }
+
+    // Realistic gravity (stronger when closer)
+    const baseGravity = cometData.behavior === 'absorb' ? 100 : 60;
+    const gravity = baseGravity / (distance * distance);
+    const gravityDirection = pos.clone().normalize().multiplyScalar(-1);
+    const gravityAccel = gravityDirection.multiplyScalar(gravity);
+
+    vel.add(gravityAccel.multiplyScalar(delta));
+
+    // Dynamic max speed based on distance
+    const distanceFactor = Math.max(0.5, Math.min(2, 100 / distance));
+    const baseMaxSpeed = 3;
+    const maxSpeed = baseMaxSpeed * distanceFactor;
+
+    if (vel.length() > maxSpeed) {
+      vel.normalize().multiplyScalar(maxSpeed);
+    }
+
+    pos.add(vel.clone().multiplyScalar(delta * 60));
+    cometRef.current.position.copy(pos);
+    setCurrentVelocity(vel.clone());
+
+    // Remove if too far
+    if (distance > 600 && cometData.behavior !== 'capture') {
+      onComplete(id);
+    }
+
+    // Capture behavior - elliptical orbit
+    if (cometData.behavior === 'capture' && distance > 300) {
+      onComplete(id);
+    }
+  });
+
+  // Brightness based on distance
+  const brightness = Math.max(0.3, 1 - currentDistance / 400);
+
+  return (
+    <group ref={cometRef}>
+      <mesh>
+        <sphereGeometry args={[cometData.size, 12, 12]} />
+        <meshBasicMaterial color={cometData.color} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[cometData.size * 2, 12, 12]} />
+        <meshBasicMaterial
+          color={cometData.glow}
+          transparent
+          opacity={0.5 * brightness}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <CometTail
+        velocity={currentVelocity}
+        cometType={cometData.type}
+        distance={currentDistance}
+      />
+      <pointLight
+        intensity={0.5 * brightness}
+        color={cometData.glow}
+        distance={10}
+        decay={2}
+      />
+    </group>
+  );
+}
+
+// Star connection particle beam
+function StarConnection({
+  startPos,
+  endPos,
+  progress,
+}: {
+  startPos: [number, number, number];
+  endPos: [number, number, number];
+  progress: number;
+}) {
+  const particlesRef = useRef<THREE.Points>(null);
+  const particleCount = 200;
+
+  // Store only random data that shouldn't change
+  const randomData = useMemo(() => {
+    const offsets = new Float32Array(particleCount);
+    const randomFactors = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+      offsets[i] = Math.random();
+      // Store random spread factors for each particle - much smaller spread
+      randomFactors[i * 3] = (Math.random() - 0.5) * 0.1;
+      randomFactors[i * 3 + 1] = (Math.random() - 0.5) * 0.1;
+      randomFactors[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+    }
+
+    return { offsets, randomFactors };
+  }, [particleCount]);
+
+  // Create initial positions array
+  const positions = useMemo(
+    () => new Float32Array(particleCount * 3),
+    [particleCount]
+  );
+
+  useFrame(state => {
+    if (!particlesRef.current) return;
+
+    const material = particlesRef.current.material as THREE.PointsMaterial;
+    const positionsAttr = particlesRef.current.geometry.attributes.position;
+
+    // Update positions based on current star positions
+    for (let i = 0; i < particleCount; i++) {
+      const t = i / (particleCount - 1);
+
+      // Interpolate between start and end positions
+      positionsAttr.array[i * 3] =
+        startPos[0] +
+        (endPos[0] - startPos[0]) * t +
+        randomData.randomFactors[i * 3];
+      positionsAttr.array[i * 3 + 1] =
+        startPos[1] +
+        (endPos[1] - startPos[1]) * t +
+        randomData.randomFactors[i * 3 + 1];
+      positionsAttr.array[i * 3 + 2] =
+        startPos[2] +
+        (endPos[2] - startPos[2]) * t +
+        randomData.randomFactors[i * 3 + 2];
+    }
+
+    positionsAttr.needsUpdate = true;
+
+    // Fade in and out effect - faster transitions using size instead of opacity
+    let fadeEffect = 0;
+    if (progress < 0.15) {
+      fadeEffect = progress / 0.15; // Fade in (15% of duration)
+    } else if (progress > 0.85) {
+      fadeEffect = (1 - progress) / 0.15; // Fade out (last 15% of duration)
+    } else {
+      fadeEffect = 1; // Full effect
+    }
+
+    // Update particle sizes based on progress and offset
+    const sizes = particlesRef.current.geometry.attributes.size;
+    const time = state.clock.elapsedTime;
+
+    for (let i = 0; i < particleCount; i++) {
+      const offset = randomData.offsets[i];
+      const pulse = Math.sin((time * 2 + offset * Math.PI * 2) * 2) * 0.5 + 0.5;
+      sizes.array[i] = (0.05 + pulse * 0.03) * fadeEffect; // Much smaller size
+    }
+
+    sizes.needsUpdate = true;
+  });
+
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          array={positions}
+          count={particleCount}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-size"
+          array={new Float32Array(particleCount).fill(0.05)}
+          count={particleCount}
+          itemSize={1}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        color="#00d4ff"
+        size={0.1}
+        sizeAttenuation
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </points>
+  );
+}
+
+// Galactic Center with Black Hole and Accretion Disk
+function GalacticCenter() {
+  const blackHoleRef = useRef<THREE.Mesh>(null);
+  const accretionDiskRef = useRef<THREE.Mesh>(null);
+  const particlesRef = useRef<THREE.Points>(null);
+
+  // Create accretion disk particles
+  const particles = useMemo(() => {
+    const count = 4000;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    const velocities = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      // Distribute particles in disk shape with spiral pattern
+      const radius = 15 + Math.random() * 35; // 15-50 radius
+      const angle = Math.random() * Math.PI * 2;
+      const spiralOffset = (radius - 15) * 0.1; // Spiral effect
+      const finalAngle = angle + spiralOffset;
+      const height = (Math.random() - 0.5) * 2 * Math.exp(-radius / 20); // Thinner at edges
+
+      positions[i * 3] = Math.cos(finalAngle) * radius;
+      positions[i * 3 + 1] = height;
+      positions[i * 3 + 2] = Math.sin(finalAngle) * radius;
+
+      // Orbital velocity (faster near center)
+      const velocity = 0.008 / Math.sqrt(radius / 15); // Reduced from 0.02
+      velocities[i * 3] = -Math.sin(finalAngle) * velocity;
+      velocities[i * 3 + 1] = 0;
+      velocities[i * 3 + 2] = Math.cos(finalAngle) * velocity;
+
+      // Colors - gradient from hot white-orange center to cooler red edges
+      const colorIntensity = 1 - (radius - 15) / 35;
+      colors[i * 3] = 1.0; // Red channel always full
+      colors[i * 3 + 1] = 0.4 + colorIntensity * 0.4; // Orange gradient
+      colors[i * 3 + 2] = 0.1 + colorIntensity * 0.2; // Slight yellow near center
+
+      sizes[i] = (Math.random() * 0.3 + 0.2) * (1 + colorIntensity * 0.3); // Much smaller particles
+    }
+
+    return { positions, colors, sizes, velocities };
+  }, []);
+
+  useFrame(state => {
+    // Rotate accretion disk with differential rotation
+    if (accretionDiskRef.current) {
+      accretionDiskRef.current.rotation.y += 0.0005; // Reduced from 0.003
+    }
+
+    // Update particle positions for orbital motion
+    if (particlesRef.current) {
+      const positions = particlesRef.current.geometry.attributes.position;
+      const velocities = particles.velocities;
+
+      for (let i = 0; i < particles.positions.length / 3; i++) {
+        // Get current position
+        const x = positions.array[i * 3];
+        const y = positions.array[i * 3 + 1];
+        const z = positions.array[i * 3 + 2];
+
+        // Calculate radius
+        const radius = Math.sqrt(x * x + z * z);
+
+        // Update position with orbital velocity
+        if (radius > 0) {
+          const angle = Math.atan2(z, x);
+          const angularVelocity = 0.008 / Math.sqrt(radius / 15); // Reduced from 0.02
+          const newAngle = angle + angularVelocity;
+
+          positions.array[i * 3] = Math.cos(newAngle) * radius;
+          positions.array[i * 3 + 2] = Math.sin(newAngle) * radius;
+        }
+      }
+
+      positions.needsUpdate = true;
+    }
+
+    // Pulsate black hole with gravitational distortion
+    if (blackHoleRef.current) {
+      const scale = 1 + Math.sin(state.clock.elapsedTime * 0.5) * 0.03; // Reduced speed
+      blackHoleRef.current.scale.setScalar(scale);
+
+      // Rotate event horizon effect
+      blackHoleRef.current.rotation.y += 0.0003; // Reduced from 0.001
+    }
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      {/* Black Hole Core with event horizon */}
+      <mesh ref={blackHoleRef}>
+        <sphereGeometry args={[8, 64, 64]} />
+        <meshStandardMaterial
+          color="#000000"
+          emissive="#110022"
+          emissiveIntensity={0.3}
+          roughness={0}
+          metalness={1}
+        />
+      </mesh>
+
+      {/* Event Horizon Distortion Effect */}
+      <mesh>
+        <sphereGeometry args={[10, 32, 32]} />
+        <meshBasicMaterial
+          color="#220066"
+          transparent
+          opacity={0.4}
+          side={THREE.BackSide}
+        />
+      </mesh>
+
+      {/* Gravitational Lensing Effect */}
+      <mesh>
+        <sphereGeometry args={[14, 32, 32]} />
+        <meshBasicMaterial
+          color="#4400aa"
+          transparent
+          opacity={0.2}
+          side={THREE.BackSide}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+
+      {/* Accretion Disk Particles */}
+      <points ref={particlesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particles.positions}
+            count={particles.positions.length / 3}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particles.colors}
+            count={particles.colors.length / 3}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particles.sizes}
+            count={particles.sizes.length}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          vertexColors
+          size={0.3}
+          sizeAttenuation
+          transparent
+          opacity={0.7}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+
+      {/* Central Bright Light */}
+      <pointLight
+        position={[0, 0, 0]}
+        intensity={3}
+        color="#ff8800"
+        distance={300}
+      />
+    </group>
+  );
+}
+
 // Camera controller with smooth animation
 function CameraController({
   focusedUser,
   users,
   userPositions,
+  trackingTarget,
+  starSystemRefs,
 }: {
   focusedUser?: string;
   users: any[];
   userPositions: [number, number, number][];
+  trackingTarget?: {
+    type: 'star' | 'planet';
+    userId: string;
+    repoName?: string;
+  } | null;
+  starSystemRefs: React.MutableRefObject<Map<string, THREE.Group>>;
 }) {
   const controlsRef = useRef<any>();
   const targetPosition = useRef(new THREE.Vector3());
   const cameraPosition = useRef(new THREE.Vector3());
   const isAnimating = useRef(false);
+  const isTracking = useRef(false);
+
+  // Track selected star/planet
+  useFrame(() => {
+    if (trackingTarget && controlsRef.current && starSystemRefs.current) {
+      const systemRef = starSystemRefs.current.get(trackingTarget.userId);
+
+      if (systemRef) {
+        // Get the world position of the tracked object
+        const worldPosition = new THREE.Vector3();
+        systemRef.getWorldPosition(worldPosition);
+
+        // Smoothly follow the target
+        controlsRef.current.target.lerp(worldPosition, 0.1);
+
+        // Keep camera at a good viewing distance
+        const cameraOffset = new THREE.Vector3(30, 20, 30);
+        const desiredCameraPos = worldPosition.clone().add(cameraOffset);
+        controlsRef.current.object.position.lerp(desiredCameraPos, 0.05);
+
+        controlsRef.current.update();
+        isTracking.current = true;
+      }
+    } else {
+      isTracking.current = false;
+    }
+  });
 
   useEffect(() => {
     if (focusedUser && controlsRef.current && users.length > 0) {
@@ -151,7 +787,11 @@ function CameraController({
 
         // Smooth animation to target
         const animateCamera = () => {
-          if (controlsRef.current && isAnimating.current) {
+          if (
+            controlsRef.current &&
+            isAnimating.current &&
+            !isTracking.current
+          ) {
             // Animate target
             controlsRef.current.target.lerp(targetPosition.current, 0.05);
 
@@ -185,11 +825,161 @@ function CameraController({
       enableZoom={true}
       enableRotate={true}
       minDistance={10}
-      maxDistance={800}
-      autoRotate={!focusedUser && !isAnimating.current}
+      maxDistance={3000}
+      autoRotate={!focusedUser && !isAnimating.current && !isTracking.current}
       autoRotateSpeed={0.1}
       enableDamping={true}
       dampingFactor={0.05}
+    />
+  );
+}
+
+// Orbiting Star System component
+function OrbitingStarSystem({
+  systemData,
+  user,
+  onPlanetClick,
+  onPlanetHover,
+  onPlanetLeave,
+  onShowStarTooltip,
+  onShowPlanetTooltip,
+  onHideTooltip,
+  isFocused,
+  currentWallet,
+  onRef,
+}: {
+  systemData: {
+    position: [number, number, number];
+    orbitRadius: number;
+    orbitSpeed: number;
+    initialAngle: number;
+  };
+  user: any;
+  onPlanetClick: (user: string, repo: string) => void;
+  onPlanetHover: (repo: any, position: [number, number, number]) => void;
+  onPlanetLeave: () => void;
+  onShowStarTooltip: (user: any) => void;
+  onShowPlanetTooltip: (user: any, repo: any) => void;
+  onHideTooltip: () => void;
+  isFocused: boolean;
+  currentWallet?: string;
+  onRef?: (ref: THREE.Group | null) => void;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const angleRef = useRef(systemData.initialAngle);
+
+  // Register ref
+  useEffect(() => {
+    if (onRef && groupRef.current) {
+      onRef(groupRef.current);
+    }
+  }, [onRef]);
+
+  useFrame((state, delta) => {
+    if (groupRef.current) {
+      // Update angle for galactic orbit
+      angleRef.current += systemData.orbitSpeed;
+
+      // Calculate new position on galactic orbit
+      const x = Math.cos(angleRef.current) * systemData.orbitRadius;
+      const z = Math.sin(angleRef.current) * systemData.orbitRadius;
+      const y = systemData.position[1]; // Keep original height
+
+      groupRef.current.position.set(x, y, z);
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <StarSystem
+        position={[0, 0, 0]} // Local position within the orbiting group
+        user={user}
+        onPlanetClick={onPlanetClick}
+        onPlanetHover={onPlanetHover}
+        onPlanetLeave={onPlanetLeave}
+        onShowStarTooltip={onShowStarTooltip}
+        onShowPlanetTooltip={onShowPlanetTooltip}
+        onHideTooltip={onHideTooltip}
+        isFocused={isFocused}
+        currentWallet={currentWallet}
+      />
+    </group>
+  );
+}
+
+// Wrapper component for star connections to handle refs properly
+function StarConnectionWrapper({
+  connection,
+  users,
+  starSystemRefs,
+}: {
+  connection: {
+    id: number;
+    startIndex: number;
+    endIndex: number;
+    startTime: number;
+    duration: number;
+  };
+  users: any[];
+  starSystemRefs: React.MutableRefObject<Map<string, THREE.Group>>;
+}) {
+  const [positions, setPositions] = useState<{
+    start: [number, number, number];
+    end: [number, number, number];
+  } | null>(null);
+
+  // Calculate initial positions
+  useEffect(() => {
+    const startUser = users[connection.startIndex];
+    const endUser = users[connection.endIndex];
+
+    const startRef = starSystemRefs.current.get(startUser?.accountAddress);
+    const endRef = starSystemRefs.current.get(endUser?.accountAddress);
+
+    if (startRef && endRef) {
+      const startWorldPos = new THREE.Vector3();
+      const endWorldPos = new THREE.Vector3();
+      startRef.getWorldPosition(startWorldPos);
+      endRef.getWorldPosition(endWorldPos);
+
+      setPositions({
+        start: [startWorldPos.x, startWorldPos.y, startWorldPos.z],
+        end: [endWorldPos.x, endWorldPos.y, endWorldPos.z],
+      });
+    }
+  }, [connection, users, starSystemRefs]);
+
+  useFrame(() => {
+    const startUser = users[connection.startIndex];
+    const endUser = users[connection.endIndex];
+
+    const startRef = starSystemRefs.current.get(startUser?.accountAddress);
+    const endRef = starSystemRefs.current.get(endUser?.accountAddress);
+
+    if (startRef && endRef) {
+      const startWorldPos = new THREE.Vector3();
+      const endWorldPos = new THREE.Vector3();
+      startRef.getWorldPosition(startWorldPos);
+      endRef.getWorldPosition(endWorldPos);
+
+      setPositions({
+        start: [startWorldPos.x, startWorldPos.y, startWorldPos.z],
+        end: [endWorldPos.x, endWorldPos.y, endWorldPos.z],
+      });
+    }
+  });
+
+  if (!positions) return null;
+
+  // Calculate progress based on elapsed time
+  const elapsed = Date.now() - connection.startTime;
+  const progress = Math.min(1, elapsed / connection.duration);
+
+  return (
+    <StarConnection
+      startPos={positions.start}
+      endPos={positions.end}
+      progress={progress}
     />
   );
 }
@@ -207,6 +997,32 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     repo?: any;
   } | null>(null);
 
+  // Camera tracking state
+  const [trackingTarget, setTrackingTarget] = useState<{
+    type: 'star' | 'planet';
+    userId: string;
+    repoName?: string;
+  } | null>(null);
+
+  // Refs for star systems
+  const starSystemRefs = useRef<Map<string, THREE.Group>>(new Map());
+
+  // Comet management
+  const [comets, setComets] = useState<number[]>([]);
+  const nextCometIdRef = useRef(0);
+
+  // Star connections management
+  const [starConnections, setStarConnections] = useState<
+    Array<{
+      id: number;
+      startIndex: number;
+      endIndex: number;
+      startTime: number;
+      duration: number;
+    }>
+  >([]);
+  const nextConnectionIdRef = useRef(0);
+
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
@@ -218,6 +1034,86 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
 
   // Handle empty user array
   const validUsers = users || [];
+
+  // Spawn comets periodically
+  useEffect(() => {
+    const spawnComet = () => {
+      setComets(prev => [...prev, nextCometIdRef.current++]);
+    };
+
+    // Initial comet after 5 seconds
+    const initialTimeout = setTimeout(spawnComet, 5000);
+
+    // Then spawn every 20-30 seconds
+    const interval = setInterval(
+      () => {
+        spawnComet();
+      },
+      20000 + Math.random() * 10000
+    );
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Spawn star connections periodically
+  useEffect(() => {
+    if (validUsers.length < 2) return;
+
+    const spawnConnection = () => {
+      // Select two random different stars
+      const indices = Array.from({ length: validUsers.length }, (_, i) => i);
+      const startIndex = Math.floor(Math.random() * indices.length);
+      indices.splice(startIndex, 1);
+      const endIndex = indices[Math.floor(Math.random() * indices.length)];
+
+      setStarConnections(prev => [
+        ...prev,
+        {
+          id: nextConnectionIdRef.current++,
+          startIndex,
+          endIndex,
+          startTime: Date.now(),
+          duration: 3000 + Math.random() * 2000, // 3-5 seconds
+        },
+      ]);
+    };
+
+    // Initial connection after 2 seconds
+    const initialTimeout = setTimeout(spawnConnection, 2000);
+
+    // Then spawn every 5-10 seconds
+    const interval = setInterval(
+      () => {
+        spawnConnection();
+      },
+      5000 + Math.random() * 5000
+    );
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [validUsers.length]);
+
+  // Clean up completed connections
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      const now = Date.now();
+      setStarConnections(prev =>
+        prev.filter(conn => now - conn.startTime < conn.duration)
+      );
+    }, 1000);
+
+    return () => clearInterval(cleanup);
+  }, []);
+
+  // Handle comet completion
+  const handleCometComplete = useCallback((id: number) => {
+    setComets(prev => prev.filter(cometId => cometId !== id));
+  }, []);
 
   // Search functionality
   const performSearch = useCallback(async (query: string) => {
@@ -250,11 +1146,28 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
   }, [searchQuery, performSearch]);
 
   // Handle search result selection
-  const handleSelectUser = useCallback((result: UserSearchResult) => {
-    setInternalFocusedUser(result.walletAddress);
-    setSearchQuery(result.displayName);
-    setShowSearchResults(false);
-  }, []);
+  const handleSelectUser = useCallback(
+    (result: UserSearchResult) => {
+      setInternalFocusedUser(result.walletAddress);
+      setSearchQuery(result.displayName);
+      setShowSearchResults(false);
+
+      // Find the user in the users array
+      const selectedUser = users.find(
+        u => u.accountAddress === result.walletAddress
+      );
+
+      if (selectedUser) {
+        // Show tooltip and start tracking like when clicking a star
+        setTooltipData({ type: 'star', user: selectedUser });
+        setTrackingTarget({
+          type: 'star',
+          userId: selectedUser.accountAddress,
+        });
+      }
+    },
+    [users]
+  );
 
   // Handle search input changes
   const handleSearchChange = useCallback((value: string) => {
@@ -270,6 +1183,22 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     setSearchResults([]);
     setShowSearchResults(false);
     setInternalFocusedUser(undefined);
+    // Stop tracking when clearing search
+    setTrackingTarget(null);
+    setTooltipData(null);
+  }, []);
+
+  // Handle ESC key to stop tracking
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setTrackingTarget(null);
+        setTooltipData(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Update internal focused user when prop changes
@@ -282,14 +1211,19 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     if (validUsers.length === 0) return [];
 
     return validUsers.map((user, index) => {
-      // Wider circular arrangement
+      // Wider circular arrangement around galactic center
       const angle = (index / validUsers.length) * Math.PI * 2;
-      const radius = 80 + Math.random() * 40; // 80-120 range random distance
+      const radius = 120 + Math.random() * 60; // 120-180 range for orbit around galaxy center
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      const y = (Math.random() - 0.5) * 40; // Larger height variation
+      const y = (Math.random() - 0.5) * 10; // Reduced from 30 to 10 for flatter distribution
 
-      return [x, y, z] as [number, number, number];
+      return {
+        position: [x, y, z] as [number, number, number],
+        orbitRadius: radius,
+        orbitSpeed: 0.0008, // Fixed speed for all star systems
+        initialAngle: angle,
+      };
     });
   }, [validUsers]);
 
@@ -303,14 +1237,27 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
 
   const handleShowStarTooltip = (user: any) => {
     setTooltipData({ type: 'star', user });
+    // Start tracking the star
+    setTrackingTarget({
+      type: 'star',
+      userId: user.accountAddress,
+    });
   };
 
   const handleShowPlanetTooltip = (user: any, repo: any) => {
     setTooltipData({ type: 'planet', user, repo });
+    // Start tracking the planet
+    setTrackingTarget({
+      type: 'planet',
+      userId: user.accountAddress,
+      repoName: repo.name,
+    });
   };
 
   const handleHideTooltip = () => {
     setTooltipData(null);
+    // Stop tracking when tooltip is closed
+    setTrackingTarget(null);
   };
 
   const handleVisitStar = () => {
@@ -407,8 +1354,19 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
           )}
       </div>
 
+      {/* Tracking indicator */}
+      {trackingTarget && (
+        <div className={styles.trackingIndicator}>
+          <span>
+            📍 Following{' '}
+            {trackingTarget.type === 'star' ? 'star' : 'repository'}
+          </span>
+          <span className={styles.trackingHint}>Press ESC to stop</span>
+        </div>
+      )}
+
       <Canvas
-        camera={{ position: [0, 50, 200], fov: 75 }}
+        camera={{ position: [0, 100, 300], fov: 75, near: 0.1, far: 10000 }}
         style={{
           background:
             'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 25%, #16213e 50%, #0f0f23 75%, #000000 100%)',
@@ -441,13 +1399,16 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
 
         {/* Enhanced bright star field */}
         <Stars
-          radius={600}
-          depth={100}
-          count={5000}
+          radius={3000}
+          depth={200}
+          count={8000}
           factor={8}
           saturation={1.0}
           fade={false}
         />
+
+        {/* Galactic Center */}
+        <GalacticCenter />
 
         {/* WASD keyboard controls */}
         <KeyboardControls speed={50} />
@@ -456,26 +1417,53 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
         <CameraController
           focusedUser={internalFocusedUser}
           users={validUsers}
-          userPositions={starSystemPositions}
+          userPositions={starSystemPositions.map(s => s.position)}
+          trackingTarget={trackingTarget}
+          starSystemRefs={starSystemRefs}
         />
 
-        {/* Render star systems */}
-        {validUsers.map((user, index) => (
-          <StarSystem
-            key={user.accountAddress}
-            position={starSystemPositions[index]}
-            user={user}
-            onPlanetClick={handlePlanetClick}
-            onPlanetHover={handlePlanetHover}
-            onPlanetLeave={handlePlanetLeave}
-            onShowStarTooltip={handleShowStarTooltip}
-            onShowPlanetTooltip={handleShowPlanetTooltip}
-            onHideTooltip={handleHideTooltip}
-            isFocused={
-              internalFocusedUser === user.accountAddress ||
-              internalFocusedUser === user.nickname
-            }
-            currentWallet={currentWallet}
+        {/* Render star systems with galactic orbit */}
+        {validUsers.map((user, index) => {
+          const systemData = starSystemPositions[index];
+          return (
+            <OrbitingStarSystem
+              key={user.accountAddress}
+              systemData={systemData}
+              user={user}
+              onPlanetClick={handlePlanetClick}
+              onPlanetHover={handlePlanetHover}
+              onPlanetLeave={handlePlanetLeave}
+              onShowStarTooltip={handleShowStarTooltip}
+              onShowPlanetTooltip={handleShowPlanetTooltip}
+              onHideTooltip={handleHideTooltip}
+              isFocused={
+                internalFocusedUser === user.accountAddress ||
+                internalFocusedUser === user.nickname
+              }
+              currentWallet={currentWallet}
+              onRef={ref => {
+                if (ref) {
+                  starSystemRefs.current.set(user.accountAddress, ref);
+                } else {
+                  starSystemRefs.current.delete(user.accountAddress);
+                }
+              }}
+            />
+          );
+        })}
+
+        {/* Render comets */}
+        {comets.map(id => (
+          <Comet key={id} id={id} onComplete={handleCometComplete} />
+        ))}
+
+        {/* Render star connections */}
+        {starConnections.map(conn => (
+          <StarConnectionWrapper
+            key={conn.id}
+            connection={conn}
+            users={validUsers}
+            starSystemRefs={starSystemRefs}
           />
         ))}
       </Canvas>

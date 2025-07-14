@@ -81,17 +81,17 @@ export default function RepoList({
         setError(null);
         setDebugInfo([]);
 
-        addDebugInfo(`Find ${owner}'s Repositories...'`);
+        addDebugInfo(`🔍 Searching repositories for ${owner}...`);
 
         // Test connection first
-        addDebugInfo('Connecting Irys...');
+        addDebugInfo('🌐 Connecting to Irys network...');
         const canConnect = await testIrysConnection();
         addDebugInfo(
-          canConnect ? 'Connected to Irys' : 'Failed to Connect Irys'
+          canConnect ? '✅ Connected to Irys' : '❌ Failed to connect to Irys'
         );
 
         // Search repositories using enhanced GraphQL API
-        addDebugInfo('Searching Branches...');
+        addDebugInfo('📂 Fetching repository data...');
         const foundRepos = await searchRepositories(owner, currentWallet);
 
         if (foundRepos.length > 0) {
@@ -100,7 +100,7 @@ export default function RepoList({
             0
           );
           addDebugInfo(
-            `${foundRepos.length} Repositories, ${totalBranches} Branches found`
+            `✅ Found ${foundRepos.length} repositories with ${totalBranches} branches`
           );
 
           // 각 저장소의 기본 브랜치를 선택된 브랜치로 설정
@@ -113,11 +113,11 @@ export default function RepoList({
           // Log details for debugging
           foundRepos.forEach((repo, idx) => {
             addDebugInfo(
-              `Repository ${idx + 1}: ${repo.name} (${repo.branches.length} branches)`
+              `📦 ${repo.name} (${repo.branches.length} ${repo.branches.length === 1 ? 'branch' : 'branches'})`
             );
           });
         } else {
-          addDebugInfo('Repository Not Found');
+          addDebugInfo('❌ No repositories found');
         }
 
         setRepositories(foundRepos);
@@ -127,8 +127,8 @@ export default function RepoList({
           error instanceof Error
             ? error.message
             : '알 수 없는 오류가 발생했습니다.';
-        setError(`Failed to fetch Data : ${errorMessage}`);
-        addDebugInfo(`Error Occurred : ${errorMessage}`);
+        setError(`Failed to fetch repositories: ${errorMessage}`);
+        addDebugInfo(`❌ Error: ${errorMessage}`);
       } finally {
         setLoading(false);
         setSearchProgress('');
@@ -143,9 +143,33 @@ export default function RepoList({
   if (loading) {
     return (
       <div>
-        <p className="loading">Fetching Repositories...</p>
+        <h3>Repositories</h3>
+        <div className={styles.repoGrid}>
+          {/* Skeleton Cards */}
+          {[1, 2, 3].map(index => (
+            <div key={index} className="skeleton-repo-card">
+              <div className="skeleton skeleton-repo-title"></div>
+              <div className="skeleton-repo-meta">
+                <div className="skeleton-repo-meta-line">
+                  <div className="skeleton skeleton-repo-meta-label"></div>
+                  <div className="skeleton skeleton-repo-meta-value"></div>
+                </div>
+                <div className="skeleton-repo-meta-line">
+                  <div className="skeleton skeleton-repo-meta-label"></div>
+                  <div className="skeleton skeleton-repo-meta-value"></div>
+                </div>
+                <div className="skeleton-repo-meta-line">
+                  <div className="skeleton skeleton-repo-meta-label"></div>
+                  <div className="skeleton skeleton-repo-meta-value"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
         {searchProgress && (
-          <div className={styles.loading}>{searchProgress}</div>
+          <div className={styles.loading} style={{ marginTop: 20 }}>
+            {searchProgress}
+          </div>
         )}
       </div>
     );

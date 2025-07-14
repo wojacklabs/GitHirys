@@ -55,7 +55,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
   const planetOrbits = useMemo(() => {
     return repositories.map((repo, index) => {
       const radius = 6 + index * 3; // Larger orbit radius
-      const speed = 0.2 / (radius * 0.2); // Orbit speed (slower)
+      const speed = 0.1 / (radius * 0.2); // Orbit speed - faster (increased from 0.05)
       const initialAngle = (index / repositories.length) * Math.PI * 2;
       const inclination = (Math.random() - 0.5) * 0.5; // Reduced orbit inclination
 

@@ -134,13 +134,13 @@ const Star: React.FC<StarProps> = ({
       coronaRef.current.scale.setScalar(coronaScale);
       flareRef.current.scale.setScalar(flareScale);
 
-      // Realistic stellar rotation
-      starRef.current.rotation.y += 0.008;
-      starRef.current.rotation.x += 0.002;
-      coronaRef.current.rotation.y -= 0.006;
-      coronaRef.current.rotation.z += 0.004;
-      flareRef.current.rotation.x += 0.012;
-      flareRef.current.rotation.z -= 0.008;
+      // Realistic stellar rotation - faster
+      starRef.current.rotation.y += 0.01; // Increased for faster rotation
+      starRef.current.rotation.x += 0.0015; // Increased from 0.0005
+      coronaRef.current.rotation.y -= 0.004; // Increased from 0.0015
+      coronaRef.current.rotation.z += 0.003; // Increased from 0.001
+      flareRef.current.rotation.x += 0.008; // Increased from 0.003
+      flareRef.current.rotation.z -= 0.005; // Increased from 0.002
 
       // Dynamic material properties
       if (starRef.current.material instanceof THREE.MeshStandardMaterial) {
@@ -153,7 +153,7 @@ const Star: React.FC<StarProps> = ({
         const indicatorPulse = Math.sin(time * 2.5) * 0.1 + 1;
         const indicatorScale = 1.5 + indicatorPulse * 0.3;
         currentUserIndicatorRef.current.scale.setScalar(indicatorScale);
-        currentUserIndicatorRef.current.rotation.z += 0.02;
+        currentUserIndicatorRef.current.rotation.z += 0.005; // Reduced from 0.02
 
         // Floating animation
         const floatOffset = Math.sin(time * 1.8) * 0.5;

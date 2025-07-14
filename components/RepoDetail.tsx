@@ -13,6 +13,8 @@ import {
   getRepositoryDescription,
   updateRepositoryDescription,
   RepositoryDescription,
+  RepositoryPermissions,
+  UserProfile,
   Issue,
   IssueComment,
   getRepositoryIssues,
@@ -942,57 +944,55 @@ export default function RepoDetail({
     }
   }, [repoName, owner, repo]);
 
-  // 저장소 소유자와 contributor 정보 로드
+  // 저장소 관련 정보를 병렬로 로드
   useEffect(() => {
-    const loadRepositoryMembers = async () => {
+    const loadRepositoryData = async () => {
       if (!repository || !owner) return;
 
       try {
-        // 소유자 프로필 로드
-        const ownerProfile = await getProfileByAddress(owner);
+        // 병렬로 실행할 작업들
+        const promises = [
+          // 소유자 프로필 로드
+          getProfileByAddress(owner),
+          // 권한 정보 로드
+          getRepositoryPermissions(repository.name, owner),
+          // 저장소 설명 로드
+          getRepositoryDescription(repository.name, owner),
+        ];
+
+        const [ownerProfile, permissions, descriptionData] = (await Promise.all(
+          promises
+        )) as [
+          UserProfile | null,
+          RepositoryPermissions | null,
+          RepositoryDescription | null,
+        ];
+
+        // 소유자 정보 설정
         setRepositoryOwner({
           address: owner,
           profile: ownerProfile,
         });
 
-        // 권한 정보 로드하여 contributor 목록 가져오기
-        const permissions = await getRepositoryPermissions(
-          repository.name,
-          owner
-        );
-        if (permissions) {
-          // 소유자를 제외한 contributor들의 프로필 로드
+        // Contributors 프로필 병렬 로드
+        if (
+          permissions &&
+          'contributors' in permissions &&
+          permissions.contributors
+        ) {
+          const contributorAddresses = permissions.contributors.filter(
+            address => address !== owner
+          );
           const contributorProfiles = await Promise.all(
-            permissions.contributors
-              .filter(address => address !== owner)
-              .map(async address => {
-                const profile = await getProfileByAddress(address);
-                return {
-                  address,
-                  profile,
-                };
-              })
+            contributorAddresses.map(async address => {
+              const profile = await getProfileByAddress(address);
+              return { address, profile };
+            })
           );
           setContributors(contributorProfiles);
         }
-      } catch (error) {
-        console.error('저장소 멤버 정보 로딩 중 오류:', error);
-      }
-    };
 
-    loadRepositoryMembers();
-  }, [repository, owner, refreshPermissions]);
-
-  // Load repository description
-  useEffect(() => {
-    const loadRepositoryDescription = async () => {
-      if (!repository || !owner) return;
-
-      try {
-        const descriptionData = await getRepositoryDescription(
-          repository.name,
-          owner
-        );
+        // 저장소 설명 설정
         if (descriptionData) {
           setRepositoryDescription(descriptionData);
           setDescription(descriptionData.description);
@@ -1001,12 +1001,12 @@ export default function RepoDetail({
           setDescription('');
         }
       } catch (error) {
-        console.error('Error loading repository description:', error);
+        console.error('저장소 데이터 로딩 중 오류:', error);
       }
     };
 
-    loadRepositoryDescription();
-  }, [repository, owner]);
+    loadRepositoryData();
+  }, [repository, owner, refreshPermissions]);
 
   // Load repository issues
   useEffect(() => {

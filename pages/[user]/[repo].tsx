@@ -9,6 +9,7 @@ import {
   getProfileByAddress,
   getProfileByNickname,
   UserProfile,
+  clearExpiredCache,
 } from '../../lib/irys';
 import Link from 'next/link';
 import styles from '../../styles/UserRepo.module.css';
@@ -59,72 +60,99 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
     }
   }, [propUser, propRepo, queryUser, queryRepo]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
+  // 사용자 정보와 uploader를 병렬로 로드
   useEffect(() => {
-    const loadUserInfo = async () => {
+    const loadData = async () => {
       if (!targetUser) return;
 
-      // 이미 props에서 데이터를 받았으면 스킵
-      if (initialUserProfile && initialWalletAddress) return;
+      // 이미 props에서 데이터를 받았으면 프로필 로딩은 스킵
+      const shouldLoadProfile = !initialUserProfile || !initialWalletAddress;
 
-      setIsLoadingProfile(true);
+      if (shouldLoadProfile) {
+        setIsLoadingProfile(true);
+      }
+
+      if (wallet && wallet.connected) {
+        setIsConnecting(true);
+      }
+
       try {
-        // 솔라나 지갑 주소 형식인지 확인
-        const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
-          targetUser
-        );
+        const promises: Promise<any>[] = [];
 
-        if (isWalletAddress) {
-          // 지갑 주소로 프로필 조회
-          setActualWalletAddress(targetUser);
+        // 프로필 로딩 Promise 추가
+        if (shouldLoadProfile) {
+          const profilePromise = (async () => {
+            // 솔라나 지갑 주소 형식인지 확인
+            const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
+              targetUser
+            );
 
-          const profile = await getProfileByAddress(targetUser);
+            if (isWalletAddress) {
+              // 지갑 주소로 프로필 조회
+              setActualWalletAddress(targetUser);
+              const profile = await getProfileByAddress(targetUser);
+              return { profile, actualWalletAddress: targetUser };
+            } else {
+              // 닉네임으로 프로필 조회
+              const profile = await getProfileByNickname(targetUser);
+              if (profile) {
+                return { profile, actualWalletAddress: profile.accountAddress };
+              } else {
+                throw new Error('Profile not found');
+              }
+            }
+          })();
+          promises.push(profilePromise);
+        }
+
+        // Uploader 생성 Promise 추가 (지갑이 연결된 경우)
+        if (wallet && wallet.connected) {
+          const uploaderPromise = createIrysUploader(wallet).catch(error => {
+            console.error('Irys 업로더 생성 실패:', error);
+            return null;
+          });
+          promises.push(uploaderPromise);
+        }
+
+        // 모든 Promise를 병렬로 실행
+        const results = await Promise.allSettled(promises);
+
+        // 프로필 결과 처리
+        if (shouldLoadProfile && results[0].status === 'fulfilled') {
+          const { profile, actualWalletAddress } = results[0].value;
           setUserProfile(profile);
-        } else {
-          // 닉네임으로 프로필 조회
-          const profile = await getProfileByNickname(targetUser);
-          if (profile) {
-            setUserProfile(profile);
-            setActualWalletAddress(profile.accountAddress);
+          setActualWalletAddress(actualWalletAddress);
+        } else if (shouldLoadProfile && results[0].status === 'rejected') {
+          router.push('/404');
+          return;
+        }
+
+        // Uploader 결과 처리
+        if (wallet && wallet.connected && results.length > 1) {
+          if (results[1].status === 'fulfilled') {
+            setUploader(results[1].value);
           } else {
-            // 닉네임에 해당하는 프로필이 없는 경우 404로 리다이렉트
-            router.push('/404');
-            return;
+            setUploader(null);
           }
         }
       } catch (error) {
-        console.error('사용자 정보 로딩 오류:', error);
+        console.error('데이터 로딩 오류:', error);
         router.push('/404');
       } finally {
         setIsLoadingProfile(false);
-      }
-    };
-
-    loadUserInfo();
-  }, [targetUser, initialUserProfile, initialWalletAddress, router]);
-
-  // Create uploader when wallet changes
-  useEffect(() => {
-    const initUploader = async () => {
-      if (!wallet || !wallet.connected) {
-        setUploader(null);
-        return;
-      }
-
-      try {
-        setIsConnecting(true);
-        const newUploader = await createIrysUploader(wallet);
-        setUploader(newUploader);
-      } catch (error) {
-        console.error('Irys 업로더 생성 실패:', error);
-        setUploader(null);
-      } finally {
         setIsConnecting(false);
       }
     };
 
-    initUploader();
-  }, [wallet]);
+    loadData();
+  }, [targetUser, initialUserProfile, initialWalletAddress, wallet, router]);
+
+  // 컴포넌트 언마운트 시 캐시 정리
+  useEffect(() => {
+    return () => {
+      clearExpiredCache();
+    };
+  }, []);
 
   const isOwnProfile = publicKey && actualWalletAddress === publicKey;
 

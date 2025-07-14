@@ -9,6 +9,7 @@ import {
   getProfileByAddress,
   getProfileByNickname,
   UserProfile,
+  clearExpiredCache,
 } from '../lib/irys';
 import Link from 'next/link';
 import styles from '../styles/UserPage.module.css';
@@ -53,58 +54,99 @@ const UserPage: NextPage<UserPageProps> = ({
     }
   }, [propUser, queryUser]);
 
-  // 사용자 정보 로드 (닉네임 또는 지갑 주소)
+  // 사용자 정보와 uploader를 병렬로 로드
   useEffect(() => {
-    const loadUserInfo = async () => {
+    const loadData = async () => {
       if (!targetUser) return;
 
-      // 이미 props에서 데이터를 받았으면 스킵
-      if (initialUserProfile && initialWalletAddress) return;
+      // 이미 props에서 데이터를 받았으면 프로필 로딩은 스킵
+      const shouldLoadProfile = !initialUserProfile || !initialWalletAddress;
 
-      setIsLoadingProfile(true);
+      if (shouldLoadProfile) {
+        setIsLoadingProfile(true);
+      }
+
       try {
-        // 솔라나 지갑 주소 형식인지 확인
-        const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
-          targetUser
-        );
+        const promises: Promise<any>[] = [];
 
-        if (isWalletAddress) {
-          // 지갑 주소로 프로필 조회
-          setActualWalletAddress(targetUser);
+        // 프로필 로딩 Promise 추가
+        if (shouldLoadProfile) {
+          const profilePromise = (async () => {
+            // 솔라나 지갑 주소 형식인지 확인
+            const isWalletAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(
+              targetUser
+            );
 
-          const profile = await getProfileByAddress(targetUser);
+            if (isWalletAddress) {
+              // 지갑 주소로 프로필 조회
+              setActualWalletAddress(targetUser);
+              const profile = await getProfileByAddress(targetUser);
+              return { profile, actualWalletAddress: targetUser };
+            } else {
+              // 닉네임으로 프로필 조회
+              const profile = await getProfileByNickname(targetUser);
+              if (profile) {
+                return { profile, actualWalletAddress: profile.accountAddress };
+              } else {
+                throw new Error('Profile not found');
+              }
+            }
+          })();
+          promises.push(profilePromise);
+        }
+
+        // Uploader 생성 Promise 추가 (지갑이 연결된 경우)
+        if (wallet && wallet.connected) {
+          const uploaderPromise = createIrysUploader(wallet).catch(error => {
+            console.error('Irys 업로더 생성 실패:', error);
+            return null;
+          });
+          promises.push(uploaderPromise);
+        }
+
+        // 모든 Promise를 병렬로 실행
+        const results = await Promise.allSettled(promises);
+
+        // 프로필 결과 처리
+        if (shouldLoadProfile && results[0].status === 'fulfilled') {
+          const { profile, actualWalletAddress } = results[0].value;
           setUserProfile(profile);
-        } else {
-          // 닉네임으로 프로필 조회
-          const profile = await getProfileByNickname(targetUser);
-          if (profile) {
-            setUserProfile(profile);
-            setActualWalletAddress(profile.accountAddress);
+          setActualWalletAddress(actualWalletAddress);
+        } else if (shouldLoadProfile && results[0].status === 'rejected') {
+          router.push('/404');
+          return;
+        }
+
+        // Uploader 결과 처리
+        if (wallet && wallet.connected && results.length > 1) {
+          if (results[1].status === 'fulfilled') {
+            setUploader(results[1].value);
           } else {
-            // 닉네임에 해당하는 프로필이 없는 경우 404로 리다이렉트
-            router.push('/404');
-            return;
+            setUploader(null);
           }
         }
       } catch (error) {
-        console.error('사용자 정보 로딩 오류:', error);
+        console.error('데이터 로딩 오류:', error);
         router.push('/404');
       } finally {
         setIsLoadingProfile(false);
       }
     };
 
-    loadUserInfo();
-  }, [targetUser, initialUserProfile, initialWalletAddress, router]);
+    loadData();
+  }, [targetUser, initialUserProfile, initialWalletAddress, wallet, router]);
 
-  // Create uploader when wallet changes
+  // Wallet 변경 시 uploader 업데이트
   useEffect(() => {
-    const initUploader = async () => {
-      if (!wallet || !wallet.connected) {
-        setUploader(null);
-        return;
-      }
+    if (!wallet || !wallet.connected) {
+      setUploader(null);
+      return;
+    }
 
+    // 이미 uploader가 있으면 스킵 (초기 로드에서 처리됨)
+    if (uploader) return;
+
+    const initUploader = async () => {
       try {
         const newUploader = await createIrysUploader(wallet);
         setUploader(newUploader);
@@ -115,7 +157,14 @@ const UserPage: NextPage<UserPageProps> = ({
     };
 
     initUploader();
-  }, [wallet]);
+  }, [wallet.connected]);
+
+  // 컴포넌트 언마운트 시 캐시 정리
+  useEffect(() => {
+    return () => {
+      clearExpiredCache();
+    };
+  }, []);
 
   const isOwnProfile = publicKey && actualWalletAddress === publicKey;
 
@@ -134,7 +183,50 @@ const UserPage: NextPage<UserPageProps> = ({
           <title>{pageTitle}</title>
         </Head>
         <div className="container">
-          <p style={{ marginTop: 40 }}>Fetching User Data...</p>
+          {/* Skeleton Profile Header */}
+          <div className="skeleton-profile-header">
+            <div className="skeleton skeleton-profile-image"></div>
+            <div className="skeleton-profile-info">
+              <div className="skeleton skeleton-profile-name"></div>
+              <div className="skeleton skeleton-profile-handle"></div>
+            </div>
+          </div>
+
+          {/* Skeleton Profile Info Card */}
+          <div className={styles.profileInfoCard} style={{ marginBottom: 30 }}>
+            <div className={styles.profileInfoGrid}>
+              {[1, 2, 3].map(index => (
+                <div key={index} className={styles.profileInfoRow}>
+                  <span
+                    className="skeleton"
+                    style={{ width: 100, height: 16 }}
+                  ></span>
+                  <span
+                    className="skeleton"
+                    style={{ width: 200, height: 16 }}
+                  ></span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skeleton Repository List */}
+          <h3>Repositories</h3>
+          <div className={styles.repoGrid}>
+            {[1, 2, 3].map(index => (
+              <div key={index} className="skeleton-repo-card">
+                <div className="skeleton skeleton-repo-title"></div>
+                <div className="skeleton-repo-meta">
+                  {[1, 2, 3].map(line => (
+                    <div key={line} className="skeleton-repo-meta-line">
+                      <div className="skeleton skeleton-repo-meta-label"></div>
+                      <div className="skeleton skeleton-repo-meta-value"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </>
     );
