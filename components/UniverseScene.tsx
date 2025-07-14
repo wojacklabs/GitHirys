@@ -750,8 +750,12 @@ function CameraController({
         const worldPosition = new THREE.Vector3();
         systemRef.getWorldPosition(worldPosition);
 
+        // Adjust target position to show star higher on screen
+        const targetOffset = new THREE.Vector3(0, -15, 0); // Look below the star
+        const adjustedTarget = worldPosition.clone().add(targetOffset);
+
         // Smoothly follow the target
-        controlsRef.current.target.lerp(worldPosition, 0.1);
+        controlsRef.current.target.lerp(adjustedTarget, 0.1);
 
         // Keep camera at a good viewing distance
         const cameraOffset = new THREE.Vector3(30, 20, 30);
@@ -776,12 +780,12 @@ function CameraController({
       if (userIndex !== -1 && userPositions[userIndex]) {
         const [x, y, z] = userPositions[userIndex];
 
-        // Set target position for smooth animation
-        targetPosition.current.set(x, y, z);
+        // Set target position for smooth animation with offset to show star higher
+        targetPosition.current.set(x, y - 15, z); // Look below the star
 
         // Position camera at a good viewing distance
         const cameraOffset = new THREE.Vector3(30, 20, 30);
-        cameraPosition.current.copy(targetPosition.current).add(cameraOffset);
+        cameraPosition.current.set(x + 30, y + 20, z + 30); // Camera at actual star position + offset
 
         isAnimating.current = true;
 
@@ -1353,17 +1357,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
             </div>
           )}
       </div>
-
-      {/* Tracking indicator */}
-      {trackingTarget && (
-        <div className={styles.trackingIndicator}>
-          <span>
-            📍 Following{' '}
-            {trackingTarget.type === 'star' ? 'star' : 'repository'}
-          </span>
-          <span className={styles.trackingHint}>Press ESC to stop</span>
-        </div>
-      )}
 
       <Canvas
         camera={{ position: [0, 100, 300], fov: 75, near: 0.1, far: 10000 }}
