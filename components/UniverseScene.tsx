@@ -78,12 +78,7 @@ function UniverseBackground() {
     return { positions, colors };
   }, []);
 
-  // Star field animation
-  useFrame(() => {
-    if (distantStarsRef.current) {
-      distantStarsRef.current.rotation.y += 0.0001;
-    }
-  });
+  // Star field animation - removed rotation for static background
 
   return (
     <>
@@ -626,10 +621,10 @@ function GalacticCenter() {
       positions.needsUpdate = true;
     }
 
-    // Pulsate black hole with gravitational distortion
+    // Rotate event horizon effect (removed pulsing)
     if (blackHoleRef.current) {
-      const scale = 1 + Math.sin(state.clock.elapsedTime * 0.5) * 0.03; // Reduced speed
-      blackHoleRef.current.scale.setScalar(scale);
+      // Keep scale fixed at 1 (no pulsing)
+      blackHoleRef.current.scale.setScalar(1);
 
       // Rotate event horizon effect
       blackHoleRef.current.rotation.y += 0.0003; // Reduced from 0.001
@@ -717,126 +712,228 @@ function GalacticCenter() {
 }
 
 // Camera controller with smooth animation
-function CameraController({
-  focusedUser,
-  users,
-  userPositions,
-  trackingTarget,
-  starSystemRefs,
-}: {
-  focusedUser?: string;
-  users: any[];
-  userPositions: [number, number, number][];
-  trackingTarget?: {
-    type: 'star' | 'planet';
-    userId: string;
-    repoName?: string;
-  } | null;
-  starSystemRefs: React.MutableRefObject<Map<string, THREE.Group>>;
-}) {
-  const controlsRef = useRef<any>();
-  const targetPosition = useRef(new THREE.Vector3());
-  const cameraPosition = useRef(new THREE.Vector3());
-  const isAnimating = useRef(false);
-  const isTracking = useRef(false);
+const CameraController = React.forwardRef<
+  any,
+  {
+    focusedUser?: string;
+    users: any[];
+    userPositions: [number, number, number][];
+    trackingTarget?: {
+      type: 'star' | 'planet';
+      userId: string;
+      repoName?: string;
+    } | null;
+    starSystemRefs: React.MutableRefObject<Map<string, THREE.Group>>;
+  }
+>(
+  (
+    { focusedUser, users, userPositions, trackingTarget, starSystemRefs },
+    ref
+  ) => {
+    const controlsRef = useRef<any>();
+    const targetPosition = useRef(new THREE.Vector3());
+    const cameraPosition = useRef(new THREE.Vector3());
+    const isAnimating = useRef(false);
+    const isTracking = useRef(false);
 
-  // Track selected star/planet
-  useFrame(() => {
-    if (trackingTarget && controlsRef.current && starSystemRefs.current) {
-      const systemRef = starSystemRefs.current.get(trackingTarget.userId);
+    // Expose controlsRef through ref
+    React.useImperativeHandle(
+      ref,
+      () => ({
+        controlsRef: controlsRef,
+      }),
+      []
+    );
 
-      if (systemRef) {
-        // Get the world position of the tracked object
-        const worldPosition = new THREE.Vector3();
-        systemRef.getWorldPosition(worldPosition);
+    // Track selected star/planet
+    useFrame(() => {
+      if (!controlsRef.current) return;
 
-        // Adjust target position to show star higher on screen
-        const targetOffset = new THREE.Vector3(0, -15, 0); // Look below the star
-        const adjustedTarget = worldPosition.clone().add(targetOffset);
+      if (trackingTarget && starSystemRefs.current) {
+        const systemRef = starSystemRefs.current.get(trackingTarget.userId);
 
-        // Smoothly follow the target
-        controlsRef.current.target.lerp(adjustedTarget, 0.1);
+        if (systemRef) {
+          // Get the world position of the tracked object
+          const worldPosition = new THREE.Vector3();
+          systemRef.getWorldPosition(worldPosition);
 
-        // Keep camera at a good viewing distance
-        const cameraOffset = new THREE.Vector3(30, 20, 30);
-        const desiredCameraPos = worldPosition.clone().add(cameraOffset);
-        controlsRef.current.object.position.lerp(desiredCameraPos, 0.05);
+          // Adjust target position to show star higher on screen
+          const targetOffset = new THREE.Vector3(0, -15, 0); // Look below the star
+          const adjustedTarget = worldPosition.clone().add(targetOffset);
 
+          // Smoothly follow the target
+          controlsRef.current.target.lerp(adjustedTarget, 0.1);
+
+          // Keep camera at a good viewing distance
+          const cameraOffset = new THREE.Vector3(30, 20, 30);
+          const desiredCameraPos = worldPosition.clone().add(cameraOffset);
+          controlsRef.current.object.position.lerp(desiredCameraPos, 0.05);
+
+          controlsRef.current.update();
+          isTracking.current = true;
+        }
+      } else if (isTracking.current) {
+        // When tracking stops, immediately stop all movement
+        isTracking.current = false;
+
+        // Get current values
+        const currentTarget = controlsRef.current.target.clone();
+        const currentPosition = controlsRef.current.object.position.clone();
+
+        // Disable damping to stop momentum
+        controlsRef.current.enableDamping = false;
+
+        // Set exact positions
+        controlsRef.current.target.set(
+          currentTarget.x,
+          currentTarget.y,
+          currentTarget.z
+        );
+        controlsRef.current.object.position.set(
+          currentPosition.x,
+          currentPosition.y,
+          currentPosition.z
+        );
+
+        // Force update
         controlsRef.current.update();
-        isTracking.current = true;
-      }
-    } else {
-      isTracking.current = false;
-    }
-  });
 
-  useEffect(() => {
-    if (focusedUser && controlsRef.current && users.length > 0) {
-      // Find focused user position
-      const userIndex = users.findIndex(
-        u => u.accountAddress === focusedUser || u.nickname === focusedUser
-      );
-
-      if (userIndex !== -1 && userPositions[userIndex]) {
-        const [x, y, z] = userPositions[userIndex];
-
-        // Set target position for smooth animation with offset to show star higher
-        targetPosition.current.set(x, y - 15, z); // Look below the star
-
-        // Position camera at a good viewing distance
-        const cameraOffset = new THREE.Vector3(30, 20, 30);
-        cameraPosition.current.set(x + 30, y + 20, z + 30); // Camera at actual star position + offset
-
-        isAnimating.current = true;
-
-        // Smooth animation to target
-        const animateCamera = () => {
-          if (
-            controlsRef.current &&
-            isAnimating.current &&
-            !isTracking.current
-          ) {
-            // Animate target
-            controlsRef.current.target.lerp(targetPosition.current, 0.05);
-
-            // Animate camera position
-            const currentCameraPos = controlsRef.current.object.position;
-            currentCameraPos.lerp(cameraPosition.current, 0.05);
-
+        // Re-enable damping after ensuring stop
+        requestAnimationFrame(() => {
+          if (controlsRef.current) {
+            controlsRef.current.enableDamping = true;
+            controlsRef.current.dampingFactor = 0.05;
             controlsRef.current.update();
-
-            // Check if animation is close enough to stop
-            if (
-              controlsRef.current.target.distanceTo(targetPosition.current) <
-              0.1
-            ) {
-              isAnimating.current = false;
-            } else {
-              requestAnimationFrame(animateCamera);
-            }
           }
-        };
+        });
 
-        requestAnimationFrame(animateCamera);
+        // Stop any other animations
+        isAnimating.current = false;
       }
-    }
-  }, [focusedUser, users, userPositions]);
+    });
 
-  return (
-    <OrbitControls
-      ref={controlsRef}
-      enablePan={true}
-      enableZoom={true}
-      enableRotate={true}
-      minDistance={10}
-      maxDistance={3000}
-      autoRotate={!focusedUser && !isAnimating.current && !isTracking.current}
-      autoRotateSpeed={0.1}
-      enableDamping={true}
-      dampingFactor={0.05}
-    />
-  );
-}
+    // Handle tracking target changes - stop immediately when tracking ends
+    useEffect(() => {
+      if (!trackingTarget && controlsRef.current) {
+        // Immediately stop any animations
+        isAnimating.current = false;
+        isTracking.current = false;
+
+        // Get current state
+        const currentTarget = controlsRef.current.target.clone();
+        const currentPosition = controlsRef.current.object.position.clone();
+
+        // Disable damping to prevent momentum
+        controlsRef.current.enableDamping = false;
+
+        // Set exact positions
+        controlsRef.current.target.set(
+          currentTarget.x,
+          currentTarget.y,
+          currentTarget.z
+        );
+        controlsRef.current.object.position.set(
+          currentPosition.x,
+          currentPosition.y,
+          currentPosition.z
+        );
+
+        // Force immediate update
+        controlsRef.current.update();
+
+        // Re-enable damping on next frame
+        requestAnimationFrame(() => {
+          if (controlsRef.current) {
+            controlsRef.current.enableDamping = true;
+            controlsRef.current.dampingFactor = 0.05;
+            controlsRef.current.update();
+          }
+        });
+      }
+    }, [trackingTarget]);
+
+    useEffect(() => {
+      if (
+        focusedUser &&
+        controlsRef.current &&
+        users.length > 0 &&
+        !trackingTarget
+      ) {
+        // Find focused user position
+        const userIndex = users.findIndex(
+          u => u.accountAddress === focusedUser || u.nickname === focusedUser
+        );
+
+        if (userIndex !== -1 && userPositions[userIndex]) {
+          const [x, y, z] = userPositions[userIndex];
+
+          // Set target position for smooth animation with offset to show star higher
+          targetPosition.current.set(x, y - 15, z); // Look below the star
+
+          // Position camera at a good viewing distance
+          const cameraOffset = new THREE.Vector3(30, 20, 30);
+          cameraPosition.current.set(x + 30, y + 20, z + 30); // Camera at actual star position + offset
+
+          isAnimating.current = true;
+
+          // Smooth animation to target
+          const animateCamera = () => {
+            if (
+              controlsRef.current &&
+              isAnimating.current &&
+              !isTracking.current &&
+              !trackingTarget
+            ) {
+              // Animate target
+              controlsRef.current.target.lerp(targetPosition.current, 0.05);
+
+              // Animate camera position
+              const currentCameraPos = controlsRef.current.object.position;
+              currentCameraPos.lerp(cameraPosition.current, 0.05);
+
+              controlsRef.current.update();
+
+              // Check if animation is close enough to stop
+              if (
+                controlsRef.current.target.distanceTo(targetPosition.current) <
+                0.1
+              ) {
+                isAnimating.current = false;
+              } else {
+                requestAnimationFrame(animateCamera);
+              }
+            } else {
+              // Stop animation if tracking started
+              isAnimating.current = false;
+            }
+          };
+
+          requestAnimationFrame(animateCamera);
+        }
+      }
+    }, [focusedUser, users, userPositions, trackingTarget]);
+
+    return (
+      <OrbitControls
+        ref={controlsRef}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={10}
+        maxDistance={3000}
+        autoRotate={false}
+        autoRotateSpeed={0.1}
+        enableDamping={true}
+        dampingFactor={0.05}
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
+      />
+    );
+  }
+);
 
 // Orbiting Star System component
 function OrbitingStarSystem({
@@ -1011,6 +1108,12 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
   // Refs for star systems
   const starSystemRefs = useRef<Map<string, THREE.Group>>(new Map());
 
+  // Ref for camera controller
+  const cameraControllerRef = useRef<any>(null);
+
+  // Ref for tooltip container
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
   // Comet management
   const [comets, setComets] = useState<number[]>([]);
   const nextCometIdRef = useRef(0);
@@ -1039,6 +1142,30 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
   // Handle empty user array
   const validUsers = users || [];
 
+  // Generate deterministic hash from string
+  const hashCode = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  };
+
+  // Generate pseudo-random number from seed
+  const seededRandom = (seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Sort users by accountAddress to ensure consistent ordering
+  const sortedUsers = useMemo(() => {
+    return [...validUsers].sort((a, b) =>
+      a.accountAddress.localeCompare(b.accountAddress)
+    );
+  }, [validUsers]); // Depend on full validUsers array to catch repository updates
+
   // Spawn comets periodically
   useEffect(() => {
     const spawnComet = () => {
@@ -1064,11 +1191,11 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
 
   // Spawn star connections periodically
   useEffect(() => {
-    if (validUsers.length < 2) return;
+    if (sortedUsers.length < 2) return;
 
     const spawnConnection = () => {
       // Select two random different stars
-      const indices = Array.from({ length: validUsers.length }, (_, i) => i);
+      const indices = Array.from({ length: sortedUsers.length }, (_, i) => i);
       const startIndex = Math.floor(Math.random() * indices.length);
       indices.splice(startIndex, 1);
       const endIndex = indices[Math.floor(Math.random() * indices.length)];
@@ -1100,7 +1227,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
-  }, [validUsers.length]);
+  }, [sortedUsers.length]);
 
   // Clean up completed connections
   useEffect(() => {
@@ -1156,8 +1283,8 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       setSearchQuery(result.displayName);
       setShowSearchResults(false);
 
-      // Find the user in the users array
-      const selectedUser = users.find(
+      // Find the user in the sorted users array
+      const selectedUser = sortedUsers.find(
         u => u.accountAddress === result.walletAddress
       );
 
@@ -1170,7 +1297,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
         });
       }
     },
-    [users]
+    [sortedUsers]
   );
 
   // Handle search input changes
@@ -1192,12 +1319,85 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     setTooltipData(null);
   }, []);
 
+  // Handle hiding tooltip
+  const handleHideTooltip = useCallback(() => {
+    setTooltipData(null);
+    // Stop tracking when tooltip is closed
+    setTrackingTarget(null);
+
+    // Clear focused user to stop any ongoing animations
+    setInternalFocusedUser(undefined);
+
+    // Force camera to stop at current position
+    if (
+      cameraControllerRef.current &&
+      cameraControllerRef.current.controlsRef?.current
+    ) {
+      const controls = cameraControllerRef.current.controlsRef.current;
+      const currentTarget = controls.target.clone();
+      const currentPosition = controls.object.position.clone();
+
+      // Disable damping temporarily
+      controls.enableDamping = false;
+      controls.target.set(currentTarget.x, currentTarget.y, currentTarget.z);
+      controls.object.position.set(
+        currentPosition.x,
+        currentPosition.y,
+        currentPosition.z
+      );
+      controls.update();
+
+      // Re-enable damping after ensuring position is locked
+      requestAnimationFrame(() => {
+        if (controls) {
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.05;
+          controls.update();
+        }
+      });
+    }
+  }, []);
+
   // Handle ESC key to stop tracking
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setTrackingTarget(null);
         setTooltipData(null);
+        setInternalFocusedUser(undefined);
+
+        // Force camera to stop at current position
+        if (
+          cameraControllerRef.current &&
+          cameraControllerRef.current.controlsRef?.current
+        ) {
+          const controls = cameraControllerRef.current.controlsRef.current;
+          const currentTarget = controls.target.clone();
+          const currentPosition = controls.object.position.clone();
+
+          // Disable damping temporarily
+          controls.enableDamping = false;
+          controls.target.set(
+            currentTarget.x,
+            currentTarget.y,
+            currentTarget.z
+          );
+          controls.object.position.set(
+            currentPosition.x,
+            currentPosition.y,
+            currentPosition.z
+          );
+          controls.update();
+
+          // Re-enable damping after ensuring position is locked
+          requestAnimationFrame(() => {
+            if (controls) {
+              controls.enableDamping = true;
+              controls.dampingFactor = 0.05;
+              controls.update();
+            }
+          });
+        }
       }
     };
 
@@ -1205,22 +1405,67 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Handle click outside tooltip to close it
+  useEffect(() => {
+    if (!tooltipData) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      // Check if click is on the tooltip itself
+      if (tooltipRef.current) {
+        const rect = tooltipRef.current.getBoundingClientRect();
+        const x = e.clientX;
+        const y = e.clientY;
+
+        // Check if click is outside the tooltip bounds
+        if (
+          x < rect.left ||
+          x > rect.right ||
+          y < rect.top ||
+          y > rect.bottom
+        ) {
+          handleHideTooltip();
+        }
+      }
+    };
+
+    // Small delay to prevent immediate closing when tooltip opens
+    const timeoutId = setTimeout(() => {
+      // Use capture phase to catch events before Three.js
+      document.addEventListener('mousedown', handleClickOutside, true);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside, true);
+    };
+  }, [tooltipData, handleHideTooltip]);
+
   // Update internal focused user when prop changes
   useEffect(() => {
     setInternalFocusedUser(focusedUser);
   }, [focusedUser]);
 
-  // Calculate user positions in wide 3D space
-  const starSystemPositions = useMemo(() => {
-    if (validUsers.length === 0) return [];
+  // Create a stable key based on user addresses to prevent unnecessary recalculation
+  const userAddressesKey = useMemo(() => {
+    return sortedUsers.map(u => u.accountAddress).join(',');
+  }, [sortedUsers]);
 
-    return validUsers.map((user, index) => {
+  // Calculate user positions in wide 3D space - deterministic based on user ID
+  const starSystemPositions = useMemo(() => {
+    if (sortedUsers.length === 0) return [];
+
+    return sortedUsers.map((user, index) => {
+      // Use user's account address as seed for deterministic positioning
+      const seed = hashCode(user.accountAddress);
+
       // Wider circular arrangement around galactic center
-      const angle = (index / validUsers.length) * Math.PI * 2;
-      const radius = 120 + Math.random() * 60; // 120-180 range for orbit around galaxy center
+      const angle = (index / sortedUsers.length) * Math.PI * 2;
+      const radiusVariation = seededRandom(seed) * 60;
+      const radius = 120 + radiusVariation; // 120-180 range for orbit around galaxy center
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      const y = (Math.random() - 0.5) * 10; // Reduced from 30 to 10 for flatter distribution
+      const yVariation = (seededRandom(seed + 1) - 0.5) * 10;
+      const y = yVariation; // Reduced from 30 to 10 for flatter distribution
 
       return {
         position: [x, y, z] as [number, number, number],
@@ -1229,7 +1474,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
         initialAngle: angle,
       };
     });
-  }, [validUsers]);
+  }, [userAddressesKey, sortedUsers.length]); // Only recalculate when user list changes
 
   const handlePlanetClick = (user: string, repo: string) => {
     if (onPlanetClick) {
@@ -1256,12 +1501,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       userId: user.accountAddress,
       repoName: repo.name,
     });
-  };
-
-  const handleHideTooltip = () => {
-    setTooltipData(null);
-    // Stop tracking when tooltip is closed
-    setTrackingTarget(null);
   };
 
   const handleVisitStar = () => {
@@ -1403,20 +1642,21 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
         {/* Galactic Center */}
         <GalacticCenter />
 
-        {/* WASD keyboard controls */}
-        <KeyboardControls speed={50} />
+        {/* WASD keyboard controls - disabled during tracking */}
+        <KeyboardControls speed={50} enabled={!trackingTarget} />
 
         {/* Camera controls */}
         <CameraController
+          ref={cameraControllerRef}
           focusedUser={internalFocusedUser}
-          users={validUsers}
+          users={sortedUsers}
           userPositions={starSystemPositions.map(s => s.position)}
           trackingTarget={trackingTarget}
           starSystemRefs={starSystemRefs}
         />
 
         {/* Render star systems with galactic orbit */}
-        {validUsers.map((user, index) => {
+        {sortedUsers.map((user, index) => {
           const systemData = starSystemPositions[index];
           return (
             <OrbitingStarSystem
@@ -1455,7 +1695,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
           <StarConnectionWrapper
             key={conn.id}
             connection={conn}
-            users={validUsers}
+            users={sortedUsers}
             starSystemRefs={starSystemRefs}
           />
         ))}
@@ -1463,7 +1703,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
 
       {/* Fixed bottom tooltip */}
       {tooltipData && (
-        <div className={styles.fixedTooltip}>
+        <div className={styles.fixedTooltip} ref={tooltipRef}>
           {tooltipData.type === 'star' ? (
             <div className={styles.tooltipContent}>
               {/* Profile image */}

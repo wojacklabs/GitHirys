@@ -101,7 +101,7 @@ const Star: React.FC<StarProps> = ({
     };
   }, [user.accountAddress, user.repositories]);
 
-  // Advanced star animation with realistic stellar activity
+  // Simplified star animation - removed breathing effect
   useFrame(state => {
     if (
       starRef.current &&
@@ -111,28 +111,16 @@ const Star: React.FC<StarProps> = ({
     ) {
       const time = state.clock.getElapsedTime();
 
-      // Complex stellar activity simulation
-      const corePulse = Math.sin(time * 1.5) * 0.04 + 1;
-      const surfaceConvection = Math.sin(time * 3.2) * 0.02 + 1;
-      const magneticField = Math.sin(time * 0.8) * 0.08 + 1;
-      const coronalMass = Math.sin(time * 4.1) * 0.03 + 1;
-      const solarFlare = Math.sin(time * 2.7) * 0.06 + 1;
-
-      // Interaction effects
+      // Interaction effects (no pulsing)
       const hoverScale = isHovered ? 1.2 : 1;
       const focusScale = isFocused ? 1.3 : 1;
       const interactionScale = hoverScale * focusScale;
 
-      // Apply multi-layered stellar effects
-      const coreScale = corePulse * surfaceConvection * interactionScale;
-      const glowScale = coreScale * magneticField * 1.4;
-      const coronaScale = magneticField * coronalMass * interactionScale * 1.8;
-      const flareScale = solarFlare * interactionScale * 2.2;
-
-      starRef.current.scale.setScalar(coreScale);
-      glowRef.current.scale.setScalar(glowScale);
-      coronaRef.current.scale.setScalar(coronaScale);
-      flareRef.current.scale.setScalar(flareScale);
+      // Apply fixed scales (no pulsing)
+      starRef.current.scale.setScalar(interactionScale);
+      glowRef.current.scale.setScalar(interactionScale * 1.4);
+      coronaRef.current.scale.setScalar(interactionScale * 1.8);
+      flareRef.current.scale.setScalar(interactionScale * 2.2);
 
       // Realistic stellar rotation - faster
       starRef.current.rotation.y += 0.01; // Increased for faster rotation
@@ -142,10 +130,9 @@ const Star: React.FC<StarProps> = ({
       flareRef.current.rotation.x += 0.008; // Increased from 0.003
       flareRef.current.rotation.z -= 0.005; // Increased from 0.002
 
-      // Dynamic material properties
+      // Fixed material properties (no pulsing)
       if (starRef.current.material instanceof THREE.MeshStandardMaterial) {
-        const emissiveIntensity = 2.5 + Math.sin(time * 2.1) * 0.5;
-        starRef.current.material.emissiveIntensity = emissiveIntensity;
+        starRef.current.material.emissiveIntensity = 2.8;
       }
 
       // Animate current user indicator

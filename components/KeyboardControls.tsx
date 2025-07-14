@@ -4,9 +4,13 @@ import * as THREE from 'three';
 
 interface KeyboardControlsProps {
   speed?: number;
+  enabled?: boolean;
 }
 
-const KeyboardControls: React.FC<KeyboardControlsProps> = ({ speed = 2 }) => {
+const KeyboardControls: React.FC<KeyboardControlsProps> = ({
+  speed = 2,
+  enabled = true,
+}) => {
   const { camera } = useThree();
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const velocity = useRef(new THREE.Vector3());
@@ -53,6 +57,9 @@ const KeyboardControls: React.FC<KeyboardControlsProps> = ({ speed = 2 }) => {
   }, []);
 
   useFrame((state, delta) => {
+    // Skip if controls are disabled
+    if (!enabled) return;
+
     const keys = keysPressed.current;
 
     // Calculate camera's current direction vectors
