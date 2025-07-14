@@ -12,10 +12,6 @@ const Header = dynamic(() => import('../components/Header'), {
   loading: () => <div style={{ height: '60px' }} />,
 });
 
-const CustomCursor = dynamic(() => import('../components/CustomCursor'), {
-  ssr: false,
-});
-
 const SolanaProvider = dynamic(() => import('../components/SolanaProvider'), {
   ssr: false,
   loading: () => <div>Loading wallet...</div>,
@@ -90,7 +86,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       <SolanaProvider>
         <Header showSearch />
         <Component {...pageProps} />
-        <CustomCursor />
       </SolanaProvider>
     </>
   );
