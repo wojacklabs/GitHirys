@@ -892,12 +892,11 @@ export default function RepoDetail({
             throw new Error('Wallet not connected.');
           }
 
-          // 먼저 접근 권한 체크
-          const accessResult = await checkRepositoryAccess(
-            repoName,
-            owner,
-            currentWallet
-          );
+          // 권한 체크와 저장소 검색을 병렬로 수행 - 최적화
+          const [accessResult, repos] = await Promise.all([
+            checkRepositoryAccess(repoName, owner, currentWallet),
+            searchRepositories(owner, currentWallet).catch(() => []), // 실패해도 빈 배열 반환
+          ]);
 
           setAccessCheck(accessResult);
           setCheckingAccess(false);
@@ -907,9 +906,6 @@ export default function RepoDetail({
             setLoading(false);
             return;
           }
-
-          // 항상 최신 저장소 정보를 검색
-          const repos = await searchRepositories(owner, currentWallet);
 
           if (repos.length === 0) {
             throw new Error(`Can't find repo from '${owner}'`);

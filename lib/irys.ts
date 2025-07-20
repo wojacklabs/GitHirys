@@ -160,7 +160,7 @@ export async function testIrysConnection(): Promise<boolean> {
   }
 }
 
-// Search all repositories across all owners (for global search)
+// Search all repositories across all owners (for global search) - 최적화된 버전
 export async function searchAllRepositories(
   query: string,
   currentWallet?: string
@@ -170,15 +170,23 @@ export async function searchAllRepositories(
     return [];
   }
 
+  // 캐시 확인
+  const cacheKey = getCacheKey('search-all', {
+    query: query.toLowerCase(),
+    currentWallet,
+  });
+  const cached = getFromCache<Repository[]>(cacheKey);
+  if (cached) return cached;
+
   // Test Irys connection first
   const canConnect = await testIrysConnection();
 
   const endpoint = 'https://uploader.irys.xyz/graphql';
 
   try {
-    // 병렬로 닉네임과 저장소 데이터 로드
+    // 병렬로 닉네임과 저장소 데이터 로드 - 쿼리 크기 최적화
     const [nicknameData, repositoryData] = await Promise.all([
-      // 닉네임 데이터 로드
+      // 닉네임 데이터 로드 - 크기 최적화
       fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -189,7 +197,7 @@ export async function searchAllRepositories(
             query getAllNicknames {
               transactions(
                 tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
-                first: 1000,
+                first: 200,
                 order: DESC
               ) {
                 edges {
@@ -207,7 +215,7 @@ export async function searchAllRepositories(
           `,
         }),
       }),
-      // 저장소 데이터 로드
+      // 저장소 데이터 로드 - 크기 최적화
       fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -218,7 +226,7 @@ export async function searchAllRepositories(
             query getAllRepositories {
               transactions(
                 tags: [{ name: "App-Name", values: ["irys-git"] }],
-                first: 1000,
+                first: 300,
                 order: DESC
               ) {
                 edges {
@@ -451,29 +459,39 @@ export async function searchAllRepositories(
       }
     }
 
-    // Limit results to prevent overwhelming UI
-    return matchingRepositories.slice(0, 50);
+    // Limit results to prevent overwhelming UI and cache the results
+    const limitedResults = matchingRepositories.slice(0, 50);
+
+    // 결과 캐싱 (검색 결과는 1분간 캐싱)
+    setCache(cacheKey, limitedResults, 1 * 60 * 1000);
+
+    return limitedResults;
   } catch (error) {
     return [];
   }
 }
 
-// Search repositories by connected wallet address and group by repository and branch (irys-git 방식)
+// Search repositories by connected wallet address and group by repository and branch (irys-git 방식) - 최적화된 버전
 export async function searchRepositories(
   owner: string,
   currentWallet?: string
 ): Promise<Repository[]> {
+  // 캐시 확인 (소유자별로 캐싱)
+  const cacheKey = getCacheKey('repositories', { owner, currentWallet });
+  const cached = getFromCache<Repository[]>(cacheKey);
+  if (cached) return cached;
+
   // Test Irys connection first
   const canConnect = await testIrysConnection();
 
   const searchStrategy = {
-    name: 'irys-git 태그로 검색',
+    name: 'irys-git 태그로 검색 - 최적화된 버전',
     endpoint: 'https://uploader.irys.xyz/graphql',
     query: `
       query getTagsWithAnd($owners: [String!]!) {
         transactions(
           tags: [{ name: "App-Name", values: ["irys-git"] }, { name: "git-owner", values: $owners }],
-          first: 1000,
+          first: 100,
           order: DESC
         ) {
           edges {
@@ -493,22 +511,85 @@ export async function searchRepositories(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
+    // 병렬로 저장소 데이터와 권한 정보를 가져옴
+    const [repositoryResponse, permissionsPromise] = await Promise.all([
+      fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
       }),
-    });
+      // 권한 정보를 미리 캐싱하기 위한 Promise (오류 무시)
+      Promise.resolve().then(async () => {
+        try {
+          // 가능한 저장소들의 권한을 미리 조회 (최대 20개까지만)
+          const quickRepoQuery = `
+            query getQuickRepos($owners: [String!]!) {
+              transactions(
+                tags: [{ name: "App-Name", values: ["irys-git"] }, { name: "git-owner", values: $owners }],
+                first: 20,
+                order: DESC
+              ) {
+                edges {
+                  node {
+                    tags {
+                      name
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          `;
 
-    if (!response.ok) {
+          const quickResponse = await fetch(searchStrategy.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: quickRepoQuery,
+              variables: searchStrategy.variables,
+            }),
+          });
+
+          if (quickResponse.ok) {
+            const quickResult = await quickResponse.json();
+            const quickTransactions =
+              quickResult.data?.transactions?.edges || [];
+
+            // 저장소 이름들 추출
+            const repoNames = new Set<string>();
+            for (const edge of quickTransactions) {
+              const repositoryTag = edge.node.tags?.find(
+                (tag: any) => tag.name === 'Repository'
+              );
+              if (repositoryTag) {
+                repoNames.add(repositoryTag.value);
+              }
+            }
+
+            // 권한 정보 병렬 로드 (에러 무시)
+            const repoList = Array.from(repoNames).slice(0, 10); // 최대 10개 저장소만
+            return Promise.allSettled(
+              repoList.map(repoName =>
+                getRepositoryPermissions(repoName, owner).catch(() => null)
+              )
+            );
+          }
+        } catch {
+          return null;
+        }
+      }),
+    ]);
+
+    if (!repositoryResponse.ok) {
       return [];
     }
 
-    const result = await response.json();
+    const result = await repositoryResponse.json();
 
     if (result.errors) {
       return [];
@@ -520,15 +601,14 @@ export async function searchRepositories(
       return [];
     }
 
-    // 저장소별로 그룹핑
+    // 저장소별로 그룹핑 - 최적화된 처리
     const repositoryMap = new Map<string, Repository>();
-
-    // 브랜치별 최신 트랜잭션 맵 (irys-git 방식과 동일)
     const branchTransactionMap = new Map<
       string,
       Map<string, BranchTransactionData>
     >();
 
+    // 첫 번째 패스: 트랜잭션 그룹핑
     for (const edge of transactions) {
       const node = edge.node;
 
@@ -562,11 +642,6 @@ export async function searchRepositories(
       const rawTimestamp = timestampTag?.value || node.timestamp;
       const normalizedTimestamp = TimestampUtils.normalize(rawTimestamp);
 
-      // 디버깅을 위한 timestamp 정보 출력 (개발 시에만)
-      if (process.env.NODE_ENV === 'development') {
-        TimestampUtils.debug(rawTimestamp, `${repoName}/${branchName}`);
-      }
-
       const mutableAddress = mutableTag?.value || null;
 
       // 저장소별 브랜치 맵 초기화
@@ -598,12 +673,12 @@ export async function searchRepositories(
           commitMessage: commitMsgTag?.value || '',
           author: authorTag?.value || '',
           tags: node.tags || [],
-          nodeTimestamp: normalizedTimestamp, // 정규화된 timestamp 저장
+          nodeTimestamp: normalizedTimestamp,
         });
       }
     }
 
-    // Repository 객체 생성
+    // 두 번째 패스: Repository 객체 생성
     for (const [repoName, branches] of Array.from(
       branchTransactionMap.entries()
     )) {
@@ -612,7 +687,7 @@ export async function searchRepositories(
           name: branchData.name,
           transactionId: branchData.transactionId,
           mutableAddress: branchData.mutableAddress,
-          timestamp: branchData.nodeTimestamp, // 정규화된 timestamp 사용
+          timestamp: branchData.nodeTimestamp,
           commitHash: branchData.commitHash,
           commitMessage: branchData.commitMessage,
           author: branchData.author,
@@ -648,36 +723,48 @@ export async function searchRepositories(
 
     const repositories = Array.from(repositoryMap.values());
 
-    // 노출 권한 필터링 - private 저장소는 편집 권한이 있는 사용자만 볼 수 있음
-    const filteredRepositories: Repository[] = [];
-
-    // 일괄 권한 조회
-    const permissionsMap = await batchGetRepositoryPermissions(
-      repositories.map(repo => ({ name: repo.name, owner: repo.owner }))
-    );
-
-    for (const repo of repositories) {
-      // 현재 지갑이 소유자인 경우 항상 표시
-      if (repo.owner === currentWallet) {
-        filteredRepositories.push(repo);
-        continue;
-      }
-
-      const key = `${repo.owner}/${repo.name}`;
-      const { permissions, visibility } = permissionsMap.get(key) || {};
-
-      if (!visibility || visibility.visibility === 'public') {
-        // 노출 권한 정보가 없거나 public인 경우 표시
-        filteredRepositories.push(repo);
-      } else if (visibility.visibility === 'private' && currentWallet) {
-        // private인 경우 편집 권한 확인
-        if (permissions && permissions.contributors.includes(currentWallet)) {
-          filteredRepositories.push(repo);
-        }
-      }
+    // 권한 필터링 최적화 - 소유자인 경우 권한 체크 스킵
+    if (owner === currentWallet) {
+      // 소유자는 모든 저장소에 접근 가능하므로 바로 반환
+      setCache(cacheKey, repositories, 5 * 60 * 1000); // 5분 캐싱
+      return repositories;
     }
 
-    return filteredRepositories;
+    // 비소유자인 경우에만 권한 체크 수행 - 병렬 처리
+    const filteredRepositories: Repository[] = [];
+    const permissionChecks = repositories.map(async repo => {
+      try {
+        const visibility = await getRepositoryVisibility(repo.name, repo.owner);
+
+        if (!visibility || visibility.visibility === 'public') {
+          return repo; // public 저장소는 포함
+        } else if (visibility.visibility === 'private' && currentWallet) {
+          const permissions = await getRepositoryPermissions(
+            repo.name,
+            repo.owner
+          );
+          if (permissions && permissions.contributors.includes(currentWallet)) {
+            return repo; // 권한이 있는 private 저장소 포함
+          }
+        }
+        return null; // 접근 불가
+      } catch (error) {
+        return repo; // 오류 발생 시 안전하게 public으로 처리
+      }
+    });
+
+    // 모든 권한 체크를 병렬로 실행
+    const permissionResults = await Promise.all(permissionChecks);
+
+    // null이 아닌 결과만 필터링
+    const finalRepositories = permissionResults.filter(
+      repo => repo !== null
+    ) as Repository[];
+
+    // 결과 캐싱 (더 짧은 시간)
+    setCache(cacheKey, finalRepositories, 2 * 60 * 1000); // 2분 캐싱
+
+    return finalRepositories;
   } catch (error) {
     return [];
   }
@@ -749,7 +836,79 @@ export async function getTransactionById(
   return null;
 }
 
-// Download data from Irys gateway (irys-git 방식: mutable 주소 우선 사용)
+// Resolve mutable address to actual latest transaction ID - 타임아웃 추가
+async function resolveMutableAddress(
+  mutableAddress: string,
+  timeoutMs: number = 3000 // 3초 타임아웃
+): Promise<string | null> {
+  // 캐시 확인 (mutable resolve는 짧은 시간만 캐싱)
+  const cacheKey = getCacheKey('mutable-resolve', { mutableAddress });
+  const cached = getFromCache<string>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // 타임아웃 프로미스 생성
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Resolve timeout')), timeoutMs);
+    });
+
+    // mutable 주소에 HEAD 요청을 보내서 리다이렉트된 실제 URL 확인
+    const response = await Promise.race([
+      fetch(`https://gateway.irys.xyz/mutable/${mutableAddress}`, {
+        method: 'HEAD', // 데이터는 다운로드하지 않고 헤더만 확인
+        redirect: 'manual', // 리다이렉트를 수동으로 처리
+      }),
+      timeoutPromise,
+    ]);
+
+    // 리다이렉트된 경우 실제 트랜잭션 ID 추출
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (location) {
+        // https://gateway.irys.xyz/TRANSACTION_ID 형태에서 트랜잭션 ID 추출
+        const match = location.match(/\/([a-zA-Z0-9_-]{43})(?:\?|$)/);
+        if (match && match[1]) {
+          const resolvedTxId = match[1];
+          // 해결된 트랜잭션 ID를 짧은 시간 캐싱 (1분)
+          setCache(cacheKey, resolvedTxId, 1 * 60 * 1000);
+          return resolvedTxId;
+        }
+      }
+    }
+
+    // 리다이렉트가 없거나 파싱 실패한 경우, 한 번만 더 시도 (타임아웃 적용)
+    const directResponse = await Promise.race([
+      fetch(`https://gateway.irys.xyz/mutable/${mutableAddress}`, {
+        method: 'HEAD',
+        redirect: 'follow', // 이번엔 리다이렉트 따라가기
+      }),
+      timeoutPromise,
+    ]);
+
+    if (directResponse.ok) {
+      // 최종 URL에서 트랜잭션 ID 추출 시도
+      const finalUrl = directResponse.url;
+      const match = finalUrl.match(/\/([a-zA-Z0-9_-]{43})(?:\?|$)/);
+      if (match && match[1]) {
+        const resolvedTxId = match[1];
+        setCache(cacheKey, resolvedTxId, 1 * 60 * 1000);
+        return resolvedTxId;
+      }
+    }
+  } catch (error) {
+    // resolve 실패시 null 반환 (타임아웃 포함)
+    if (error instanceof Error && error.message !== 'Resolve timeout') {
+      console.log(
+        `Failed to resolve mutable address ${mutableAddress}:`,
+        error
+      );
+    }
+  }
+
+  return null;
+}
+
+// Download data from Irys gateway (개선된 mutable 주소 처리)
 export async function downloadData(
   transactionId: string,
   mutableAddress?: string | null,
@@ -767,11 +926,41 @@ export async function downloadData(
   // 캐시 방지를 위한 쿼리 파라미터 추가
   const cacheBypass = forceRefresh ? `?t=${Date.now()}` : '';
 
-  // mutable 주소 우선 시도, 실패 시 기본 트랜잭션 ID로 fallback
+  let resolvedTxId = transactionId;
+
+  // mutable 주소가 있으면 먼저 실제 트랜잭션 ID로 resolve 시도
+  if (mutableAddress && !forceRefresh) {
+    const resolved = await resolveMutableAddress(mutableAddress);
+    if (resolved) {
+      resolvedTxId = resolved;
+      // resolve된 트랜잭션 ID로 직접 접근 시도
+      try {
+        const response = await fetch(
+          `https://gateway.irys.xyz/${resolvedTxId}${cacheBypass}`
+        );
+        if (response.ok) {
+          const data = await response.arrayBuffer();
+          // resolve된 데이터는 캐싱 가능 (immutable)
+          if (data.byteLength < 10 * 1024 * 1024) {
+            // 10MB 이하
+            setCache(cacheKey, data);
+          }
+          return data;
+        }
+      } catch (error) {
+        // resolve된 주소 실패시 fallback으로 mutable 주소 사용
+        console.log(
+          `Resolved transaction ${resolvedTxId} failed, falling back to mutable`
+        );
+      }
+    }
+  }
+
+  // mutable 주소와 기본 트랜잭션 ID로 fallback
   const gateways = [];
 
   if (mutableAddress) {
-    // mutable 주소 우선 시도
+    // mutable 주소 시도 (resolve 실패했거나 forceRefresh인 경우)
     gateways.push(
       `https://gateway.irys.xyz/mutable/${mutableAddress}${cacheBypass}`
     );
@@ -915,7 +1104,7 @@ export async function checkNicknameAvailability(
   }
 }
 
-// 지갑 주소로 프로필 정보 조회
+// 지갑 주소로 프로필 정보 조회 - 최적화된 mutable resolve
 export async function getProfileByAddress(
   address: string
 ): Promise<UserProfile | null> {
@@ -980,22 +1169,45 @@ export async function getProfileByAddress(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
+    // 빠른 로딩을 위한 mutable resolve 최적화
+    let profileImageUrl: string | undefined;
+    let resolvedTxId: string | undefined;
+
+    if (rootTxId) {
+      // 캐시에서 resolve된 결과 확인 (즉시 반환)
+      const resolveCacheKey = getCacheKey('mutable-resolve', {
+        mutableAddress: rootTxId,
+      });
+      const cachedResolve = getFromCache<string>(resolveCacheKey);
+
+      if (cachedResolve) {
+        // 캐시된 resolve 결과 사용
+        profileImageUrl = `https://gateway.irys.xyz/${cachedResolve}`;
+        resolvedTxId = cachedResolve;
+      } else {
+        // 캐시에 없으면 mutable 주소 사용하고 백그라운드에서 resolve
+        profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
+        resolvedTxId = rootTxId;
+
+        // 백그라운드에서 resolve 시도 (결과 기다리지 않음)
+        resolveMutableAddress(rootTxId, 2000).catch(() => {});
+      }
+    }
+
     const profile: UserProfile = {
       nickname,
       twitterHandle,
       accountAddress,
-      profileImageUrl: rootTxId
-        ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-        : undefined,
-      rootTxId,
+      profileImageUrl,
+      rootTxId: resolvedTxId || rootTxId,
       mutableAddress: rootTxId
         ? `https://gateway.irys.xyz/mutable/${rootTxId}`
         : undefined,
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
-    // 캐시에 저장
-    setCache(cacheKey, profile);
+    // 캐시에 저장 (프로필은 더 오래 캐싱)
+    setCache(cacheKey, profile, 10 * 60 * 1000); // 10분
 
     return profile;
   } catch (error) {
@@ -1003,7 +1215,7 @@ export async function getProfileByAddress(
   }
 }
 
-// 닉네임으로 프로필 정보 조회
+// 닉네임으로 프로필 정보 조회 - 최적화된 mutable resolve
 export async function getProfileByNickname(
   nickname: string
 ): Promise<UserProfile | null> {
@@ -1066,22 +1278,45 @@ export async function getProfileByNickname(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
+    // 빠른 로딩을 위한 mutable resolve 최적화
+    let profileImageUrl: string | undefined;
+    let resolvedTxId: string | undefined;
+
+    if (rootTxId) {
+      // 캐시에서 resolve된 결과 확인 (즉시 반환)
+      const resolveCacheKey = getCacheKey('mutable-resolve', {
+        mutableAddress: rootTxId,
+      });
+      const cachedResolve = getFromCache<string>(resolveCacheKey);
+
+      if (cachedResolve) {
+        // 캐시된 resolve 결과 사용
+        profileImageUrl = `https://gateway.irys.xyz/${cachedResolve}`;
+        resolvedTxId = cachedResolve;
+      } else {
+        // 캐시에 없으면 mutable 주소 사용하고 백그라운드에서 resolve
+        profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
+        resolvedTxId = rootTxId;
+
+        // 백그라운드에서 resolve 시도 (결과 기다리지 않음)
+        resolveMutableAddress(rootTxId, 2000).catch(() => {});
+      }
+    }
+
     const profile: UserProfile = {
       nickname,
       twitterHandle,
       accountAddress,
-      profileImageUrl: rootTxId
-        ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-        : undefined,
-      rootTxId,
+      profileImageUrl,
+      rootTxId: resolvedTxId || rootTxId,
       mutableAddress: rootTxId
         ? `https://gateway.irys.xyz/mutable/${rootTxId}`
         : undefined,
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
-    // 캐시에 저장
-    setCache(cacheKey, profile);
+    // 캐시에 저장 (프로필은 더 오래 캐싱)
+    setCache(cacheKey, profile, 10 * 60 * 1000); // 10분
 
     return profile;
   } catch (error) {
@@ -1638,14 +1873,31 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
             );
 
             if (nicknameTag && accountTag) {
+              const rootTxId = rootTxTag?.value || node.id;
+
+              // 빠른 검색을 위한 mutable resolve 최적화 (캐시만 사용)
+              let profileImageUrl: string | undefined;
+              if (rootTxId) {
+                const resolveCacheKey = getCacheKey('mutable-resolve', {
+                  mutableAddress: rootTxId,
+                });
+                const cachedResolve = getFromCache<string>(resolveCacheKey);
+
+                if (cachedResolve) {
+                  // 캐시된 결과만 사용
+                  profileImageUrl = `https://gateway.irys.xyz/${cachedResolve}`;
+                } else {
+                  // 캐시에 없으면 mutable 주소 사용 (검색 속도를 위해 resolve하지 않음)
+                  profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
+                }
+              }
+
               const profile: UserProfile = {
                 nickname: nicknameTag.value,
                 accountAddress: accountTag.value,
                 twitterHandle: twitterTag?.value || '',
-                profileImageUrl: rootTxTag?.value
-                  ? `https://gateway.irys.xyz/mutable/${rootTxTag.value}`
-                  : undefined,
-                rootTxId: rootTxTag?.value || node.id,
+                profileImageUrl,
+                rootTxId,
                 timestamp: node.timestamp,
               };
 
@@ -2400,13 +2652,31 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
       // Only keep the latest profile for each user
       const existingUser = userMap.get(accountAddress);
       if (!existingUser || normalizedTimestamp > existingUser.timestamp) {
+        // 빠른 로딩을 위해 캐시에서 resolve된 주소 확인
+        let profileImageUrl: string | undefined;
+        if (rootTxId) {
+          const cacheKey = getCacheKey('mutable-resolve', {
+            mutableAddress: rootTxId,
+          });
+          const resolvedTxId = getFromCache<string>(cacheKey);
+
+          if (resolvedTxId) {
+            // 캐시된 resolve 결과 사용
+            profileImageUrl = `https://gateway.irys.xyz/${resolvedTxId}`;
+          } else {
+            // 캐시에 없으면 mutable 주소 사용하고 백그라운드에서 resolve 시도
+            profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
+
+            // 백그라운드에서 resolve 시도 (결과는 무시하고 캐시만 업데이트)
+            resolveMutableAddress(rootTxId).catch(() => {});
+          }
+        }
+
         userMap.set(accountAddress, {
           nickname,
           twitterHandle,
           accountAddress,
-          profileImageUrl: rootTxId
-            ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-            : undefined,
+          profileImageUrl,
           timestamp: normalizedTimestamp,
         });
       }
@@ -3326,8 +3596,8 @@ export async function getCommentVisibility(
 }
 
 // 캐시 스토리지
-const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5분
+const cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5분
 
 // 캐시 헬퍼 함수
 function getCacheKey(type: string, params: any): string {
@@ -3336,15 +3606,21 @@ function getCacheKey(type: string, params: any): string {
 
 function getFromCache<T>(key: string): T | null {
   const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < cached.ttl) {
     return cached.data as T;
   }
-  cache.delete(key);
+  if (cached) {
+    cache.delete(key);
+  }
   return null;
 }
 
-function setCache(key: string, data: any): void {
-  cache.set(key, { data, timestamp: Date.now() });
+function setCache(
+  key: string,
+  data: any,
+  ttl: number = DEFAULT_CACHE_TTL
+): void {
+  cache.set(key, { data, timestamp: Date.now(), ttl });
 }
 
 // 캐시 정리 함수
@@ -3353,7 +3629,7 @@ export function clearExpiredCache(): void {
   const keysToDelete: string[] = [];
 
   cache.forEach((value, key) => {
-    if (now - value.timestamp > CACHE_TTL) {
+    if (now - value.timestamp > value.ttl) {
       keysToDelete.push(key);
     }
   });
@@ -3631,3 +3907,135 @@ export async function checkRepositoryAccess(
     return { canAccess: false, reason: 'Error checking repository access.' };
   }
 }
+
+// mutable 주소 최적화를 위한 헬퍼 함수들
+export const MutableOptimizationUtils = {
+  // mutable 주소 resolve 상태 확인
+  getMutableResolveStats: (): {
+    cacheHits: number;
+    total: number;
+    hitRate: string;
+  } => {
+    let cacheHits = 0;
+    let total = 0;
+
+    cache.forEach((value, key) => {
+      if (key.startsWith('mutable-resolve:')) {
+        total++;
+        if (value.data) {
+          cacheHits++;
+        }
+      }
+    });
+
+    const hitRate = total > 0 ? ((cacheHits / total) * 100).toFixed(1) : '0.0';
+
+    return {
+      cacheHits,
+      total,
+      hitRate: `${hitRate}%`,
+    };
+  },
+
+  // mutable 주소들을 미리 resolve하여 캐시에 저장 (최적화용)
+  preResolveMutableAddresses: async (
+    mutableAddresses: string[]
+  ): Promise<void> => {
+    const unresolvedAddresses = mutableAddresses.filter(addr => {
+      const cacheKey = getCacheKey('mutable-resolve', { mutableAddress: addr });
+      return !getFromCache<string>(cacheKey);
+    });
+
+    if (unresolvedAddresses.length > 0) {
+      console.log(
+        `Pre-resolving ${unresolvedAddresses.length} mutable addresses...`
+      );
+
+      // 병렬로 resolve (최대 5개씩 처리)
+      const batchSize = 5;
+      for (let i = 0; i < unresolvedAddresses.length; i += batchSize) {
+        const batch = unresolvedAddresses.slice(i, i + batchSize);
+        await Promise.allSettled(
+          batch.map(addr => resolveMutableAddress(addr))
+        );
+      }
+
+      console.log(`Mutable address pre-resolution completed.`);
+    }
+  },
+
+  // mutable 관련 캐시 정리
+  clearMutableCache: (): void => {
+    const keysToDelete: string[] = [];
+    cache.forEach((_, key) => {
+      if (key.startsWith('mutable-resolve:') || key.startsWith('download:')) {
+        keysToDelete.push(key);
+      }
+    });
+    keysToDelete.forEach(key => cache.delete(key));
+    console.log(
+      `Cleared ${keysToDelete.length} mutable-related cache entries.`
+    );
+  },
+};
+
+// 성능 모니터링을 위한 디버깅 함수
+export function logMutableOptimizationStats(): void {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost'
+  ) {
+    const stats = MutableOptimizationUtils.getMutableResolveStats();
+    console.log('🚀 Mutable Address Optimization Stats:', {
+      'Cache Hits': stats.cacheHits,
+      'Total Resolves': stats.total,
+      'Hit Rate': stats.hitRate,
+      Optimization: stats.cacheHits > 0 ? 'Active' : 'Not Active',
+    });
+  }
+}
+
+// 로딩 성능 측정을 위한 유틸리티
+export const PerformanceUtils = {
+  // 함수 실행 시간 측정
+  measureTime: async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
+    const start = performance.now();
+    try {
+      const result = await fn();
+      const end = performance.now();
+      const duration = Math.round(end - start);
+
+      if (
+        typeof window !== 'undefined' &&
+        window.location.hostname === 'localhost'
+      ) {
+        console.log(`⏱️ ${label}: ${duration}ms`);
+      }
+
+      return result;
+    } catch (error) {
+      const end = performance.now();
+      const duration = Math.round(end - start);
+
+      if (
+        typeof window !== 'undefined' &&
+        window.location.hostname === 'localhost'
+      ) {
+        console.log(`❌ ${label}: ${duration}ms (failed)`);
+      }
+
+      throw error;
+    }
+  },
+
+  // 로딩 단계별 성능 로그
+  logLoadingStep: (step: string, startTime: number): void => {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'localhost'
+    ) {
+      const duration = Math.round(performance.now() - startTime);
+      console.log(`📊 Loading Step - ${step}: ${duration}ms`);
+    }
+  },
+};
