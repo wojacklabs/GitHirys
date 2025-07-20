@@ -258,8 +258,21 @@ const UserPage: NextPage<UserPageProps> = ({
             {userProfile?.profileImageUrl && (
               <img
                 src={userProfile.profileImageUrl}
-                alt={`${userProfile.nickname}'s profile'`}
+                alt={`${userProfile.nickname}'s profile`}
                 className={styles.profileImage}
+                onError={e => {
+                  // 404 에러 시 이미지 숨기기
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  console.warn(
+                    `Profile image failed to load: ${userProfile.profileImageUrl}`
+                  );
+                }}
+                onLoad={() => {
+                  console.log(
+                    `Profile image loaded: ${userProfile.profileImageUrl}`
+                  );
+                }}
               />
             )}
             <div>

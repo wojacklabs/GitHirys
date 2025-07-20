@@ -9,6 +9,7 @@ import {
   searchAllRepositories,
   getProfileByNickname,
   ProfileUtils,
+  URLUtils,
 } from '../lib/irys';
 import styles from './Header.module.css';
 
@@ -242,14 +243,18 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
                 );
 
                 if (nicknameTag && accountTag) {
+                  const rootTxId = rootTxTag?.value || node.id;
+
+                  // 안전한 프로필 이미지 URL 생성 (URLUtils 사용)
+                  const profileImageUrl =
+                    URLUtils.createSafeProfileImageUrl(rootTxId);
+
                   const profile = {
                     nickname: nicknameTag.value,
                     accountAddress: accountTag.value,
                     twitterHandle: twitterTag?.value || '',
-                    profileImageUrl: rootTxTag?.value
-                      ? `https://gateway.irys.xyz/mutable/${rootTxTag.value}`
-                      : undefined,
-                    rootTxId: rootTxTag?.value || node.id,
+                    profileImageUrl,
+                    rootTxId,
                     timestamp: node.timestamp,
                   };
 

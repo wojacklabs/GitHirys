@@ -1104,7 +1104,7 @@ export async function checkNicknameAvailability(
   }
 }
 
-// 지갑 주소로 프로필 정보 조회 - 최적화된 mutable resolve
+// 지갑 주소로 프로필 정보 조회 - 안전한 URL 생성
 export async function getProfileByAddress(
   address: string
 ): Promise<UserProfile | null> {
@@ -1169,27 +1169,26 @@ export async function getProfileByAddress(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
-    // 빠른 로딩을 위한 mutable resolve 최적화
+    // 안전한 프로필 이미지 URL 생성
     let profileImageUrl: string | undefined;
     let resolvedTxId: string | undefined;
 
     if (rootTxId) {
-      // 캐시에서 resolve된 결과 확인 (즉시 반환)
+      // 캐시에서 resolve된 결과 확인
       const resolveCacheKey = getCacheKey('mutable-resolve', {
         mutableAddress: rootTxId,
       });
       const cachedResolve = getFromCache<string>(resolveCacheKey);
 
-      if (cachedResolve) {
-        // 캐시된 resolve 결과 사용
-        profileImageUrl = `https://gateway.irys.xyz/${cachedResolve}`;
-        resolvedTxId = cachedResolve;
-      } else {
-        // 캐시에 없으면 mutable 주소 사용하고 백그라운드에서 resolve
-        profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
-        resolvedTxId = rootTxId;
+      // 안전한 URL 생성 (유효성 검증 포함)
+      profileImageUrl = URLUtils.createSafeProfileImageUrl(
+        rootTxId,
+        cachedResolve || undefined
+      );
+      resolvedTxId = cachedResolve || rootTxId;
 
-        // 백그라운드에서 resolve 시도 (결과 기다리지 않음)
+      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve
+      if (!cachedResolve && URLUtils.isValidTransactionId(rootTxId)) {
         resolveMutableAddress(rootTxId, 2000).catch(() => {});
       }
     }
@@ -1200,9 +1199,10 @@ export async function getProfileByAddress(
       accountAddress,
       profileImageUrl,
       rootTxId: resolvedTxId || rootTxId,
-      mutableAddress: rootTxId
-        ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-        : undefined,
+      mutableAddress:
+        rootTxId && URLUtils.isValidTransactionId(rootTxId)
+          ? `https://gateway.irys.xyz/mutable/${rootTxId}`
+          : undefined,
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
@@ -1278,27 +1278,26 @@ export async function getProfileByNickname(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
-    // 빠른 로딩을 위한 mutable resolve 최적화
+    // 안전한 프로필 이미지 URL 생성
     let profileImageUrl: string | undefined;
     let resolvedTxId: string | undefined;
 
     if (rootTxId) {
-      // 캐시에서 resolve된 결과 확인 (즉시 반환)
+      // 캐시에서 resolve된 결과 확인
       const resolveCacheKey = getCacheKey('mutable-resolve', {
         mutableAddress: rootTxId,
       });
       const cachedResolve = getFromCache<string>(resolveCacheKey);
 
-      if (cachedResolve) {
-        // 캐시된 resolve 결과 사용
-        profileImageUrl = `https://gateway.irys.xyz/${cachedResolve}`;
-        resolvedTxId = cachedResolve;
-      } else {
-        // 캐시에 없으면 mutable 주소 사용하고 백그라운드에서 resolve
-        profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
-        resolvedTxId = rootTxId;
+      // 안전한 URL 생성 (유효성 검증 포함)
+      profileImageUrl = URLUtils.createSafeProfileImageUrl(
+        rootTxId,
+        cachedResolve || undefined
+      );
+      resolvedTxId = cachedResolve || rootTxId;
 
-        // 백그라운드에서 resolve 시도 (결과 기다리지 않음)
+      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve
+      if (!cachedResolve && URLUtils.isValidTransactionId(rootTxId)) {
         resolveMutableAddress(rootTxId, 2000).catch(() => {});
       }
     }
@@ -1309,9 +1308,10 @@ export async function getProfileByNickname(
       accountAddress,
       profileImageUrl,
       rootTxId: resolvedTxId || rootTxId,
-      mutableAddress: rootTxId
-        ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-        : undefined,
+      mutableAddress:
+        rootTxId && URLUtils.isValidTransactionId(rootTxId)
+          ? `https://gateway.irys.xyz/mutable/${rootTxId}`
+          : undefined,
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
@@ -1875,7 +1875,7 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
             if (nicknameTag && accountTag) {
               const rootTxId = rootTxTag?.value || node.id;
 
-              // 빠른 검색을 위한 mutable resolve 최적화 (캐시만 사용)
+              // 빠른 검색을 위한 안전한 프로필 이미지 URL 생성 (캐시만 사용)
               let profileImageUrl: string | undefined;
               if (rootTxId) {
                 const resolveCacheKey = getCacheKey('mutable-resolve', {
@@ -1883,13 +1883,11 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
                 });
                 const cachedResolve = getFromCache<string>(resolveCacheKey);
 
-                if (cachedResolve) {
-                  // 캐시된 결과만 사용
-                  profileImageUrl = `https://gateway.irys.xyz/${cachedResolve}`;
-                } else {
-                  // 캐시에 없으면 mutable 주소 사용 (검색 속도를 위해 resolve하지 않음)
-                  profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
-                }
+                // 안전한 URL 생성 (유효성 검증 포함)
+                profileImageUrl = URLUtils.createSafeProfileImageUrl(
+                  rootTxId,
+                  cachedResolve || undefined
+                );
               }
 
               const profile: UserProfile = {
@@ -2652,7 +2650,7 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
       // Only keep the latest profile for each user
       const existingUser = userMap.get(accountAddress);
       if (!existingUser || normalizedTimestamp > existingUser.timestamp) {
-        // 빠른 로딩을 위해 캐시에서 resolve된 주소 확인
+        // 안전한 프로필 이미지 URL 생성
         let profileImageUrl: string | undefined;
         if (rootTxId) {
           const cacheKey = getCacheKey('mutable-resolve', {
@@ -2660,14 +2658,14 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
           });
           const resolvedTxId = getFromCache<string>(cacheKey);
 
-          if (resolvedTxId) {
-            // 캐시된 resolve 결과 사용
-            profileImageUrl = `https://gateway.irys.xyz/${resolvedTxId}`;
-          } else {
-            // 캐시에 없으면 mutable 주소 사용하고 백그라운드에서 resolve 시도
-            profileImageUrl = `https://gateway.irys.xyz/mutable/${rootTxId}`;
+          // 안전한 URL 생성 (유효성 검증 포함)
+          profileImageUrl = URLUtils.createSafeProfileImageUrl(
+            rootTxId,
+            resolvedTxId || undefined
+          );
 
-            // 백그라운드에서 resolve 시도 (결과는 무시하고 캐시만 업데이트)
+          // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve
+          if (!resolvedTxId && URLUtils.isValidTransactionId(rootTxId)) {
             resolveMutableAddress(rootTxId).catch(() => {});
           }
         }
@@ -3994,6 +3992,85 @@ export function logMutableOptimizationStats(): void {
     });
   }
 }
+
+// URL 검증 상태 디버깅 함수
+export function debugProfileImageUrls(): void {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost'
+  ) {
+    const images = document.querySelectorAll('img');
+    let validUrls = 0;
+    let invalidUrls = 0;
+    const invalidUrlList: string[] = [];
+
+    images.forEach(img => {
+      const src = img.src;
+      if (src && src.includes('gateway.irys.xyz')) {
+        if (URLUtils.isValidUrl(src)) {
+          validUrls++;
+        } else {
+          invalidUrls++;
+          invalidUrlList.push(src);
+        }
+      }
+    });
+
+    console.log('🖼️ Profile Image URL Debug:', {
+      'Valid URLs': validUrls,
+      'Invalid URLs': invalidUrls,
+      'Invalid List': invalidUrlList.length > 0 ? invalidUrlList : 'None',
+    });
+
+    if (invalidUrlList.length > 0) {
+      console.warn('❌ Invalid URLs found:', invalidUrlList);
+    }
+  }
+}
+
+// URL 검증 및 안전 처리 유틸리티
+export const URLUtils = {
+  // 트랜잭션 ID 유효성 검증
+  isValidTransactionId: (txId: string): boolean => {
+    if (!txId || typeof txId !== 'string') return false;
+    // Solana/Arweave 트랜잭션 ID는 일반적으로 43-44자의 Base58
+    return (
+      txId.length >= 32 && txId.length <= 50 && /^[a-zA-Z0-9_-]+$/.test(txId)
+    );
+  },
+
+  // 안전한 프로필 이미지 URL 생성
+  createSafeProfileImageUrl: (
+    rootTxId: string | undefined,
+    resolvedTxId?: string
+  ): string | undefined => {
+    if (!rootTxId) return undefined;
+
+    if (!URLUtils.isValidTransactionId(rootTxId)) {
+      console.warn(`Invalid transaction ID for profile image: ${rootTxId}`);
+      return undefined;
+    }
+
+    if (resolvedTxId && URLUtils.isValidTransactionId(resolvedTxId)) {
+      return `https://gateway.irys.xyz/${resolvedTxId}`;
+    }
+
+    return `https://gateway.irys.xyz/mutable/${rootTxId}`;
+  },
+
+  // URL 유효성 검증
+  isValidUrl: (url: string | undefined): boolean => {
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      return (
+        parsed.protocol === 'https:' && parsed.hostname === 'gateway.irys.xyz'
+      );
+    } catch {
+      return false;
+    }
+  },
+};
 
 // 로딩 성능 측정을 위한 유틸리티
 export const PerformanceUtils = {
