@@ -4152,25 +4152,6 @@ export async function testMutableResolve(
   }
 }
 
-// 개발 환경에서 전역 디버깅 함수 등록
-if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-  (window as any).debugMutableResolve = {
-    checkImages: debugProfileImageUrls,
-    checkStatus: debugMutableResolveStatus,
-    testResolve: testMutableResolve,
-    perfStats: PerformanceUtils.measure,
-  };
-
-  console.log('🔧 Mutable resolve debug tools available:');
-  console.log('  debugMutableResolve.checkImages() - Check all image URLs');
-  console.log(
-    '  debugMutableResolve.checkStatus() - Check resolve cache status'
-  );
-  console.log(
-    '  debugMutableResolve.testResolve(txId) - Test specific mutable address'
-  );
-}
-
 // URL 검증 및 안전 처리 유틸리티
 export const URLUtils = {
   // 트랜잭션 ID 유효성 검증
@@ -4259,3 +4240,25 @@ export const PerformanceUtils = {
     }
   },
 };
+
+// 개발 환경에서 전역 디버깅 함수 등록 (PerformanceUtils 선언 이후)
+if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  (window as any).debugMutableResolve = {
+    checkImages: debugProfileImageUrls,
+    checkStatus: debugMutableResolveStatus,
+    testResolve: testMutableResolve,
+    measureTime: PerformanceUtils.measureTime,
+  };
+
+  console.log('🔧 Mutable resolve debug tools available:');
+  console.log('  debugMutableResolve.checkImages() - Check all image URLs');
+  console.log(
+    '  debugMutableResolve.checkStatus() - Check resolve cache status'
+  );
+  console.log(
+    '  debugMutableResolve.testResolve(txId) - Test specific mutable address'
+  );
+  console.log(
+    '  debugMutableResolve.measureTime(label, fn) - Measure function performance'
+  );
+}
