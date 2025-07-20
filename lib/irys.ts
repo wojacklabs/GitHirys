@@ -3580,3 +3580,54 @@ export async function batchGetRepositoryPermissions(
 
   return resultMap;
 }
+
+// 저장소 접근 권한 체크 함수
+export async function checkRepositoryAccess(
+  repository: string,
+  owner: string,
+  currentWallet?: string
+): Promise<{ canAccess: boolean; reason?: string }> {
+  try {
+    // 소유자는 항상 접근 가능
+    if (currentWallet && currentWallet === owner) {
+      return { canAccess: true };
+    }
+
+    // 저장소 가시성 확인
+    const visibility = await getRepositoryVisibility(repository, owner);
+
+    // 가시성 정보가 없거나 public인 경우 접근 허용
+    if (!visibility || visibility.visibility === 'public') {
+      return { canAccess: true };
+    }
+
+    // private 저장소인 경우
+    if (visibility.visibility === 'private') {
+      // 지갑이 연결되지 않은 경우 접근 거부
+      if (!currentWallet) {
+        return {
+          canAccess: false,
+          reason:
+            'Please connect your wallet to access this private repository.',
+        };
+      }
+
+      // 편집 권한 확인
+      const permissions = await getRepositoryPermissions(repository, owner);
+      if (permissions && permissions.contributors.includes(currentWallet)) {
+        return { canAccess: true };
+      }
+
+      return {
+        canAccess: false,
+        reason: 'You do not have permission to access this private repository.',
+      };
+    }
+
+    return { canAccess: true };
+  } catch (error) {
+    console.error('Error checking repository access:', error);
+    // 오류 발생 시 안전을 위해 접근 거부
+    return { canAccess: false, reason: 'Error checking repository access.' };
+  }
+}

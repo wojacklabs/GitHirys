@@ -57,7 +57,10 @@ const Home: NextPage = () => {
         // Load repositories for each user in parallel
         const repositoryPromises = recentUsers.map(async user => {
           try {
-            const repos = await searchRepositories(user.accountAddress);
+            const repos = await searchRepositories(
+              user.accountAddress,
+              wallet.connected ? wallet.publicKey?.toBase58() : undefined
+            );
             return { userAddress: user.accountAddress, repositories: repos };
           } catch (error) {
             console.error(

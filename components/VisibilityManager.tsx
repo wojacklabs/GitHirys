@@ -28,6 +28,9 @@ export default function VisibilityManager({
   // 현재 지갑이 소유자인지 확인
   const isOwner = currentWallet === owner;
 
+  // 현재 가시성 상태 (기본값은 'public')
+  const currentVisibility = visibility?.visibility || 'public';
+
   // 노출 권한 정보 로드
   useEffect(() => {
     const loadVisibility = async () => {
@@ -38,22 +41,44 @@ export default function VisibilityManager({
           repositoryName,
           owner
         );
-        setVisibility(visibilityInfo);
+
+        console.log('Visibility loaded:', visibilityInfo);
+
+        // null인 경우 기본값 설정
+        if (!visibilityInfo) {
+          setVisibility({
+            repository: repositoryName,
+            owner,
+            visibility: 'public',
+            timestamp: Date.now(),
+          });
+        } else {
+          setVisibility(visibilityInfo);
+        }
       } catch (err) {
         console.error('노출 권한 정보 로드 오류:', err);
+        // 오류 발생 시 기본값 설정
+        setVisibility({
+          repository: repositoryName,
+          owner,
+          visibility: 'public',
+          timestamp: Date.now(),
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadVisibility();
+    if (repositoryName && owner) {
+      loadVisibility();
+    }
   }, [repositoryName, owner]);
 
   // 노출 권한 업데이트
   const handleVisibilityUpdate = async (
     newVisibility: 'public' | 'private'
   ) => {
-    if (!isOwner || !uploader) return;
+    if (!isOwner || !uploader || currentVisibility === newVisibility) return;
 
     try {
       setIsUpdating(true);
@@ -66,14 +91,37 @@ export default function VisibilityManager({
       });
 
       if (result.success) {
-        // 노출 권한 정보 새로고침
+        console.log('Visibility updated successfully:', newVisibility);
+
+        // 즉시 UI 상태 업데이트
+        setVisibility(prev => ({
+          repository: repositoryName,
+          owner,
+          visibility: newVisibility,
+          rootTxId: result.txId,
+          timestamp: Date.now(),
+        }));
+
+        // 백그라운드에서 서버 데이터 새로고침
         setTimeout(async () => {
-          const updatedVisibility = await getRepositoryVisibility(
-            repositoryName,
-            owner
-          );
-          setVisibility(updatedVisibility);
-        }, 1000);
+          try {
+            const updatedVisibility = await getRepositoryVisibility(
+              repositoryName,
+              owner
+            );
+            if (updatedVisibility) {
+              console.log(
+                'Visibility refreshed from server:',
+                updatedVisibility
+              );
+              setVisibility(updatedVisibility);
+            }
+          } catch (err) {
+            console.error('백그라운드 새로고침 오류:', err);
+          }
+        }, 3000); // 3초 후 새로고침
+      } else {
+        console.error('Visibility update failed:', result.error);
       }
     } catch (err) {
       console.error('노출 권한 업데이트 오류:', err);
@@ -102,8 +150,13 @@ export default function VisibilityManager({
           onClick={() => handleVisibilityUpdate('public')}
           disabled={isUpdating}
           className={`${styles.toggleButton} ${
-            visibility?.visibility === 'public' ? styles.active : ''
+            currentVisibility === 'public' ? styles.active : ''
           }`}
+          title={
+            isUpdating
+              ? 'Updating...'
+              : `Set repository to ${currentVisibility === 'public' ? 'public (current)' : 'public'}`
+          }
         >
           Public
         </button>
@@ -111,12 +164,20 @@ export default function VisibilityManager({
           onClick={() => handleVisibilityUpdate('private')}
           disabled={isUpdating}
           className={`${styles.toggleButton} ${
-            visibility?.visibility === 'private' ? styles.active : ''
+            currentVisibility === 'private' ? styles.active : ''
           }`}
+          title={
+            isUpdating
+              ? 'Updating...'
+              : `Set repository to ${currentVisibility === 'private' ? 'private (current)' : 'private'}`
+          }
         >
           Private
         </button>
       </div>
+      {isUpdating && (
+        <div className={styles.updatingIndicator}>Updating...</div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ import {
   updateIssueComment,
   updateIssueVisibility,
   updateCommentVisibility,
+  checkRepositoryAccess,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -541,6 +542,13 @@ export default function RepoDetail({
     useState<RepositoryDescription | null>(null);
   const [showRepoShareCard, setShowRepoShareCard] = useState(false);
 
+  // Access control states
+  const [accessCheck, setAccessCheck] = useState<{
+    canAccess: boolean;
+    reason?: string;
+  } | null>(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
+
   // Issue-related states
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loadingIssues, setLoadingIssues] = useState(false);
@@ -871,6 +879,7 @@ export default function RepoDetail({
       try {
         setLoading(true);
         setError(null);
+        setCheckingAccess(true);
 
         let transactionId: string;
         let mutableAddress: string | null = null;
@@ -881,6 +890,22 @@ export default function RepoDetail({
         if (!repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
           if (!owner) {
             throw new Error('Wallet not connected.');
+          }
+
+          // 먼저 접근 권한 체크
+          const accessResult = await checkRepositoryAccess(
+            repoName,
+            owner,
+            currentWallet
+          );
+
+          setAccessCheck(accessResult);
+          setCheckingAccess(false);
+
+          // 접근 권한이 없으면 여기서 중단
+          if (!accessResult.canAccess) {
+            setLoading(false);
+            return;
           }
 
           // 항상 최신 저장소 정보를 검색
@@ -921,6 +946,28 @@ export default function RepoDetail({
         }
         // 직접 트랜잭션 ID로 접근하는 경우
         else {
+          // 직접 접근은 허용하지만 owner 정보가 있다면 권한 체크
+          if (owner) {
+            const accessResult = await checkRepositoryAccess(
+              repoName,
+              owner,
+              currentWallet
+            );
+
+            setAccessCheck(accessResult);
+            setCheckingAccess(false);
+
+            // 접근 권한이 없으면 여기서 중단
+            if (!accessResult.canAccess) {
+              setLoading(false);
+              return;
+            }
+          } else {
+            // owner 정보가 없으면 접근 허용 (하위 호환성)
+            setAccessCheck({ canAccess: true });
+            setCheckingAccess(false);
+          }
+
           transactionId = repoName;
         }
 
@@ -1687,6 +1734,38 @@ export default function RepoDetail({
   const cloneCmd = repository
     ? `igit clone githirys.xyz/${getUserIdentifier()}/${repository.name}`
     : `igit clone githirys.xyz/${getUserIdentifier()}/${repoName}`;
+
+  // 접근 권한 체크 중
+  if (checkingAccess) {
+    return (
+      <div className={styles.repoHeader}>
+        <h2>{repository?.name || repoName}</h2>
+        <p className={styles.repoLoading}>Checking access permissions...</p>
+      </div>
+    );
+  }
+
+  // 접근 권한이 없는 경우
+  if (accessCheck && !accessCheck.canAccess) {
+    return (
+      <div className={styles.repoHeader}>
+        <h2>{repository?.name || repoName}</h2>
+        <div className="error">
+          <p>🔒 Access Denied</p>
+          <p style={{ fontSize: '16px', marginTop: '8px' }}>
+            {accessCheck.reason ||
+              'You do not have permission to access this repository.'}
+          </p>
+          {!currentWallet && (
+            <p style={{ fontSize: '14px', marginTop: '16px', color: '#666' }}>
+              Try connecting your wallet if you have access to this private
+              repository.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

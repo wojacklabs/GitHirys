@@ -46,3 +46,20 @@
 .toggleButton.active:hover:not(:disabled) {
   background-color: #1f2937;
 }
+
+.updatingIndicator {
+  margin-left: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
