@@ -26,6 +26,8 @@ import {
   updateIssueVisibility,
   updateCommentVisibility,
   checkRepositoryAccess,
+  getRepositoryDetailInfo,
+  getRepositoryBranches,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -892,10 +894,11 @@ export default function RepoDetail({
             throw new Error('Wallet not connected.');
           }
 
-          // 권한 체크와 저장소 검색을 병렬로 수행 - 최적화
-          const [accessResult, repos] = await Promise.all([
+          // 권한 체크, 저장소 브랜치, 상세 정보를 병렬로 수행 - 최적화
+          const [accessResult, branches, detailInfo] = await Promise.all([
             checkRepositoryAccess(repoName, owner, currentWallet),
-            searchRepositories(owner, currentWallet).catch(() => []), // 실패해도 빈 배열 반환
+            getRepositoryBranches(repoName, owner), // 브랜치 정보만 빠르게 조회
+            getRepositoryDetailInfo(repoName, owner), // 권한, 가시성, 설명을 한번에
           ]);
 
           setAccessCheck(accessResult);
@@ -907,15 +910,29 @@ export default function RepoDetail({
             return;
           }
 
-          if (repos.length === 0) {
+          if (branches.length === 0) {
             throw new Error(`Can't find repo from '${owner}'`);
           }
 
-          // Find repository by name
-          const targetRepo = repos.find(repo => repo.name === repoName);
+          // 저장소 객체 생성
+          const targetRepo: Repository = {
+            name: repoName,
+            owner: owner,
+            branches: branches,
+            defaultBranch: branches.find(b => b.name === 'main')
+              ? 'main'
+              : branches.find(b => b.name === 'master')
+                ? 'master'
+                : branches[0]?.name || 'main',
+            tags: branches[0]?.tags || [],
+          };
 
-          if (!targetRepo) {
-            throw new Error(`Can't find repo called '${repoName}'.`);
+          // 상세 정보 설정
+          if (detailInfo.permissions) {
+            setPermissions(detailInfo.permissions);
+          }
+          if (detailInfo.description) {
+            setDescription(detailInfo.description.description);
           }
 
           repositoryInfo = targetRepo;
@@ -993,23 +1010,8 @@ export default function RepoDetail({
       if (!repository || !owner) return;
 
       try {
-        // 병렬로 실행할 작업들
-        const promises = [
-          // 소유자 프로필 로드
-          getProfileByAddress(owner),
-          // 권한 정보 로드
-          getRepositoryPermissions(repository.name, owner),
-          // 저장소 설명 로드
-          getRepositoryDescription(repository.name, owner),
-        ];
-
-        const [ownerProfile, permissions, descriptionData] = (await Promise.all(
-          promises
-        )) as [
-          UserProfile | null,
-          RepositoryPermissions | null,
-          RepositoryDescription | null,
-        ];
+        // 소유자 프로필만 로드 (권한과 설명은 이미 loadRepoDetails에서 로드됨)
+        const ownerProfile = await getProfileByAddress(owner);
 
         // 소유자 정보 설정
         setRepositoryOwner({
@@ -1017,32 +1019,8 @@ export default function RepoDetail({
           profile: ownerProfile,
         });
 
-        // Contributors 프로필 병렬 로드
-        if (
-          permissions &&
-          'contributors' in permissions &&
-          permissions.contributors
-        ) {
-          const contributorAddresses = permissions.contributors.filter(
-            address => address !== owner
-          );
-          const contributorProfiles = await Promise.all(
-            contributorAddresses.map(async address => {
-              const profile = await getProfileByAddress(address);
-              return { address, profile };
-            })
-          );
-          setContributors(contributorProfiles);
-        }
-
-        // 저장소 설명 설정
-        if (descriptionData) {
-          setRepositoryDescription(descriptionData);
-          setDescription(descriptionData.description);
-        } else {
-          setRepositoryDescription(null);
-          setDescription('');
-        }
+        // Contributors 프로필은 permissions 상태가 업데이트될 때 로드됨
+        // 설명은 이미 loadRepoDetails에서 설정됨
       } catch (error) {
         console.error('저장소 데이터 로딩 중 오류:', error);
       }
@@ -1050,6 +1028,28 @@ export default function RepoDetail({
 
     loadRepositoryData();
   }, [repository, owner, refreshPermissions]);
+
+  // permissions 변경 시 contributors 프로필 로드
+  useEffect(() => {
+    const loadContributorProfiles = async () => {
+      if (!permissions || !permissions.contributors || !owner) return;
+
+      const contributorAddresses = permissions.contributors.filter(
+        address => address !== owner
+      );
+
+      const contributorProfiles = await Promise.all(
+        contributorAddresses.map(async address => {
+          const profile = await getProfileByAddress(address);
+          return { address, profile };
+        })
+      );
+
+      setContributors(contributorProfiles);
+    };
+
+    loadContributorProfiles();
+  }, [permissions, owner]);
 
   // Load repository issues
   useEffect(() => {

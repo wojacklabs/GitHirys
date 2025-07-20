@@ -407,36 +407,39 @@ export async function searchAllRepositories(
 
     const allRepositories = Array.from(repositoryMap.values());
 
-    // First filter by visibility permissions
+    // 권한 필터링 최적화 - 배치로 권한/가시성 정보 조회
     const visibleRepositories: Repository[] = [];
 
-    for (const repo of allRepositories) {
-      // 현재 지갑이 소유자인 경우 항상 포함
-      if (repo.owner === currentWallet) {
-        visibleRepositories.push(repo);
-        continue;
-      }
+    // 소유자가 아닌 저장소들만 권한 체크 필요
+    const ownedRepos = allRepositories.filter(
+      repo => repo.owner === currentWallet
+    );
+    const otherRepos = allRepositories.filter(
+      repo => repo.owner !== currentWallet
+    );
 
-      try {
-        // 저장소 노출 권한 확인
-        const visibility = await getRepositoryVisibility(repo.name, repo.owner);
+    // 소유자 저장소는 바로 추가
+    visibleRepositories.push(...ownedRepos);
 
+    if (otherRepos.length > 0) {
+      // 배치로 권한/가시성 정보 조회
+      const repoList = otherRepos.map(r => ({ name: r.name, owner: r.owner }));
+      const permissionsMap = await batchGetRepositoryPermissions(repoList);
+
+      // 권한 기반 필터링
+      for (const repo of otherRepos) {
+        const key = `${repo.owner}/${repo.name}`;
+        const { permissions, visibility } = permissionsMap.get(key) || {};
+
+        // 가시성 확인
         if (!visibility || visibility.visibility === 'public') {
-          // 노출 권한 정보가 없거나 public인 경우 표시
           visibleRepositories.push(repo);
         } else if (visibility.visibility === 'private' && currentWallet) {
-          // private인 경우 편집 권한 확인
-          const permissions = await getRepositoryPermissions(
-            repo.name,
-            repo.owner
-          );
+          // private인 경우 권한 확인
           if (permissions && permissions.contributors.includes(currentWallet)) {
             visibleRepositories.push(repo);
           }
         }
-      } catch (error) {
-        // 오류 발생 시 안전하게 public으로 처리
-        visibleRepositories.push(repo);
       }
     }
 
@@ -730,36 +733,29 @@ export async function searchRepositories(
       return repositories;
     }
 
-    // 비소유자인 경우에만 권한 체크 수행 - 병렬 처리
+    // 비소유자인 경우 배치로 권한/가시성 정보 조회
+    const repoList = repositories.map(r => ({ name: r.name, owner: r.owner }));
+    const permissionsMap = await batchGetRepositoryPermissions(repoList);
+
+    // 권한 기반 필터링
     const filteredRepositories: Repository[] = [];
-    const permissionChecks = repositories.map(async repo => {
-      try {
-        const visibility = await getRepositoryVisibility(repo.name, repo.owner);
 
-        if (!visibility || visibility.visibility === 'public') {
-          return repo; // public 저장소는 포함
-        } else if (visibility.visibility === 'private' && currentWallet) {
-          const permissions = await getRepositoryPermissions(
-            repo.name,
-            repo.owner
-          );
-          if (permissions && permissions.contributors.includes(currentWallet)) {
-            return repo; // 권한이 있는 private 저장소 포함
-          }
+    for (const repo of repositories) {
+      const key = `${repo.owner}/${repo.name}`;
+      const { permissions, visibility } = permissionsMap.get(key) || {};
+
+      // 가시성 확인
+      if (!visibility || visibility.visibility === 'public') {
+        filteredRepositories.push(repo);
+      } else if (visibility.visibility === 'private' && currentWallet) {
+        // private인 경우 권한 확인
+        if (permissions && permissions.contributors.includes(currentWallet)) {
+          filteredRepositories.push(repo);
         }
-        return null; // 접근 불가
-      } catch (error) {
-        return repo; // 오류 발생 시 안전하게 public으로 처리
       }
-    });
+    }
 
-    // 모든 권한 체크를 병렬로 실행
-    const permissionResults = await Promise.all(permissionChecks);
-
-    // null이 아닌 결과만 필터링
-    const finalRepositories = permissionResults.filter(
-      repo => repo !== null
-    ) as Repository[];
+    const finalRepositories = filteredRepositories;
 
     // 결과 캐싱 (더 짧은 시간)
     setCache(cacheKey, finalRepositories, 2 * 60 * 1000); // 2분 캐싱
@@ -3574,9 +3570,210 @@ export function invalidateProfileCache(address: string): void {
   );
 }
 
+// 특정 저장소의 캐시 무효화
+export function invalidateRepositoryCache(
+  repository: string,
+  owner: string
+): void {
+  const keysToDelete: string[] = [];
+
+  cache.forEach((_, key) => {
+    // 저장소 관련 캐시 키들 제거
+    if (
+      (key.includes(`"repository":"${repository}"`) &&
+        key.includes(`"owner":"${owner}"`)) ||
+      (key.includes('repo-detail:') &&
+        key.includes(repository) &&
+        key.includes(owner)) ||
+      (key.includes('repo-branches:') &&
+        key.includes(repository) &&
+        key.includes(owner)) ||
+      (key.includes('permissions:') &&
+        key.includes(repository) &&
+        key.includes(owner)) ||
+      (key.includes('visibility:') &&
+        key.includes(repository) &&
+        key.includes(owner)) ||
+      (key.includes('repositories:') && key.includes(owner))
+    ) {
+      keysToDelete.push(key);
+    }
+  });
+
+  keysToDelete.forEach(key => cache.delete(key));
+
+  console.log(
+    `Invalidated ${keysToDelete.length} repository cache entries for ${owner}/${repository}`
+  );
+}
+
 // 전체 캐시 삭제
 export function clearAllCache(): void {
   cache.clear();
+}
+
+// 저장소 상세 정보 조회 (최적화 버전)
+export async function getRepositoryDetailInfo(
+  repository: string,
+  owner: string
+): Promise<{
+  permissions?: RepositoryPermissions;
+  visibility?: RepositoryVisibility;
+  description?: RepositoryDescription;
+}> {
+  // 캐시 확인
+  const cacheKey = getCacheKey('repo-detail', { repository, owner });
+  const cached = getFromCache<{
+    permissions?: RepositoryPermissions;
+    visibility?: RepositoryVisibility;
+    description?: RepositoryDescription;
+  }>(cacheKey);
+  if (cached) return cached;
+
+  // 병렬로 권한, 가시성, 설명을 조회
+  const [permissions, visibility, description] = await Promise.all([
+    getRepositoryPermissions(repository, owner),
+    getRepositoryVisibility(repository, owner),
+    getRepositoryDescription(repository, owner),
+  ]);
+
+  const result = {
+    permissions: permissions || undefined,
+    visibility: visibility || undefined,
+    description: description || undefined,
+  };
+
+  // 캐시에 저장 (3분)
+  setCache(cacheKey, result, 3 * 60 * 1000);
+
+  return result;
+}
+
+// 저장소 브랜치 정보만 조회 (최적화 버전)
+export async function getRepositoryBranches(
+  repository: string,
+  owner: string
+): Promise<RepoBranch[]> {
+  // 캐시 확인
+  const cacheKey = getCacheKey('repo-branches', { repository, owner });
+  const cached = getFromCache<RepoBranch[]>(cacheKey);
+  if (cached) return cached;
+
+  const query = `
+    query getRepositoryBranches($repository: String!, $owner: String!) {
+      transactions(
+        tags: [
+          { name: "App-Name", values: ["irys-git"] },
+          { name: "Repository", values: [$repository] },
+          { name: "git-owner", values: [$owner] }
+        ],
+        first: 50,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { repository, owner },
+      }),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    const transactions = result.data?.transactions?.edges || [];
+
+    // 브랜치별로 그룹핑
+    const branchMap = new Map<string, BranchTransactionData>();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const tags = node.tags || [];
+
+      const branchTag = tags.find((tag: any) => tag.name === 'Branch');
+      const commitHashTag = tags.find((tag: any) => tag.name === 'Commit-Hash');
+      const commitMsgTag = tags.find(
+        (tag: any) => tag.name === 'Commit-Message'
+      );
+      const authorTag = tags.find((tag: any) => tag.name === 'Author');
+      const timestampTag = tags.find((tag: any) => tag.name === 'Timestamp');
+
+      const branchName = branchTag?.value || 'main';
+      const normalizedTimestamp = TimestampUtils.normalize(node.timestamp);
+
+      // 브랜치별로 최신 트랜잭션만 유지
+      const existingBranch = branchMap.get(branchName);
+      if (
+        !existingBranch ||
+        normalizedTimestamp > TimestampUtils.normalize(existingBranch.timestamp)
+      ) {
+        branchMap.set(branchName, {
+          name: branchName,
+          transactionId: node.id,
+          mutableAddress: null, // mutable 기능 사용하지 않음
+          timestamp:
+            timestampTag?.value ||
+            TimestampUtils.toDate(node.timestamp).toISOString(),
+          commitHash: commitHashTag?.value || '',
+          commitMessage: commitMsgTag?.value || '',
+          author: authorTag?.value || '',
+          tags: tags,
+          nodeTimestamp: normalizedTimestamp,
+        });
+      }
+    }
+
+    // RepoBranch 배열로 변환
+    const branches: RepoBranch[] = Array.from(branchMap.values()).map(
+      branchData => ({
+        name: branchData.name,
+        transactionId: branchData.transactionId,
+        mutableAddress: null,
+        timestamp: branchData.nodeTimestamp,
+        commitHash: branchData.commitHash,
+        commitMessage: branchData.commitMessage,
+        author: branchData.author,
+        tags: branchData.tags,
+      })
+    );
+
+    // 브랜치 정렬
+    branches.sort((a, b) => {
+      if (a.name === 'main') return -1;
+      if (b.name === 'main') return 1;
+      if (a.name === 'master') return -1;
+      if (b.name === 'master') return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    // 캐시에 저장 (5분)
+    setCache(cacheKey, branches, 5 * 60 * 1000);
+
+    return branches;
+  } catch (error) {
+    console.error('Error fetching repository branches:', error);
+    return [];
+  }
 }
 
 // 병렬 배치 처리를 위한 헬퍼
