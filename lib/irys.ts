@@ -836,44 +836,29 @@ export async function getTransactionById(
   return null;
 }
 
-// CM's Note 방식: mutable 주소를 직접 사용 (resolve 없음)
+// [Deprecated] resolveMutableAddress - 더 이상 mutable 기능을 사용하지 않음
+// 이 함수는 하위 호환성을 위해 유지되지만, 사용하지 않을 것을 권장합니다.
 async function resolveMutableAddress(
   mutableAddress: string,
   timeoutMs: number = 5000
 ): Promise<string | null> {
-  // CM's Note 프로젝트처럼 mutable 주소를 그대로 반환
-  // resolve 과정을 생략하여 즉시 사용 가능하도록 함
-
-  if (!mutableAddress || !URLUtils.isValidTransactionId(mutableAddress)) {
-    console.warn(`Invalid mutable address: ${mutableAddress}`);
-    return null;
-  }
-
-  // 개발 환경에서 로그
-  if (
-    typeof window !== 'undefined' &&
-    window.location.hostname === 'localhost'
-  ) {
-    console.log(
-      `🔗 Using mutable address directly (CM's Note style): ${mutableAddress.slice(0, 8)}...`
-    );
-  }
-
-  // mutable 주소를 그대로 반환 (CM's Note 방식)
+  console.warn(
+    'resolveMutableAddress is deprecated. Using direct transaction URLs instead.'
+  );
   return mutableAddress;
 }
 
-// Download data from Irys gateway (개선된 mutable 주소 처리)
+// Download data from Irys gateway (개선된 버전 - mutable 기능 제거)
 export async function downloadData(
   transactionId: string,
   mutableAddress?: string | null,
   forceRefresh?: boolean
 ): Promise<ArrayBuffer | null> {
   // 캐시 키 생성
-  const cacheKey = getCacheKey('download', { transactionId, mutableAddress });
+  const cacheKey = getCacheKey('download', { transactionId });
 
-  // 강제 새로고침이 아니고 mutable이 아닌 경우 캐시 확인
-  if (!forceRefresh && !mutableAddress) {
+  // 강제 새로고침이 아닌 경우 캐시 확인
+  if (!forceRefresh) {
     const cached = getFromCache<ArrayBuffer>(cacheKey);
     if (cached) return cached;
   }
@@ -881,54 +866,10 @@ export async function downloadData(
   // 캐시 방지를 위한 쿼리 파라미터 추가
   const cacheBypass = forceRefresh ? `?t=${Date.now()}` : '';
 
-  let resolvedTxId = transactionId;
-
-  // mutable 주소가 있으면 먼저 실제 트랜잭션 ID로 resolve 시도
-  if (mutableAddress && !forceRefresh) {
-    const resolved = await resolveMutableAddress(mutableAddress);
-    if (resolved) {
-      resolvedTxId = resolved;
-      // resolve된 트랜잭션 ID로 직접 접근 시도
-      try {
-        const response = await fetch(
-          `https://gateway.irys.xyz/${resolvedTxId}${cacheBypass}`
-        );
-        if (response.ok) {
-          const data = await response.arrayBuffer();
-          // resolve된 데이터는 캐싱 가능 (immutable)
-          if (data.byteLength < 10 * 1024 * 1024) {
-            // 10MB 이하
-            setCache(cacheKey, data);
-          }
-          return data;
-        }
-      } catch (error) {
-        // resolve된 주소 실패시 fallback으로 mutable 주소 사용
-        console.log(
-          `Resolved transaction ${resolvedTxId} failed, falling back to mutable`
-        );
-      }
-    }
-  }
-
-  // mutable 주소와 기본 트랜잭션 ID로 fallback
-  const gateways = [];
-
-  if (mutableAddress) {
-    // mutable 주소 시도 (resolve 실패했거나 forceRefresh인 경우)
-    gateways.push(
-      `https://gateway.irys.xyz/mutable/${mutableAddress}${cacheBypass}`
-    );
-    // fallback으로 기본 트랜잭션 ID도 추가
-    gateways.push(`https://gateway.irys.xyz/${transactionId}${cacheBypass}`);
-  } else {
-    // mutable 주소가 없으면 기본 트랜잭션 ID만 사용
-    gateways.push(`https://gateway.irys.xyz/${transactionId}${cacheBypass}`);
-  }
-
-  for (const gateway of gateways) {
-    try {
-      const response = await fetch(gateway, {
+  try {
+    const response = await fetch(
+      `https://gateway.irys.xyz/${transactionId}${cacheBypass}`,
+      {
         // 캐시 방지 헤더 추가
         ...(forceRefresh && {
           headers: {
@@ -937,22 +878,22 @@ export async function downloadData(
             Expires: '0',
           },
         }),
-      });
-
-      if (response.ok) {
-        const data = await response.arrayBuffer();
-
-        // immutable 데이터이고 크기가 적절하면 캐싱
-        if (!mutableAddress && data.byteLength < 10 * 1024 * 1024) {
-          // 10MB 이하
-          setCache(cacheKey, data);
-        }
-
-        return data;
       }
-    } catch (error) {
-      // 에러가 발생하면 다음 게이트웨이 시도
+    );
+
+    if (response.ok) {
+      const data = await response.arrayBuffer();
+
+      // 크기가 적절하면 캐싱
+      if (!forceRefresh && data.byteLength < 10 * 1024 * 1024) {
+        // 10MB 이하
+        setCache(cacheKey, data);
+      }
+
+      return data;
     }
+  } catch (error) {
+    console.error('Error downloading data:', error);
   }
 
   return null;
@@ -965,8 +906,76 @@ export interface UserProfile {
   accountAddress: string;
   profileImageUrl?: string;
   rootTxId?: string;
-  mutableAddress?: string;
+  mutableAddress?: string; // [Deprecated] 더 이상 사용되지 않음
   timestamp: number;
+}
+
+// 프로필 이미지만 별도로 조회하는 함수 (개선된 버전)
+export async function getProfileImageUrl(
+  address: string
+): Promise<string | undefined> {
+  // 별도의 캐시 키 사용
+  const cacheKey = getCacheKey('profile-image', { address });
+  const cached = getFromCache<string>(cacheKey);
+  if (cached) return cached;
+
+  const query = `
+    query getProfileImage($address: String!) {
+      transactions(
+        tags: [
+          { name: "githirys_account_address", values: [$address] },
+          { name: "Content-Type", values: ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"] }
+        ],
+        first: 1,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { address },
+      }),
+    });
+
+    const result = await response.json();
+    const transactions = result.data?.transactions?.edges || [];
+
+    if (transactions.length > 0) {
+      const latestTx = transactions[0].node;
+
+      if (latestTx.id && URLUtils.isValidTransactionId(latestTx.id)) {
+        const imageUrl = `https://gateway.irys.xyz/${latestTx.id}`;
+
+        // 이미지 URL 캐싱 (5분)
+        setCache(cacheKey, imageUrl, 5 * 60 * 1000);
+
+        return imageUrl;
+      }
+    }
+
+    return undefined;
+  } catch (error) {
+    console.error('Error fetching profile image:', error);
+    return undefined;
+  }
 }
 
 // 프로필 관련 유틸리티 함수들
@@ -1059,7 +1068,7 @@ export async function checkNicknameAvailability(
   }
 }
 
-// 지갑 주소로 프로필 정보 조회 - CM's Note 방식
+// 지갑 주소로 프로필 정보 조회 - 개선된 버전 (visibility/permissions 방식 적용)
 export async function getProfileByAddress(
   address: string
 ): Promise<UserProfile | null> {
@@ -1124,11 +1133,11 @@ export async function getProfileByAddress(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
-    // CM's Note 방식: 프로필 이미지 URL 생성
+    // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
     let profileImageUrl: string | undefined;
-    if (rootTxId) {
-      // CM's Note 방식: 직접 mutable URL 사용
-      profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
+    if (latestTx.id && URLUtils.isValidTransactionId(latestTx.id)) {
+      // 최신 트랜잭션 ID를 직접 사용 (mutable URL 대신)
+      profileImageUrl = `https://gateway.irys.xyz/${latestTx.id}`;
     }
 
     const profile: UserProfile = {
@@ -1137,10 +1146,7 @@ export async function getProfileByAddress(
       accountAddress,
       profileImageUrl,
       rootTxId: rootTxId,
-      mutableAddress:
-        rootTxId && URLUtils.isValidTransactionId(rootTxId)
-          ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-          : undefined,
+      mutableAddress: undefined, // mutable 기능 사용하지 않음
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
@@ -1153,7 +1159,7 @@ export async function getProfileByAddress(
   }
 }
 
-// 닉네임으로 프로필 정보 조회 - CM's Note 방식
+// 닉네임으로 프로필 정보 조회 - 개선된 버전 (visibility/permissions 방식 적용)
 export async function getProfileByNickname(
   nickname: string
 ): Promise<UserProfile | null> {
@@ -1216,11 +1222,11 @@ export async function getProfileByNickname(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
-    // CM's Note 방식: 프로필 이미지 URL 생성
+    // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
     let profileImageUrl: string | undefined;
-    if (rootTxId) {
-      // CM's Note 방식: 직접 mutable URL 사용
-      profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
+    if (latestTx.id && URLUtils.isValidTransactionId(latestTx.id)) {
+      // 최신 트랜잭션 ID를 직접 사용 (mutable URL 대신)
+      profileImageUrl = `https://gateway.irys.xyz/${latestTx.id}`;
     }
 
     const profile: UserProfile = {
@@ -1229,10 +1235,7 @@ export async function getProfileByNickname(
       accountAddress,
       profileImageUrl,
       rootTxId: rootTxId,
-      mutableAddress:
-        rootTxId && URLUtils.isValidTransactionId(rootTxId)
-          ? `https://gateway.irys.xyz/mutable/${rootTxId}`
-          : undefined,
+      mutableAddress: undefined, // mutable 기능 사용하지 않음
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
@@ -1796,11 +1799,11 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
             if (nicknameTag && accountTag) {
               const rootTxId = rootTxTag?.value || node.id;
 
-              // CM's Note 방식: 프로필 이미지 URL 생성 (직접 사용)
+              // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
               let profileImageUrl: string | undefined;
-              if (rootTxId) {
-                // CM's Note 방식: 직접 mutable URL 사용
-                profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
+              if (node.id && URLUtils.isValidTransactionId(node.id)) {
+                // 최신 트랜잭션 ID를 직접 사용 (mutable URL 대신)
+                profileImageUrl = `https://gateway.irys.xyz/${node.id}`;
               }
 
               const profile: UserProfile = {
@@ -2563,11 +2566,11 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
       // Only keep the latest profile for each user
       const existingUser = userMap.get(accountAddress);
       if (!existingUser || normalizedTimestamp > existingUser.timestamp) {
-        // CM's Note 방식: 프로필 이미지 URL 생성
+        // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
         let profileImageUrl: string | undefined;
-        if (rootTxId) {
-          // CM's Note 방식: 직접 mutable URL 사용
-          profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
+        if (node.id && URLUtils.isValidTransactionId(node.id)) {
+          // 최신 트랜잭션 ID를 직접 사용 (mutable URL 대신)
+          profileImageUrl = `https://gateway.irys.xyz/${node.id}`;
         }
 
         userMap.set(accountAddress, {
@@ -3548,6 +3551,29 @@ export function clearCacheByType(type: string): void {
   keysToDelete.forEach(key => cache.delete(key));
 }
 
+// 특정 주소의 프로필 관련 캐시 무효화
+export function invalidateProfileCache(address: string): void {
+  const keysToDelete: string[] = [];
+
+  cache.forEach((_, key) => {
+    // 프로필 관련 캐시 키들 제거
+    if (
+      key.includes(`"address":"${address}"`) ||
+      (key.includes('profile-image:') && key.includes(address)) ||
+      (key.includes('profile-address:') && key.includes(address)) ||
+      (key.includes('profile-nickname:') && key.includes(address))
+    ) {
+      keysToDelete.push(key);
+    }
+  });
+
+  keysToDelete.forEach(key => cache.delete(key));
+
+  console.log(
+    `Invalidated ${keysToDelete.length} profile cache entries for ${address}`
+  );
+}
+
 // 전체 캐시 삭제
 export function clearAllCache(): void {
   cache.clear();
@@ -4034,20 +4060,20 @@ export const URLUtils = {
     );
   },
 
-  // CM's Note 방식: 프로필 이미지 URL 생성 (mutable URL 직접 사용)
+  // 개선된 프로필 이미지 URL 생성 (일반 트랜잭션 URL 사용)
   createSafeProfileImageUrl: (
-    rootTxId: string | undefined,
+    txId: string | undefined,
     resolvedTxId?: string
   ): string | undefined => {
-    if (!rootTxId) return undefined;
+    if (!txId) return undefined;
 
-    if (!URLUtils.isValidTransactionId(rootTxId)) {
-      console.warn(`Invalid transaction ID for profile image: ${rootTxId}`);
+    if (!URLUtils.isValidTransactionId(txId)) {
+      console.warn(`Invalid transaction ID for profile image: ${txId}`);
       return undefined;
     }
 
-    // CM's Note 방식: 항상 mutable URL 사용
-    return `https://gateway.irys.xyz/mutable/${rootTxId}`;
+    // 일반 트랜잭션 URL 사용 (mutable URL 대신)
+    return `https://gateway.irys.xyz/${txId}`;
   },
 
   // URL 유효성 검증

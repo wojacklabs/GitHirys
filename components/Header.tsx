@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   createIrysUploader,
   getProfileByAddress,
+  getProfileImageUrl,
   searchRepositories,
   searchAllRepositories,
   getProfileByNickname,
@@ -67,7 +68,7 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
     initUploader();
   }, [wallet]);
 
-  // 프로필 이미지 로드
+  // 프로필 이미지 로드 (개선된 버전)
   useEffect(() => {
     const loadProfileImage = async () => {
       if (!wallet.connected || !wallet.publicKey) {
@@ -76,11 +77,21 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
       }
 
       try {
-        const profile = await getProfileByAddress(wallet.publicKey.toBase58());
-        if (profile?.profileImageUrl) {
-          setProfileImage(profile.profileImageUrl);
+        // 프로필 이미지 전용 함수 사용
+        const imageUrl = await getProfileImageUrl(wallet.publicKey.toBase58());
+
+        if (imageUrl) {
+          setProfileImage(imageUrl);
         } else {
-          setProfileImage(null);
+          // 프로필 이미지가 없는 경우 전체 프로필 조회를 통해 확인
+          const profile = await getProfileByAddress(
+            wallet.publicKey.toBase58()
+          );
+          if (profile?.profileImageUrl) {
+            setProfileImage(profile.profileImageUrl);
+          } else {
+            setProfileImage(null);
+          }
         }
       } catch (error) {
         console.error('프로필 이미지 로드 오류:', error);

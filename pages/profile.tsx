@@ -11,6 +11,7 @@ import {
   uploadProfile,
   ProfileUtils,
   UserProfile,
+  invalidateProfileCache,
 } from '../lib/irys';
 import ProfileCard from '../components/ProfileCard';
 import styles from '../styles/ProfilePage.module.css';
@@ -294,6 +295,9 @@ const ProfilePage: NextPage = () => {
 
       if (result.success) {
         setSuccessMessage('Profile Saved!');
+
+        // 프로필 캐시 무효화
+        invalidateProfileCache(publicKey);
 
         // 명함카드 팝업 데이터 설정
         const joinDate = existingProfile
