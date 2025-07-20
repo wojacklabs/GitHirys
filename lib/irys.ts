@@ -425,20 +425,19 @@ export async function searchAllRepositories(
     visibleRepositories.push(...ownedRepos);
 
     if (otherRepos.length > 0) {
-      // 배치로 권한/가시성 정보 조회
-      const repoList = otherRepos.map(r => ({ name: r.name, owner: r.owner }));
-      const permissionsMap = await batchGetRepositoryPermissions(repoList);
-
-      // 권한 기반 필터링
+      // 권한 기반 필터링 (프로필과 동일한 방식)
       for (const repo of otherRepos) {
-        const key = `${repo.owner}/${repo.name}`;
-        const { permissions, visibility } = permissionsMap.get(key) || {};
-
         // 가시성 확인
+        const visibility = await getRepositoryVisibility(repo.name, repo.owner);
+
         if (!visibility || visibility.visibility === 'public') {
           visibleRepositories.push(repo);
         } else if (visibility.visibility === 'private' && currentWallet) {
           // private인 경우 권한 확인
+          const permissions = await getRepositoryPermissions(
+            repo.name,
+            repo.owner
+          );
           if (permissions && permissions.contributors.includes(currentWallet)) {
             visibleRepositories.push(repo);
           }
@@ -673,22 +672,21 @@ export async function searchRepositories(
       return repositories;
     }
 
-    // 비소유자인 경우 배치로 권한/가시성 정보 조회
-    const repoList = repositories.map(r => ({ name: r.name, owner: r.owner }));
-    const permissionsMap = await batchGetRepositoryPermissions(repoList);
-
-    // 권한 기반 필터링
+    // 비소유자인 경우 권한 기반 필터링 (프로필과 동일한 방식)
     const filteredRepositories: Repository[] = [];
 
     for (const repo of repositories) {
-      const key = `${repo.owner}/${repo.name}`;
-      const { permissions, visibility } = permissionsMap.get(key) || {};
-
       // 가시성 확인
+      const visibility = await getRepositoryVisibility(repo.name, repo.owner);
+
       if (!visibility || visibility.visibility === 'public') {
         filteredRepositories.push(repo);
       } else if (visibility.visibility === 'private' && currentWallet) {
         // private인 경우 권한 확인
+        const permissions = await getRepositoryPermissions(
+          repo.name,
+          repo.owner
+        );
         if (permissions && permissions.contributors.includes(currentWallet)) {
           filteredRepositories.push(repo);
         }
@@ -3550,378 +3548,6 @@ export function invalidateRepositoryCache(
 // 전체 캐시 삭제
 export function clearAllCache(): void {
   cache.clear();
-}
-
-// 저장소 상세 정보 조회 (최적화 버전)
-export async function getRepositoryDetailInfo(
-  repository: string,
-  owner: string
-): Promise<{
-  permissions?: RepositoryPermissions;
-  visibility?: RepositoryVisibility;
-  description?: RepositoryDescription;
-}> {
-  // 캐시 확인
-  const cacheKey = getCacheKey('repo-detail', { repository, owner });
-  const cached = getFromCache<{
-    permissions?: RepositoryPermissions;
-    visibility?: RepositoryVisibility;
-    description?: RepositoryDescription;
-  }>(cacheKey);
-  if (cached) return cached;
-
-  // 병렬로 권한, 가시성, 설명을 조회
-  const [permissions, visibility, description] = await Promise.all([
-    getRepositoryPermissions(repository, owner),
-    getRepositoryVisibility(repository, owner),
-    getRepositoryDescription(repository, owner),
-  ]);
-
-  const result = {
-    permissions: permissions || undefined,
-    visibility: visibility || undefined,
-    description: description || undefined,
-  };
-
-  // 캐시에 저장 (3분)
-  setCache(cacheKey, result, 3 * 60 * 1000);
-
-  return result;
-}
-
-// 저장소 브랜치 정보만 조회 (최적화 버전)
-export async function getRepositoryBranches(
-  repository: string,
-  owner: string
-): Promise<RepoBranch[]> {
-  // 캐시 확인
-  const cacheKey = getCacheKey('repo-branches', { repository, owner });
-  const cached = getFromCache<RepoBranch[]>(cacheKey);
-  if (cached) return cached;
-
-  const query = `
-    query getRepositoryBranches($repository: String!, $owner: String!) {
-      transactions(
-        tags: [
-          { name: "App-Name", values: ["irys-git"] },
-          { name: "Repository", values: [$repository] },
-          { name: "git-owner", values: [$owner] }
-        ],
-        first: 50,
-        order: DESC
-      ) {
-        edges {
-          node {
-            id
-            tags {
-              name
-              value
-            }
-            timestamp
-          }
-        }
-      }
-    }
-  `;
-
-  try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { repository, owner },
-      }),
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
-    const transactions = result.data?.transactions?.edges || [];
-
-    // 브랜치별로 그룹핑
-    const branchMap = new Map<string, BranchTransactionData>();
-
-    for (const edge of transactions) {
-      const node = edge.node;
-      const tags = node.tags || [];
-
-      const branchTag = tags.find((tag: any) => tag.name === 'Branch');
-      const commitHashTag = tags.find((tag: any) => tag.name === 'Commit-Hash');
-      const commitMsgTag = tags.find(
-        (tag: any) => tag.name === 'Commit-Message'
-      );
-      const authorTag = tags.find((tag: any) => tag.name === 'Author');
-      const timestampTag = tags.find((tag: any) => tag.name === 'Timestamp');
-
-      const branchName = branchTag?.value || 'main';
-      const normalizedTimestamp = TimestampUtils.normalize(node.timestamp);
-
-      // 브랜치별로 최신 트랜잭션만 유지
-      const existingBranch = branchMap.get(branchName);
-      if (
-        !existingBranch ||
-        normalizedTimestamp > TimestampUtils.normalize(existingBranch.timestamp)
-      ) {
-        branchMap.set(branchName, {
-          name: branchName,
-          transactionId: node.id,
-          mutableAddress: null, // mutable 기능 사용하지 않음
-          timestamp:
-            timestampTag?.value ||
-            TimestampUtils.toDate(node.timestamp).toISOString(),
-          commitHash: commitHashTag?.value || '',
-          commitMessage: commitMsgTag?.value || '',
-          author: authorTag?.value || '',
-          tags: tags,
-          nodeTimestamp: normalizedTimestamp,
-        });
-      }
-    }
-
-    // RepoBranch 배열로 변환
-    const branches: RepoBranch[] = Array.from(branchMap.values()).map(
-      branchData => ({
-        name: branchData.name,
-        transactionId: branchData.transactionId,
-        mutableAddress: null,
-        timestamp: branchData.nodeTimestamp,
-        commitHash: branchData.commitHash,
-        commitMessage: branchData.commitMessage,
-        author: branchData.author,
-        tags: branchData.tags,
-      })
-    );
-
-    // 브랜치 정렬
-    branches.sort((a, b) => {
-      if (a.name === 'main') return -1;
-      if (b.name === 'main') return 1;
-      if (a.name === 'master') return -1;
-      if (b.name === 'master') return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-    // 캐시에 저장 (5분)
-    setCache(cacheKey, branches, 5 * 60 * 1000);
-
-    return branches;
-  } catch (error) {
-    console.error('Error fetching repository branches:', error);
-    return [];
-  }
-}
-
-// 병렬 배치 처리를 위한 헬퍼
-async function batchProcess<T, R>(
-  items: T[],
-  processor: (item: T) => Promise<R>,
-  batchSize: number = 10
-): Promise<R[]> {
-  const results: R[] = [];
-
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    const batchResults = await Promise.all(batch.map(processor));
-    results.push(...batchResults);
-  }
-
-  return results;
-}
-
-// 권한 및 가시성 일괄 조회 함수
-export async function batchGetRepositoryPermissions(
-  repositories: { name: string; owner: string }[]
-): Promise<
-  Map<
-    string,
-    { permissions?: RepositoryPermissions; visibility?: RepositoryVisibility }
-  >
-> {
-  const resultMap = new Map<
-    string,
-    { permissions?: RepositoryPermissions; visibility?: RepositoryVisibility }
-  >();
-
-  // 캐시에서 먼저 확인
-  const uncachedRepos: { name: string; owner: string }[] = [];
-
-  for (const repo of repositories) {
-    const key = `${repo.owner}/${repo.name}`;
-    const permCacheKey = getCacheKey('permissions', {
-      name: repo.name,
-      owner: repo.owner,
-    });
-    const visCacheKey = getCacheKey('visibility', {
-      name: repo.name,
-      owner: repo.owner,
-    });
-
-    const cachedPermissions = getFromCache<RepositoryPermissions>(permCacheKey);
-    const cachedVisibility = getFromCache<RepositoryVisibility>(visCacheKey);
-
-    if (cachedPermissions || cachedVisibility) {
-      resultMap.set(key, {
-        permissions: cachedPermissions || undefined,
-        visibility: cachedVisibility || undefined,
-      });
-    } else {
-      uncachedRepos.push(repo);
-    }
-  }
-
-  // 캐시되지 않은 항목들을 조회 (더 작은 배치로)
-  if (uncachedRepos.length > 0) {
-    // 큰 배치를 작은 배치로 나누기 (CORS 문제 방지)
-    const batchSize = 5;
-    for (let i = 0; i < uncachedRepos.length; i += batchSize) {
-      const batch = uncachedRepos.slice(i, i + batchSize);
-
-      const query = `
-        query batchGetPermissions($repositories: [String!]!, $owners: [String!]!) {
-          permissions: transactions(
-            tags: [
-              { name: "App-Name", values: ["irys-git-permissions"] },
-              { name: "Repository", values: $repositories },
-              { name: "git-owner", values: $owners }
-            ],
-            first: 50,
-            order: DESC
-          ) {
-            edges {
-              node {
-                id
-                tags {
-                  name
-                  value
-                }
-                timestamp
-              }
-            }
-          }
-          visibility: transactions(
-            tags: [
-              { name: "App-Name", values: ["irys-git-visibility"] },
-              { name: "Repository", values: $repositories },
-              { name: "git-owner", values: $owners }
-            ],
-            first: 50,
-            order: DESC
-          ) {
-            edges {
-              node {
-                id
-                tags {
-                  name
-                  value
-                }
-                timestamp
-              }
-            }
-          }
-        }
-      `;
-
-      try {
-        const response = await fetch('https://uploader.irys.xyz/graphql', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query,
-            variables: {
-              repositories: batch.map(r => r.name),
-              owners: batch.map(r => r.owner),
-            },
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-
-          // 권한 정보 처리
-          const permTransactions = result.data?.permissions?.edges || [];
-          for (const edge of permTransactions) {
-            const node = edge.node;
-            const repoTag = node.tags?.find(
-              (tag: any) => tag.name === 'Repository'
-            );
-            const ownerTag = node.tags?.find(
-              (tag: any) => tag.name === 'git-owner'
-            );
-            const contributorsTag = node.tags?.find(
-              (tag: any) => tag.name === 'git-contributors'
-            );
-
-            if (repoTag && ownerTag) {
-              const key = `${ownerTag.value}/${repoTag.value}`;
-              const permissions: RepositoryPermissions = {
-                repository: repoTag.value,
-                owner: ownerTag.value,
-                contributors: contributorsTag
-                  ? contributorsTag.value.split(',').filter((c: string) => c)
-                  : [ownerTag.value],
-                timestamp: TimestampUtils.normalize(node.timestamp),
-              };
-
-              const existing = resultMap.get(key) || {};
-              resultMap.set(key, { ...existing, permissions });
-
-              // 캐시에 저장
-              const cacheKey = getCacheKey('permissions', {
-                name: repoTag.value,
-                owner: ownerTag.value,
-              });
-              setCache(cacheKey, permissions);
-            }
-          }
-
-          // 가시성 정보 처리
-          const visTransactions = result.data?.visibility?.edges || [];
-          for (const edge of visTransactions) {
-            const node = edge.node;
-            const repoTag = node.tags?.find(
-              (tag: any) => tag.name === 'Repository'
-            );
-            const ownerTag = node.tags?.find(
-              (tag: any) => tag.name === 'git-owner'
-            );
-            const visibilityTag = node.tags?.find(
-              (tag: any) => tag.name === 'git-visibility'
-            );
-
-            if (repoTag && ownerTag) {
-              const key = `${ownerTag.value}/${repoTag.value}`;
-              const visibility: RepositoryVisibility = {
-                repository: repoTag.value,
-                owner: ownerTag.value,
-                visibility:
-                  (visibilityTag?.value as 'public' | 'private') || 'public',
-                timestamp: TimestampUtils.normalize(node.timestamp),
-              };
-
-              const existing = resultMap.get(key) || {};
-              resultMap.set(key, { ...existing, visibility });
-
-              // 캐시에 저장
-              const cacheKey = getCacheKey('visibility', {
-                name: repoTag.value,
-                owner: ownerTag.value,
-              });
-              setCache(cacheKey, visibility);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error in batch permissions fetch:', error);
-      }
-    }
-  }
-
-  return resultMap;
 }
 
 // 저장소 접근 권한 체크 함수

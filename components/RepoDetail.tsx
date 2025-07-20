@@ -26,8 +26,6 @@ import {
   updateIssueVisibility,
   updateCommentVisibility,
   checkRepositoryAccess,
-  getRepositoryDetailInfo,
-  getRepositoryBranches,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -897,13 +895,12 @@ export default function RepoDetail({
             throw new Error('Wallet not connected.');
           }
 
-          // 권한 체크, 저장소 브랜치, 상세 정보를 병렬로 수행 - 최적화
-          const [accessResult, branches, detailInfo] = await Promise.all([
-            checkRepositoryAccess(repoName, owner, currentWallet),
-            getRepositoryBranches(repoName, owner), // 브랜치 정보만 빠르게 조회
-            getRepositoryDetailInfo(repoName, owner), // 권한, 가시성, 설명을 한번에
-          ]);
-
+          // 권한 체크를 먼저 수행 (프로필과 동일한 방식)
+          const accessResult = await checkRepositoryAccess(
+            repoName,
+            owner,
+            currentWallet
+          );
           setAccessCheck(accessResult);
           setCheckingAccess(false);
 
@@ -913,32 +910,26 @@ export default function RepoDetail({
             return;
           }
 
-          if (branches.length === 0) {
+          // 저장소 검색 (프로필과 동일한 단순한 방식)
+          const repositories = await searchRepositories(owner, currentWallet);
+          const targetRepo = repositories.find(r => r.name === repoName);
+
+          if (!targetRepo) {
             throw new Error(`Can't find repo from '${owner}'`);
           }
 
-          // 저장소 객체 생성
-          const targetRepo: Repository = {
-            name: repoName,
-            owner: owner,
-            branches: branches,
-            defaultBranch: branches.find(b => b.name === 'main')
-              ? 'main'
-              : branches.find(b => b.name === 'master')
-                ? 'master'
-                : branches[0]?.name || 'main',
-            tags: branches[0]?.tags || [],
-          };
-
-          // 상세 정보 설정
-          if (detailInfo.permissions) {
-            setPermissions(detailInfo.permissions);
-          }
-          if (detailInfo.description) {
-            setDescription(detailInfo.description.description);
-          }
-
           repositoryInfo = targetRepo;
+
+          // 권한과 설명을 개별적으로 로드 (프로필과 동일한 방식)
+          const permissions = await getRepositoryPermissions(repoName, owner);
+          if (permissions) {
+            setPermissions(permissions);
+          }
+
+          const desc = await getRepositoryDescription(repoName, owner);
+          if (desc) {
+            setDescription(desc.description);
+          }
 
           // 전달받은 repo 데이터에서 선택된 브랜치가 있으면 사용, 없으면 기본 브랜치 사용
           if (repo && repo.selectedBranch) {
