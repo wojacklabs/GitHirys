@@ -543,6 +543,9 @@ export default function RepoDetail({
   const [repositoryDescription, setRepositoryDescription] =
     useState<RepositoryDescription | null>(null);
   const [showRepoShareCard, setShowRepoShareCard] = useState(false);
+  const [permissions, setPermissions] = useState<RepositoryPermissions | null>(
+    null
+  );
 
   // Access control states
   const [accessCheck, setAccessCheck] = useState<{
