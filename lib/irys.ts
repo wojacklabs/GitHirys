@@ -836,105 +836,31 @@ export async function getTransactionById(
   return null;
 }
 
-// 안전하고 안정적인 mutable 주소 해결 - response.url 추적 방식
+// CM's Note 방식: mutable 주소를 직접 사용 (resolve 없음)
 async function resolveMutableAddress(
   mutableAddress: string,
-  timeoutMs: number = 5000 // 5초 타임아웃으로 증가
+  timeoutMs: number = 5000
 ): Promise<string | null> {
-  // 입력 검증
+  // CM's Note 프로젝트처럼 mutable 주소를 그대로 반환
+  // resolve 과정을 생략하여 즉시 사용 가능하도록 함
+
   if (!mutableAddress || !URLUtils.isValidTransactionId(mutableAddress)) {
     console.warn(`Invalid mutable address: ${mutableAddress}`);
     return null;
   }
 
-  // 캐시 확인
-  const cacheKey = getCacheKey('mutable-resolve', { mutableAddress });
-  const cached = getFromCache<string>(cacheKey);
-  if (cached) return cached;
-
-  try {
-    // AbortController를 사용한 타임아웃 처리
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    // GET 요청 (HEAD보다 안정적) + redirect: 'follow'로 최종 URL 추적
-    const response = await fetch(
-      `https://gateway.irys.xyz/mutable/${mutableAddress}`,
-      {
-        method: 'GET',
-        redirect: 'follow', // 자동으로 리다이렉트 따라가서 최종 URL 확인
-        signal: controller.signal,
-        // Range 헤더로 최소한의 데이터만 요청 (대역폭 절약)
-        headers: {
-          Range: 'bytes=0-0',
-        },
-      }
+  // 개발 환경에서 로그
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost'
+  ) {
+    console.log(
+      `🔗 Using mutable address directly (CM's Note style): ${mutableAddress.slice(0, 8)}...`
     );
-
-    clearTimeout(timeoutId);
-
-    // 최종 URL 확인 (리다이렉트 후 실제 도달한 URL)
-    if (
-      response.url &&
-      response.url !== `https://gateway.irys.xyz/mutable/${mutableAddress}`
-    ) {
-      // 최종 URL에서 트랜잭션 ID 추출
-      const match = response.url.match(
-        /gateway\.irys\.xyz\/([a-zA-Z0-9_-]{32,50})(?:\?|$|\/)/
-      );
-      if (match && match[1] && URLUtils.isValidTransactionId(match[1])) {
-        const resolvedTxId = match[1];
-
-        // 성공한 해결 결과를 더 오래 캐싱 (5분)
-        setCache(cacheKey, resolvedTxId, 5 * 60 * 1000);
-
-        // 개발 환경에서 성공 로그
-        if (
-          typeof window !== 'undefined' &&
-          window.location.hostname === 'localhost'
-        ) {
-          console.log(
-            `✅ Resolved mutable ${mutableAddress.slice(0, 8)}... → ${resolvedTxId.slice(0, 8)}...`
-          );
-        }
-
-        return resolvedTxId;
-      }
-    }
-
-    // 리다이렉트가 발생하지 않은 경우 (mutable 주소가 이미 최신일 수 있음)
-    if (response.ok) {
-      // 짧은 시간 캐싱 (1분) - 변경될 수 있음
-      setCache(cacheKey, mutableAddress, 1 * 60 * 1000);
-
-      if (
-        typeof window !== 'undefined' &&
-        window.location.hostname === 'localhost'
-      ) {
-        console.log(
-          `ℹ️  Mutable ${mutableAddress.slice(0, 8)}... appears to be current`
-        );
-      }
-
-      return mutableAddress;
-    }
-  } catch (error) {
-    // 네트워크 에러 또는 타임아웃
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        console.warn(
-          `⏱️ Mutable resolve timeout for ${mutableAddress.slice(0, 8)}...`
-        );
-      } else {
-        console.warn(
-          `❌ Failed to resolve mutable ${mutableAddress.slice(0, 8)}...:`,
-          error.message
-        );
-      }
-    }
   }
 
-  return null;
+  // mutable 주소를 그대로 반환 (CM's Note 방식)
+  return mutableAddress;
 }
 
 // Download data from Irys gateway (개선된 mutable 주소 처리)
@@ -1133,7 +1059,7 @@ export async function checkNicknameAvailability(
   }
 }
 
-// 지갑 주소로 프로필 정보 조회 - 안전한 URL 생성
+// 지갑 주소로 프로필 정보 조회 - CM's Note 방식
 export async function getProfileByAddress(
   address: string
 ): Promise<UserProfile | null> {
@@ -1198,28 +1124,11 @@ export async function getProfileByAddress(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
-    // 안전한 프로필 이미지 URL 생성
+    // CM's Note 방식: 프로필 이미지 URL 생성
     let profileImageUrl: string | undefined;
-    let resolvedTxId: string | undefined;
-
     if (rootTxId) {
-      // 캐시에서 resolve된 결과 확인
-      const resolveCacheKey = getCacheKey('mutable-resolve', {
-        mutableAddress: rootTxId,
-      });
-      const cachedResolve = getFromCache<string>(resolveCacheKey);
-
-      // 안전한 URL 생성 (유효성 검증 포함)
-      profileImageUrl = URLUtils.createSafeProfileImageUrl(
-        rootTxId,
-        cachedResolve || undefined
-      );
-      resolvedTxId = cachedResolve || rootTxId;
-
-      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve (기본 5초 타임아웃)
-      if (!cachedResolve && URLUtils.isValidTransactionId(rootTxId)) {
-        resolveMutableAddress(rootTxId).catch(() => {});
-      }
+      // CM's Note 방식: 직접 mutable URL 사용
+      profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
     }
 
     const profile: UserProfile = {
@@ -1227,7 +1136,7 @@ export async function getProfileByAddress(
       twitterHandle,
       accountAddress,
       profileImageUrl,
-      rootTxId: resolvedTxId || rootTxId,
+      rootTxId: rootTxId,
       mutableAddress:
         rootTxId && URLUtils.isValidTransactionId(rootTxId)
           ? `https://gateway.irys.xyz/mutable/${rootTxId}`
@@ -1244,7 +1153,7 @@ export async function getProfileByAddress(
   }
 }
 
-// 닉네임으로 프로필 정보 조회 - 최적화된 mutable resolve
+// 닉네임으로 프로필 정보 조회 - CM's Note 방식
 export async function getProfileByNickname(
   nickname: string
 ): Promise<UserProfile | null> {
@@ -1307,28 +1216,11 @@ export async function getProfileByNickname(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
-    // 안전한 프로필 이미지 URL 생성
+    // CM's Note 방식: 프로필 이미지 URL 생성
     let profileImageUrl: string | undefined;
-    let resolvedTxId: string | undefined;
-
     if (rootTxId) {
-      // 캐시에서 resolve된 결과 확인
-      const resolveCacheKey = getCacheKey('mutable-resolve', {
-        mutableAddress: rootTxId,
-      });
-      const cachedResolve = getFromCache<string>(resolveCacheKey);
-
-      // 안전한 URL 생성 (유효성 검증 포함)
-      profileImageUrl = URLUtils.createSafeProfileImageUrl(
-        rootTxId,
-        cachedResolve || undefined
-      );
-      resolvedTxId = cachedResolve || rootTxId;
-
-      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve (기본 5초 타임아웃)
-      if (!cachedResolve && URLUtils.isValidTransactionId(rootTxId)) {
-        resolveMutableAddress(rootTxId).catch(() => {});
-      }
+      // CM's Note 방식: 직접 mutable URL 사용
+      profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
     }
 
     const profile: UserProfile = {
@@ -1336,7 +1228,7 @@ export async function getProfileByNickname(
       twitterHandle,
       accountAddress,
       profileImageUrl,
-      rootTxId: resolvedTxId || rootTxId,
+      rootTxId: rootTxId,
       mutableAddress:
         rootTxId && URLUtils.isValidTransactionId(rootTxId)
           ? `https://gateway.irys.xyz/mutable/${rootTxId}`
@@ -1904,19 +1796,11 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
             if (nicknameTag && accountTag) {
               const rootTxId = rootTxTag?.value || node.id;
 
-              // 빠른 검색을 위한 안전한 프로필 이미지 URL 생성 (캐시만 사용)
+              // CM's Note 방식: 프로필 이미지 URL 생성 (직접 사용)
               let profileImageUrl: string | undefined;
               if (rootTxId) {
-                const resolveCacheKey = getCacheKey('mutable-resolve', {
-                  mutableAddress: rootTxId,
-                });
-                const cachedResolve = getFromCache<string>(resolveCacheKey);
-
-                // 안전한 URL 생성 (유효성 검증 포함)
-                profileImageUrl = URLUtils.createSafeProfileImageUrl(
-                  rootTxId,
-                  cachedResolve || undefined
-                );
+                // CM's Note 방식: 직접 mutable URL 사용
+                profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
               }
 
               const profile: UserProfile = {
@@ -2679,24 +2563,11 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
       // Only keep the latest profile for each user
       const existingUser = userMap.get(accountAddress);
       if (!existingUser || normalizedTimestamp > existingUser.timestamp) {
-        // 안전한 프로필 이미지 URL 생성
+        // CM's Note 방식: 프로필 이미지 URL 생성
         let profileImageUrl: string | undefined;
         if (rootTxId) {
-          const cacheKey = getCacheKey('mutable-resolve', {
-            mutableAddress: rootTxId,
-          });
-          const resolvedTxId = getFromCache<string>(cacheKey);
-
-          // 안전한 URL 생성 (유효성 검증 포함)
-          profileImageUrl = URLUtils.createSafeProfileImageUrl(
-            rootTxId,
-            resolvedTxId || undefined
-          );
-
-          // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve
-          if (!resolvedTxId && URLUtils.isValidTransactionId(rootTxId)) {
-            resolveMutableAddress(rootTxId).catch(() => {});
-          }
+          // CM's Note 방식: 직접 mutable URL 사용
+          profileImageUrl = URLUtils.createSafeProfileImageUrl(rootTxId);
         }
 
         userMap.set(accountAddress, {
@@ -4163,7 +4034,7 @@ export const URLUtils = {
     );
   },
 
-  // 안전한 프로필 이미지 URL 생성
+  // CM's Note 방식: 프로필 이미지 URL 생성 (mutable URL 직접 사용)
   createSafeProfileImageUrl: (
     rootTxId: string | undefined,
     resolvedTxId?: string
@@ -4175,10 +4046,7 @@ export const URLUtils = {
       return undefined;
     }
 
-    if (resolvedTxId && URLUtils.isValidTransactionId(resolvedTxId)) {
-      return `https://gateway.irys.xyz/${resolvedTxId}`;
-    }
-
+    // CM's Note 방식: 항상 mutable URL 사용
     return `https://gateway.irys.xyz/mutable/${rootTxId}`;
   },
 
