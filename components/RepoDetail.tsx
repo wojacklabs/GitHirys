@@ -25,7 +25,6 @@ import {
   updateIssueComment,
   updateIssueVisibility,
   updateCommentVisibility,
-  checkRepositoryAccess,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -895,37 +894,28 @@ export default function RepoDetail({
             throw new Error('Wallet not connected.');
           }
 
-          // 권한 체크를 먼저 수행 (프로필과 동일한 방식)
-          const accessResult = await checkRepositoryAccess(
-            repoName,
-            owner,
-            currentWallet
-          );
-          setAccessCheck(accessResult);
-          setCheckingAccess(false);
-
-          // 접근 권한이 없으면 여기서 중단
-          if (!accessResult.canAccess) {
-            setLoading(false);
-            return;
-          }
-
           // 저장소 검색 (프로필과 동일한 단순한 방식)
           const repositories = await searchRepositories(owner, currentWallet);
           const targetRepo = repositories.find(r => r.name === repoName);
 
           if (!targetRepo) {
-            throw new Error(`Can't find repo from '${owner}'`);
+            // 저장소를 찾을 수 없는 경우 접근 권한 확인
+            setCheckingAccess(false);
+            setAccessCheck({
+              canAccess: false,
+              reason: `Can't find repo from '${owner}'`,
+            });
+            setLoading(false);
+            return;
           }
 
           repositoryInfo = targetRepo;
 
-          // 권한과 설명을 개별적으로 로드 (프로필과 동일한 방식)
-          const permissions = await getRepositoryPermissions(repoName, owner);
-          if (permissions) {
-            setPermissions(permissions);
-          }
+          // 저장소를 찾은 경우 접근 가능
+          setCheckingAccess(false);
+          setAccessCheck({ canAccess: true });
 
+          // 설명만 추가로 로드 (권한은 searchRepositories에서 이미 체크됨)
           const desc = await getRepositoryDescription(repoName, owner);
           if (desc) {
             setDescription(desc.description);
@@ -953,27 +943,9 @@ export default function RepoDetail({
         }
         // 직접 트랜잭션 ID로 접근하는 경우
         else {
-          // 직접 접근은 허용하지만 owner 정보가 있다면 권한 체크
-          if (owner) {
-            const accessResult = await checkRepositoryAccess(
-              repoName,
-              owner,
-              currentWallet
-            );
-
-            setAccessCheck(accessResult);
-            setCheckingAccess(false);
-
-            // 접근 권한이 없으면 여기서 중단
-            if (!accessResult.canAccess) {
-              setLoading(false);
-              return;
-            }
-          } else {
-            // owner 정보가 없으면 접근 허용 (하위 호환성)
-            setAccessCheck({ canAccess: true });
-            setCheckingAccess(false);
-          }
+          // 직접 트랜잭션 ID 접근은 허용 (공개 저장소로 간주)
+          setAccessCheck({ canAccess: true });
+          setCheckingAccess(false);
 
           transactionId = repoName;
         }
@@ -998,13 +970,13 @@ export default function RepoDetail({
     }
   }, [repoName, owner, repo]);
 
-  // 저장소 관련 정보를 병렬로 로드
+  // 저장소 관련 정보를 로드
   useEffect(() => {
     const loadRepositoryData = async () => {
       if (!repository || !owner) return;
 
       try {
-        // 소유자 프로필만 로드 (권한과 설명은 이미 loadRepoDetails에서 로드됨)
+        // 소유자 프로필과 권한 정보를 순차적으로 로드 (프로필과 동일한 방식)
         const ownerProfile = await getProfileByAddress(owner);
 
         // 소유자 정보 설정
@@ -1013,8 +985,14 @@ export default function RepoDetail({
           profile: ownerProfile,
         });
 
-        // Contributors 프로필은 permissions 상태가 업데이트될 때 로드됨
-        // 설명은 이미 loadRepoDetails에서 설정됨
+        // 권한 정보 로드
+        const repoPermissions = await getRepositoryPermissions(
+          repository.name,
+          owner
+        );
+        if (repoPermissions) {
+          setPermissions(repoPermissions);
+        }
       } catch (error) {
         console.error('저장소 데이터 로딩 중 오류:', error);
       }
