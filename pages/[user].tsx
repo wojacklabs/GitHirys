@@ -307,7 +307,11 @@ const UserPage: NextPage<UserPageProps> = ({
                 </button>
                 {userProfile?.rootTxId && (
                   <button
-                    onClick={() => testMutableResolve(userProfile.rootTxId)}
+                    onClick={() => {
+                      if (userProfile?.rootTxId) {
+                        testMutableResolve(userProfile.rootTxId);
+                      }
+                    }}
                     style={{
                       padding: '4px 8px',
                       margin: '2px',
