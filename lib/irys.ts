@@ -836,72 +836,101 @@ export async function getTransactionById(
   return null;
 }
 
-// Resolve mutable address to actual latest transaction ID - 타임아웃 추가
+// 안전하고 안정적인 mutable 주소 해결 - response.url 추적 방식
 async function resolveMutableAddress(
   mutableAddress: string,
-  timeoutMs: number = 3000 // 3초 타임아웃
+  timeoutMs: number = 5000 // 5초 타임아웃으로 증가
 ): Promise<string | null> {
-  // 캐시 확인 (mutable resolve는 짧은 시간만 캐싱)
+  // 입력 검증
+  if (!mutableAddress || !URLUtils.isValidTransactionId(mutableAddress)) {
+    console.warn(`Invalid mutable address: ${mutableAddress}`);
+    return null;
+  }
+
+  // 캐시 확인
   const cacheKey = getCacheKey('mutable-resolve', { mutableAddress });
   const cached = getFromCache<string>(cacheKey);
   if (cached) return cached;
 
   try {
-    // 타임아웃 프로미스 생성
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Resolve timeout')), timeoutMs);
-    });
+    // AbortController를 사용한 타임아웃 처리
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    // mutable 주소에 HEAD 요청을 보내서 리다이렉트된 실제 URL 확인
-    const response = await Promise.race([
-      fetch(`https://gateway.irys.xyz/mutable/${mutableAddress}`, {
-        method: 'HEAD', // 데이터는 다운로드하지 않고 헤더만 확인
-        redirect: 'manual', // 리다이렉트를 수동으로 처리
-      }),
-      timeoutPromise,
-    ]);
-
-    // 리다이렉트된 경우 실제 트랜잭션 ID 추출
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (location) {
-        // https://gateway.irys.xyz/TRANSACTION_ID 형태에서 트랜잭션 ID 추출
-        const match = location.match(/\/([a-zA-Z0-9_-]{43})(?:\?|$)/);
-        if (match && match[1]) {
-          const resolvedTxId = match[1];
-          // 해결된 트랜잭션 ID를 짧은 시간 캐싱 (1분)
-          setCache(cacheKey, resolvedTxId, 1 * 60 * 1000);
-          return resolvedTxId;
-        }
+    // GET 요청 (HEAD보다 안정적) + redirect: 'follow'로 최종 URL 추적
+    const response = await fetch(
+      `https://gateway.irys.xyz/mutable/${mutableAddress}`,
+      {
+        method: 'GET',
+        redirect: 'follow', // 자동으로 리다이렉트 따라가서 최종 URL 확인
+        signal: controller.signal,
+        // Range 헤더로 최소한의 데이터만 요청 (대역폭 절약)
+        headers: {
+          Range: 'bytes=0-0',
+        },
       }
-    }
+    );
 
-    // 리다이렉트가 없거나 파싱 실패한 경우, 한 번만 더 시도 (타임아웃 적용)
-    const directResponse = await Promise.race([
-      fetch(`https://gateway.irys.xyz/mutable/${mutableAddress}`, {
-        method: 'HEAD',
-        redirect: 'follow', // 이번엔 리다이렉트 따라가기
-      }),
-      timeoutPromise,
-    ]);
+    clearTimeout(timeoutId);
 
-    if (directResponse.ok) {
-      // 최종 URL에서 트랜잭션 ID 추출 시도
-      const finalUrl = directResponse.url;
-      const match = finalUrl.match(/\/([a-zA-Z0-9_-]{43})(?:\?|$)/);
-      if (match && match[1]) {
+    // 최종 URL 확인 (리다이렉트 후 실제 도달한 URL)
+    if (
+      response.url &&
+      response.url !== `https://gateway.irys.xyz/mutable/${mutableAddress}`
+    ) {
+      // 최종 URL에서 트랜잭션 ID 추출
+      const match = response.url.match(
+        /gateway\.irys\.xyz\/([a-zA-Z0-9_-]{32,50})(?:\?|$|\/)/
+      );
+      if (match && match[1] && URLUtils.isValidTransactionId(match[1])) {
         const resolvedTxId = match[1];
-        setCache(cacheKey, resolvedTxId, 1 * 60 * 1000);
+
+        // 성공한 해결 결과를 더 오래 캐싱 (5분)
+        setCache(cacheKey, resolvedTxId, 5 * 60 * 1000);
+
+        // 개발 환경에서 성공 로그
+        if (
+          typeof window !== 'undefined' &&
+          window.location.hostname === 'localhost'
+        ) {
+          console.log(
+            `✅ Resolved mutable ${mutableAddress.slice(0, 8)}... → ${resolvedTxId.slice(0, 8)}...`
+          );
+        }
+
         return resolvedTxId;
       }
     }
+
+    // 리다이렉트가 발생하지 않은 경우 (mutable 주소가 이미 최신일 수 있음)
+    if (response.ok) {
+      // 짧은 시간 캐싱 (1분) - 변경될 수 있음
+      setCache(cacheKey, mutableAddress, 1 * 60 * 1000);
+
+      if (
+        typeof window !== 'undefined' &&
+        window.location.hostname === 'localhost'
+      ) {
+        console.log(
+          `ℹ️  Mutable ${mutableAddress.slice(0, 8)}... appears to be current`
+        );
+      }
+
+      return mutableAddress;
+    }
   } catch (error) {
-    // resolve 실패시 null 반환 (타임아웃 포함)
-    if (error instanceof Error && error.message !== 'Resolve timeout') {
-      console.log(
-        `Failed to resolve mutable address ${mutableAddress}:`,
-        error
-      );
+    // 네트워크 에러 또는 타임아웃
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        console.warn(
+          `⏱️ Mutable resolve timeout for ${mutableAddress.slice(0, 8)}...`
+        );
+      } else {
+        console.warn(
+          `❌ Failed to resolve mutable ${mutableAddress.slice(0, 8)}...:`,
+          error.message
+        );
+      }
     }
   }
 
@@ -1187,9 +1216,9 @@ export async function getProfileByAddress(
       );
       resolvedTxId = cachedResolve || rootTxId;
 
-      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve
+      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve (기본 5초 타임아웃)
       if (!cachedResolve && URLUtils.isValidTransactionId(rootTxId)) {
-        resolveMutableAddress(rootTxId, 2000).catch(() => {});
+        resolveMutableAddress(rootTxId).catch(() => {});
       }
     }
 
@@ -1296,9 +1325,9 @@ export async function getProfileByNickname(
       );
       resolvedTxId = cachedResolve || rootTxId;
 
-      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve
+      // 캐시에 없고 유효한 ID라면 백그라운드에서 resolve (기본 5초 타임아웃)
       if (!cachedResolve && URLUtils.isValidTransactionId(rootTxId)) {
-        resolveMutableAddress(rootTxId, 2000).catch(() => {});
+        resolveMutableAddress(rootTxId).catch(() => {});
       }
     }
 
@@ -4026,6 +4055,120 @@ export function debugProfileImageUrls(): void {
       console.warn('❌ Invalid URLs found:', invalidUrlList);
     }
   }
+}
+
+// Mutable 주소 해결 상태 디버깅 함수
+export function debugMutableResolveStatus(): void {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost'
+  ) {
+    const allCacheKeys = Object.keys(localStorage).filter(key =>
+      key.includes('mutable-resolve:')
+    );
+
+    const resolveStats = {
+      totalCached: allCacheKeys.length,
+      recentlyResolved: 0,
+      expired: 0,
+    };
+
+    allCacheKeys.forEach(key => {
+      try {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          const parsedCache = JSON.parse(cached);
+          const now = Date.now();
+          const isExpired = now > parsedCache.expiry;
+
+          if (isExpired) {
+            resolveStats.expired++;
+          } else if (now - (parsedCache.expiry - parsedCache.ttl) < 60000) {
+            // 1분 이내
+            resolveStats.recentlyResolved++;
+          }
+        }
+      } catch (e) {
+        // 잘못된 캐시 항목은 무시
+      }
+    });
+
+    console.log('🔄 Mutable Resolve Debug:', {
+      'Total Cached Resolves': resolveStats.totalCached,
+      'Recently Resolved (1min)': resolveStats.recentlyResolved,
+      'Expired Entries': resolveStats.expired,
+      'Cache Hit Potential': `${Math.round(((resolveStats.totalCached - resolveStats.expired) / Math.max(resolveStats.totalCached, 1)) * 100)}%`,
+    });
+
+    // 최근 성공한 resolve들 표시
+    if (resolveStats.recentlyResolved > 0) {
+      console.log(
+        `✅ ${resolveStats.recentlyResolved} mutable addresses were successfully resolved recently`
+      );
+    }
+  }
+}
+
+// 실시간 mutable resolve 테스트 함수
+export async function testMutableResolve(
+  mutableAddress: string
+): Promise<void> {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost'
+  ) {
+    console.log(
+      `🧪 Testing mutable resolve for: ${mutableAddress.slice(0, 12)}...`
+    );
+
+    const startTime = performance.now();
+    const resolved = await resolveMutableAddress(mutableAddress);
+    const endTime = performance.now();
+
+    if (resolved) {
+      console.log(
+        `✅ Resolve successful in ${Math.round(endTime - startTime)}ms`
+      );
+      console.log(
+        `   ${mutableAddress.slice(0, 12)}... → ${resolved.slice(0, 12)}...`
+      );
+
+      // URL 유효성도 확인
+      const testUrl = `https://gateway.irys.xyz/${resolved}`;
+      if (
+        URLUtils.isValidUrl(
+          `https://gateway.irys.xyz/mutable/${mutableAddress}`
+        )
+      ) {
+        console.log(`   Generated URL: ${testUrl}`);
+      } else {
+        console.warn(`   ⚠️ Generated invalid URL: ${testUrl}`);
+      }
+    } else {
+      console.warn(
+        `❌ Resolve failed after ${Math.round(endTime - startTime)}ms`
+      );
+    }
+  }
+}
+
+// 개발 환경에서 전역 디버깅 함수 등록
+if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  (window as any).debugMutableResolve = {
+    checkImages: debugProfileImageUrls,
+    checkStatus: debugMutableResolveStatus,
+    testResolve: testMutableResolve,
+    perfStats: PerformanceUtils.measure,
+  };
+
+  console.log('🔧 Mutable resolve debug tools available:');
+  console.log('  debugMutableResolve.checkImages() - Check all image URLs');
+  console.log(
+    '  debugMutableResolve.checkStatus() - Check resolve cache status'
+  );
+  console.log(
+    '  debugMutableResolve.testResolve(txId) - Test specific mutable address'
+  );
 }
 
 // URL 검증 및 안전 처리 유틸리티

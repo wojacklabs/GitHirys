@@ -10,6 +10,10 @@ import {
   getProfileByNickname,
   UserProfile,
   clearExpiredCache,
+  debugProfileImageUrls,
+  debugMutableResolveStatus,
+  testMutableResolve,
+  URLUtils,
 } from '../lib/irys';
 import Link from 'next/link';
 import styles from '../styles/UserPage.module.css';
@@ -252,6 +256,93 @@ const UserPage: NextPage<UserPageProps> = ({
         <title>{pageTitle}</title>
       </Head>
       <div className="container">
+        {/* 개발 환경 디버깅 패널 */}
+        {typeof window !== 'undefined' &&
+          window.location.hostname === 'localhost' && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '10px',
+                right: '10px',
+                background: 'rgba(0,0,0,0.9)',
+                color: 'white',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                zIndex: 9999,
+                maxWidth: '300px',
+              }}
+            >
+              <strong>🔧 Mutable Debug Panel</strong>
+              <div style={{ marginTop: '8px' }}>
+                <button
+                  onClick={debugProfileImageUrls}
+                  style={{
+                    padding: '4px 8px',
+                    margin: '2px',
+                    fontSize: '11px',
+                    background: '#007acc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Check Images
+                </button>
+                <button
+                  onClick={debugMutableResolveStatus}
+                  style={{
+                    padding: '4px 8px',
+                    margin: '2px',
+                    fontSize: '11px',
+                    background: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Resolve Status
+                </button>
+                {userProfile?.rootTxId && (
+                  <button
+                    onClick={() => testMutableResolve(userProfile.rootTxId)}
+                    style={{
+                      padding: '4px 8px',
+                      margin: '2px',
+                      fontSize: '11px',
+                      background: '#ffc107',
+                      color: 'black',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Test Profile
+                  </button>
+                )}
+              </div>
+              {userProfile && (
+                <div
+                  style={{ marginTop: '8px', fontSize: '10px', opacity: 0.8 }}
+                >
+                  Profile: {userProfile.nickname}
+                  <br />
+                  RootTx: {userProfile.rootTxId?.slice(0, 12)}...
+                  <br />
+                  Image: {userProfile.profileImageUrl ? '✅' : '❌'}
+                  <br />
+                  Valid TX:{' '}
+                  {userProfile.rootTxId &&
+                  URLUtils.isValidTransactionId(userProfile.rootTxId)
+                    ? '✅'
+                    : '❌'}
+                </div>
+              )}
+            </div>
+          )}
+
         {/* 사용자 프로필 헤더 */}
         <div className={styles.profileHeader}>
           <div className={styles.profileImageContainer}>
