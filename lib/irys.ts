@@ -184,78 +184,81 @@ export async function searchAllRepositories(
   const endpoint = 'https://uploader.irys.xyz/graphql';
 
   try {
-    // 병렬로 닉네임과 저장소 데이터 로드 - 쿼리 크기 최적화
-    const [nicknameData, repositoryData] = await Promise.all([
-      // 닉네임 데이터 로드 - 크기 최적화
-      fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: `
-            query getAllNicknames {
-              transactions(
-                tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
-                first: 200,
-                order: DESC
-              ) {
-                edges {
-                  node {
-                    id
-                    tags {
-                      name
-                      value
-                    }
-                    timestamp
+    // 닉네임 데이터 먼저 로드 (순차적으로 변경)
+    const nicknameResponse = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: `
+          query getAllNicknames {
+            transactions(
+              tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+              first: 100,
+              order: DESC
+            ) {
+              edges {
+                node {
+                  id
+                  tags {
+                    name
+                    value
                   }
+                  timestamp
                 }
               }
             }
-          `,
-        }),
+          }
+        `,
       }),
-      // 저장소 데이터 로드 - 크기 최적화
-      fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: `
-            query getAllRepositories {
-              transactions(
-                tags: [{ name: "App-Name", values: ["irys-git"] }],
-                first: 300,
-                order: DESC
-              ) {
-                edges {
-                  node {
-                    id
-                    tags {
-                      name
-                      value
-                    }
-                    timestamp
-                  }
-                }
-              }
-            }
-          `,
-        }),
-      }),
-    ]);
+    });
 
-    if (!nicknameData.ok || !repositoryData.ok) {
+    if (!nicknameResponse.ok) {
       return [];
     }
 
-    const [nicknameResult, repositoryResult] = await Promise.all([
-      nicknameData.json(),
-      repositoryData.json(),
-    ]);
+    const nicknameResult = await nicknameResponse.json();
+    if (nicknameResult.errors) {
+      return [];
+    }
 
-    if (nicknameResult.errors || repositoryResult.errors) {
+    // 저장소 데이터 로드
+    const repositoryResponse = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: `
+          query getAllRepositories {
+            transactions(
+              tags: [{ name: "App-Name", values: ["irys-git"] }],
+              first: 100,
+              order: DESC
+            ) {
+              edges {
+                node {
+                  id
+                  tags {
+                    name
+                    value
+                  }
+                  timestamp
+                }
+              }
+            }
+          }
+        `,
+      }),
+    });
+
+    if (!repositoryResponse.ok) {
+      return [];
+    }
+
+    const repositoryResult = await repositoryResponse.json();
+    if (repositoryResult.errors) {
       return [];
     }
 
@@ -487,112 +490,49 @@ export async function searchRepositories(
   // Test Irys connection first
   const canConnect = await testIrysConnection();
 
-  const searchStrategy = {
-    name: 'irys-git 태그로 검색 - 최적화된 버전',
-    endpoint: 'https://uploader.irys.xyz/graphql',
-    query: `
-      query getTagsWithAnd($owners: [String!]!) {
-        transactions(
-          tags: [{ name: "App-Name", values: ["irys-git"] }, { name: "git-owner", values: $owners }],
-          first: 100,
-          order: DESC
-        ) {
-          edges {
-            node {
-              id
-              tags {
-                name
-                value
-              }
-              timestamp
+  // 프로필 쿼리와 동일한 방식으로 단순화
+  const query = `
+    query getRepositories($owner: String!) {
+      transactions(
+        tags: [
+          { name: "App-Name", values: ["irys-git"] },
+          { name: "git-owner", values: [$owner] }
+        ],
+        first: 50,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
             }
+            timestamp
           }
         }
       }
-    `,
-    variables: { owners: [owner] },
-  };
+    }
+  `;
 
   try {
-    // 병렬로 저장소 데이터와 권한 정보를 가져옴
-    const [repositoryResponse, permissionsPromise] = await Promise.all([
-      fetch(searchStrategy.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: searchStrategy.query,
-          variables: searchStrategy.variables,
-        }),
+    // 단일 요청으로 단순화 (프로필 조회와 동일한 패턴)
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { owner },
       }),
-      // 권한 정보를 미리 캐싱하기 위한 Promise (오류 무시)
-      Promise.resolve().then(async () => {
-        try {
-          // 가능한 저장소들의 권한을 미리 조회 (최대 20개까지만)
-          const quickRepoQuery = `
-            query getQuickRepos($owners: [String!]!) {
-              transactions(
-                tags: [{ name: "App-Name", values: ["irys-git"] }, { name: "git-owner", values: $owners }],
-                first: 20,
-                order: DESC
-              ) {
-                edges {
-                  node {
-                    tags {
-                      name
-                      value
-                    }
-                  }
-                }
-              }
-            }
-          `;
+    });
 
-          const quickResponse = await fetch(searchStrategy.endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query: quickRepoQuery,
-              variables: searchStrategy.variables,
-            }),
-          });
-
-          if (quickResponse.ok) {
-            const quickResult = await quickResponse.json();
-            const quickTransactions =
-              quickResult.data?.transactions?.edges || [];
-
-            // 저장소 이름들 추출
-            const repoNames = new Set<string>();
-            for (const edge of quickTransactions) {
-              const repositoryTag = edge.node.tags?.find(
-                (tag: any) => tag.name === 'Repository'
-              );
-              if (repositoryTag) {
-                repoNames.add(repositoryTag.value);
-              }
-            }
-
-            // 권한 정보 병렬 로드 (에러 무시)
-            const repoList = Array.from(repoNames).slice(0, 10); // 최대 10개 저장소만
-            return Promise.allSettled(
-              repoList.map(repoName =>
-                getRepositoryPermissions(repoName, owner).catch(() => null)
-              )
-            );
-          }
-        } catch {
-          return null;
-        }
-      }),
-    ]);
-
-    if (!repositoryResponse.ok) {
+    if (!response.ok) {
       return [];
     }
 
-    const result = await repositoryResponse.json();
+    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -3834,144 +3774,150 @@ export async function batchGetRepositoryPermissions(
     }
   }
 
-  // 캐시되지 않은 항목들을 병렬로 조회
+  // 캐시되지 않은 항목들을 조회 (더 작은 배치로)
   if (uncachedRepos.length > 0) {
-    const query = `
-      query batchGetPermissions($repositories: [String!]!, $owners: [String!]!) {
-        permissions: transactions(
-          tags: [
-            { name: "App-Name", values: ["irys-git-permissions"] },
-            { name: "Repository", values: $repositories },
-            { name: "git-owner", values: $owners }
-          ],
-          first: 1000,
-          order: DESC
-        ) {
-          edges {
-            node {
-              id
-              tags {
-                name
-                value
+    // 큰 배치를 작은 배치로 나누기 (CORS 문제 방지)
+    const batchSize = 5;
+    for (let i = 0; i < uncachedRepos.length; i += batchSize) {
+      const batch = uncachedRepos.slice(i, i + batchSize);
+
+      const query = `
+        query batchGetPermissions($repositories: [String!]!, $owners: [String!]!) {
+          permissions: transactions(
+            tags: [
+              { name: "App-Name", values: ["irys-git-permissions"] },
+              { name: "Repository", values: $repositories },
+              { name: "git-owner", values: $owners }
+            ],
+            first: 50,
+            order: DESC
+          ) {
+            edges {
+              node {
+                id
+                tags {
+                  name
+                  value
+                }
+                timestamp
               }
-              timestamp
+            }
+          }
+          visibility: transactions(
+            tags: [
+              { name: "App-Name", values: ["irys-git-visibility"] },
+              { name: "Repository", values: $repositories },
+              { name: "git-owner", values: $owners }
+            ],
+            first: 50,
+            order: DESC
+          ) {
+            edges {
+              node {
+                id
+                tags {
+                  name
+                  value
+                }
+                timestamp
+              }
             }
           }
         }
-        visibility: transactions(
-          tags: [
-            { name: "App-Name", values: ["irys-git-visibility"] },
-            { name: "Repository", values: $repositories },
-            { name: "git-owner", values: $owners }
-          ],
-          first: 1000,
-          order: DESC
-        ) {
-          edges {
-            node {
-              id
-              tags {
-                name
-                value
-              }
-              timestamp
+      `;
+
+      try {
+        const response = await fetch('https://uploader.irys.xyz/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            variables: {
+              repositories: batch.map(r => r.name),
+              owners: batch.map(r => r.owner),
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+
+          // 권한 정보 처리
+          const permTransactions = result.data?.permissions?.edges || [];
+          for (const edge of permTransactions) {
+            const node = edge.node;
+            const repoTag = node.tags?.find(
+              (tag: any) => tag.name === 'Repository'
+            );
+            const ownerTag = node.tags?.find(
+              (tag: any) => tag.name === 'git-owner'
+            );
+            const contributorsTag = node.tags?.find(
+              (tag: any) => tag.name === 'git-contributors'
+            );
+
+            if (repoTag && ownerTag) {
+              const key = `${ownerTag.value}/${repoTag.value}`;
+              const permissions: RepositoryPermissions = {
+                repository: repoTag.value,
+                owner: ownerTag.value,
+                contributors: contributorsTag
+                  ? contributorsTag.value.split(',').filter((c: string) => c)
+                  : [ownerTag.value],
+                timestamp: TimestampUtils.normalize(node.timestamp),
+              };
+
+              const existing = resultMap.get(key) || {};
+              resultMap.set(key, { ...existing, permissions });
+
+              // 캐시에 저장
+              const cacheKey = getCacheKey('permissions', {
+                name: repoTag.value,
+                owner: ownerTag.value,
+              });
+              setCache(cacheKey, permissions);
+            }
+          }
+
+          // 가시성 정보 처리
+          const visTransactions = result.data?.visibility?.edges || [];
+          for (const edge of visTransactions) {
+            const node = edge.node;
+            const repoTag = node.tags?.find(
+              (tag: any) => tag.name === 'Repository'
+            );
+            const ownerTag = node.tags?.find(
+              (tag: any) => tag.name === 'git-owner'
+            );
+            const visibilityTag = node.tags?.find(
+              (tag: any) => tag.name === 'git-visibility'
+            );
+
+            if (repoTag && ownerTag) {
+              const key = `${ownerTag.value}/${repoTag.value}`;
+              const visibility: RepositoryVisibility = {
+                repository: repoTag.value,
+                owner: ownerTag.value,
+                visibility:
+                  (visibilityTag?.value as 'public' | 'private') || 'public',
+                timestamp: TimestampUtils.normalize(node.timestamp),
+              };
+
+              const existing = resultMap.get(key) || {};
+              resultMap.set(key, { ...existing, visibility });
+
+              // 캐시에 저장
+              const cacheKey = getCacheKey('visibility', {
+                name: repoTag.value,
+                owner: ownerTag.value,
+              });
+              setCache(cacheKey, visibility);
             }
           }
         }
+      } catch (error) {
+        console.error('Error in batch permissions fetch:', error);
       }
-    `;
-
-    try {
-      const response = await fetch('https://uploader.irys.xyz/graphql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          variables: {
-            repositories: uncachedRepos.map(r => r.name),
-            owners: uncachedRepos.map(r => r.owner),
-          },
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-
-        // 권한 정보 처리
-        const permTransactions = result.data?.permissions?.edges || [];
-        for (const edge of permTransactions) {
-          const node = edge.node;
-          const repoTag = node.tags?.find(
-            (tag: any) => tag.name === 'Repository'
-          );
-          const ownerTag = node.tags?.find(
-            (tag: any) => tag.name === 'git-owner'
-          );
-          const contributorsTag = node.tags?.find(
-            (tag: any) => tag.name === 'git-contributors'
-          );
-
-          if (repoTag && ownerTag) {
-            const key = `${ownerTag.value}/${repoTag.value}`;
-            const permissions: RepositoryPermissions = {
-              repository: repoTag.value,
-              owner: ownerTag.value,
-              contributors: contributorsTag
-                ? contributorsTag.value.split(',').filter((c: string) => c)
-                : [ownerTag.value],
-              timestamp: TimestampUtils.normalize(node.timestamp),
-            };
-
-            const existing = resultMap.get(key) || {};
-            resultMap.set(key, { ...existing, permissions });
-
-            // 캐시에 저장
-            const cacheKey = getCacheKey('permissions', {
-              name: repoTag.value,
-              owner: ownerTag.value,
-            });
-            setCache(cacheKey, permissions);
-          }
-        }
-
-        // 가시성 정보 처리
-        const visTransactions = result.data?.visibility?.edges || [];
-        for (const edge of visTransactions) {
-          const node = edge.node;
-          const repoTag = node.tags?.find(
-            (tag: any) => tag.name === 'Repository'
-          );
-          const ownerTag = node.tags?.find(
-            (tag: any) => tag.name === 'git-owner'
-          );
-          const visibilityTag = node.tags?.find(
-            (tag: any) => tag.name === 'git-visibility'
-          );
-
-          if (repoTag && ownerTag) {
-            const key = `${ownerTag.value}/${repoTag.value}`;
-            const visibility: RepositoryVisibility = {
-              repository: repoTag.value,
-              owner: ownerTag.value,
-              visibility:
-                (visibilityTag?.value as 'public' | 'private') || 'public',
-              timestamp: TimestampUtils.normalize(node.timestamp),
-            };
-
-            const existing = resultMap.get(key) || {};
-            resultMap.set(key, { ...existing, visibility });
-
-            // 캐시에 저장
-            const cacheKey = getCacheKey('visibility', {
-              name: repoTag.value,
-              owner: ownerTag.value,
-            });
-            setCache(cacheKey, visibility);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in batch permissions fetch:', error);
     }
   }
 
