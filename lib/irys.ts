@@ -704,6 +704,238 @@ export async function searchRepositories(
   }
 }
 
+// 저장소를 점진적으로 로드하는 함수 (캐싱 포함)
+export async function* searchRepositoriesProgressive(
+  owner: string,
+  currentWallet?: string
+): AsyncGenerator<Repository, void, unknown> {
+  // Test Irys connection first
+  const canConnect = await testIrysConnection();
+
+  // 프로필 쿼리와 동일한 방식으로 단순화
+  const query = `
+    query getRepositories($owner: String!) {
+      transactions(
+        tags: [
+          { name: "App-Name", values: ["irys-git"] },
+          { name: "git-owner", values: [$owner] }
+        ],
+        first: 50,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    // 단일 요청으로 단순화 (프로필 조회와 동일한 패턴)
+    const response = await fetch('https://uploader.irys.xyz/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { owner },
+      }),
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      return;
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    if (transactions.length === 0) {
+      return;
+    }
+
+    // 저장소별로 그룹핑 - 최적화된 처리
+    const repositoryMap = new Map<string, Repository>();
+    const branchTransactionMap = new Map<
+      string,
+      Map<string, BranchTransactionData>
+    >();
+
+    // 첫 번째 패스: 트랜잭션 그룹핑
+    for (const edge of transactions) {
+      const node = edge.node;
+
+      // 태그에서 필요한 정보 추출
+      const repositoryTag = node.tags?.find(
+        (tag: any) => tag.name === 'Repository'
+      );
+      const branchTag = node.tags?.find((tag: any) => tag.name === 'Branch');
+      const timestampTag = node.tags?.find(
+        (tag: any) => tag.name === 'Timestamp'
+      );
+      const mutableTag = node.tags?.find(
+        (tag: any) => tag.name === 'Mutable-Address'
+      );
+      const commitHashTag = node.tags?.find(
+        (tag: any) => tag.name === 'Commit-Hash'
+      );
+      const commitMsgTag = node.tags?.find(
+        (tag: any) => tag.name === 'Commit-Message'
+      );
+      const authorTag = node.tags?.find((tag: any) => tag.name === 'Author');
+
+      if (!repositoryTag) {
+        continue;
+      }
+
+      const repoName = repositoryTag.value;
+      const branchName = branchTag?.value || 'main';
+
+      // Timestamp 처리 개선 - 태그의 Timestamp를 우선하고, 없으면 node.timestamp 사용
+      const rawTimestamp = timestampTag?.value || node.timestamp;
+      const normalizedTimestamp = TimestampUtils.normalize(rawTimestamp);
+
+      const mutableAddress = mutableTag?.value || null;
+
+      // 저장소별 브랜치 맵 초기화
+      if (!branchTransactionMap.has(repoName)) {
+        branchTransactionMap.set(
+          repoName,
+          new Map<string, BranchTransactionData>()
+        );
+      }
+
+      const repoBranches = branchTransactionMap.get(repoName)!;
+
+      // 브랜치별로 최신 트랜잭션만 유지 (정규화된 timestamp로 비교)
+      const existingBranch = repoBranches.get(branchName);
+      const shouldUpdate =
+        !existingBranch ||
+        normalizedTimestamp >
+          TimestampUtils.normalize(existingBranch.timestamp);
+
+      if (shouldUpdate) {
+        repoBranches.set(branchName, {
+          name: branchName,
+          transactionId: node.id,
+          mutableAddress: mutableAddress,
+          timestamp:
+            timestampTag?.value ||
+            TimestampUtils.toDate(node.timestamp).toISOString(),
+          commitHash: commitHashTag?.value || '',
+          commitMessage: commitMsgTag?.value || '',
+          author: authorTag?.value || '',
+          tags: node.tags || [],
+          nodeTimestamp: normalizedTimestamp,
+        });
+      }
+    }
+
+    // 두 번째 패스: Repository 객체 생성 및 점진적 반환
+    for (const [repoName, branches] of Array.from(
+      branchTransactionMap.entries()
+    )) {
+      const branchInfos: RepoBranch[] = Array.from(branches.values()).map(
+        (branchData: BranchTransactionData) => ({
+          name: branchData.name,
+          transactionId: branchData.transactionId,
+          mutableAddress: branchData.mutableAddress,
+          timestamp: branchData.nodeTimestamp,
+          commitHash: branchData.commitHash,
+          commitMessage: branchData.commitMessage,
+          author: branchData.author,
+          tags: branchData.tags,
+        })
+      );
+
+      // 기본 브랜치 결정
+      let defaultBranch = 'main';
+      if (branchInfos.find(b => b.name === 'main')) {
+        defaultBranch = 'main';
+      } else if (branchInfos.find(b => b.name === 'master')) {
+        defaultBranch = 'master';
+      } else if (branchInfos.length > 0) {
+        defaultBranch = branchInfos[0].name;
+      }
+
+      // 브랜치 정렬 (기본 브랜치 우선, 그 다음 이름순)
+      branchInfos.sort((a, b) => {
+        if (a.name === defaultBranch) return -1;
+        if (b.name === defaultBranch) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      const repository: Repository = {
+        name: repoName,
+        owner: owner,
+        branches: branchInfos,
+        defaultBranch: defaultBranch,
+        tags: branchInfos[0]?.tags || [],
+      };
+
+      // 권한 필터링 최적화 - 소유자인 경우 권한 체크 스킵
+      if (owner === currentWallet) {
+        // 소유자는 모든 저장소에 접근 가능하므로 바로 반환
+        yield repository;
+      } else {
+        // 비소유자인 경우 권한 기반 필터링
+
+        // 먼저 캐시된 권한 정보 확인
+        const visibilityCacheKey = getCacheKey('repo-visibility', {
+          repo: repoName,
+          owner,
+        });
+        const permissionsCacheKey = getCacheKey('repo-permissions', {
+          repo: repoName,
+          owner,
+        });
+
+        let visibility = getFromCache<RepositoryVisibility>(visibilityCacheKey);
+        let permissions =
+          getFromCache<RepositoryPermissions>(permissionsCacheKey);
+
+        // 캐시가 없으면 가져오기
+        if (!visibility) {
+          visibility = await getRepositoryVisibility(repoName, owner);
+          if (visibility) {
+            setCache(visibilityCacheKey, visibility, 30 * 60 * 1000); // 30분 캐싱
+          }
+        }
+
+        if (!visibility || visibility.visibility === 'public') {
+          yield repository;
+        } else if (visibility.visibility === 'private' && currentWallet) {
+          // private인 경우 권한 확인
+          if (!permissions) {
+            permissions = await getRepositoryPermissions(repoName, owner);
+            if (permissions) {
+              setCache(permissionsCacheKey, permissions, 30 * 60 * 1000); // 30분 캐싱
+            }
+          }
+
+          if (permissions && permissions.contributors.includes(currentWallet)) {
+            yield repository;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('저장소 검색 오류:', error);
+  }
+}
+
 // Get transaction details by ID with correct Irys syntax
 export async function getTransactionById(
   transactionId: string
@@ -1468,6 +1700,11 @@ export async function getRepositoryPermissions(
   repository: string,
   owner: string
 ): Promise<RepositoryPermissions | null> {
+  // 캐시 확인
+  const cacheKey = getCacheKey('repo-permissions', { repo: repository, owner });
+  const cached = getFromCache<RepositoryPermissions>(cacheKey);
+  if (cached) return cached;
+
   const query = `
     query getRepositoryPermissions($repository: String!, $owner: String!) {
       transactions(
@@ -1510,12 +1747,15 @@ export async function getRepositoryPermissions(
 
     if (transactions.length === 0) {
       // 권한 정보가 없으면 기본값 반환 (소유자만 포함)
-      return {
+      const defaultPermissions = {
         repository,
         owner,
         contributors: [owner],
         timestamp: TimestampUtils.normalize(Date.now()),
       };
+      // 기본값도 캐싱 (더 짧은 시간)
+      setCache(cacheKey, defaultPermissions, 10 * 60 * 1000);
+      return defaultPermissions;
     }
 
     // 가장 최신 권한 정보 사용
@@ -1567,6 +1807,8 @@ export async function getRepositoryPermissions(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
+    // 결과 캐싱 (30분)
+    setCache(cacheKey, permissions, 30 * 60 * 1000);
     return permissions;
   } catch (error) {
     return null;
@@ -1794,6 +2036,11 @@ export async function getRepositoryVisibility(
   repository: string,
   owner: string
 ): Promise<RepositoryVisibility | null> {
+  // 캐시 확인
+  const cacheKey = getCacheKey('repo-visibility', { repo: repository, owner });
+  const cached = getFromCache<RepositoryVisibility>(cacheKey);
+  if (cached) return cached;
+
   const query = `
     query getRepositoryVisibility($repository: String!, $owner: String!) {
       transactions(
@@ -1836,12 +2083,15 @@ export async function getRepositoryVisibility(
 
     if (transactions.length === 0) {
       // 노출 권한 정보가 없으면 기본값 반환 (public)
-      return {
+      const defaultVisibility = {
         repository,
         owner,
-        visibility: 'public',
+        visibility: 'public' as 'public' | 'private',
         timestamp: TimestampUtils.normalize(Date.now()),
       };
+      // 기본값도 캐싱 (더 짧은 시간)
+      setCache(cacheKey, defaultVisibility, 10 * 60 * 1000);
+      return defaultVisibility;
     }
 
     // 가장 최신 노출 권한 정보 사용
@@ -1867,6 +2117,8 @@ export async function getRepositoryVisibility(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
+    // 결과 캐싱 (30분)
+    setCache(cacheKey, visibility, 30 * 60 * 1000);
     return visibility;
   } catch (error) {
     return null;

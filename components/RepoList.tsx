@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import {
   searchRepositories,
+  searchRepositoriesProgressive,
   testIrysConnection,
   Repository,
   RepoBranch,
@@ -80,6 +81,7 @@ export default function RepoList({
         setLoading(true);
         setError(null);
         setDebugInfo([]);
+        setRepositories([]); // 기존 저장소 목록 초기화
 
         addDebugInfo(`🔍 Searching repositories for ${owner}...`);
 
@@ -90,37 +92,51 @@ export default function RepoList({
           canConnect ? '✅ Connected to Irys' : '❌ Failed to connect to Irys'
         );
 
-        // Search repositories using enhanced GraphQL API
+        // Search repositories using progressive loading
         addDebugInfo('📂 Fetching repository data...');
-        const foundRepos = await searchRepositories(owner, currentWallet);
 
-        if (foundRepos.length > 0) {
-          const totalBranches = foundRepos.reduce(
+        const loadedRepos: Repository[] = [];
+        const selectedBranchesMap: { [repoName: string]: string } = {};
+        let repoCount = 0;
+
+        // 점진적으로 저장소 로드
+        for await (const repo of searchRepositoriesProgressive(
+          owner,
+          currentWallet
+        )) {
+          repoCount++;
+          loadedRepos.push(repo);
+
+          // 각 저장소의 기본 브랜치 설정
+          selectedBranchesMap[repo.name] = repo.defaultBranch;
+
+          // 상태 업데이트 (저장소가 로드될 때마다)
+          setRepositories([...loadedRepos]);
+          setSelectedBranches({ ...selectedBranchesMap });
+
+          // 첫 번째 저장소가 로드되면 로딩 상태 해제
+          if (repoCount === 1) {
+            setLoading(false);
+          }
+
+          // 디버그 정보 업데이트
+          addDebugInfo(
+            `📦 ${repo.name} (${repo.branches.length} ${repo.branches.length === 1 ? 'branch' : 'branches'})`
+          );
+        }
+
+        if (repoCount === 0) {
+          addDebugInfo('❌ No repositories found');
+          setLoading(false);
+        } else {
+          const totalBranches = loadedRepos.reduce(
             (sum, repo) => sum + repo.branches.length,
             0
           );
           addDebugInfo(
-            `✅ Found ${foundRepos.length} repositories with ${totalBranches} branches`
+            `✅ Found ${repoCount} repositories with ${totalBranches} branches`
           );
-
-          // 각 저장소의 기본 브랜치를 선택된 브랜치로 설정
-          const initialSelectedBranches: { [repoName: string]: string } = {};
-          foundRepos.forEach(repo => {
-            initialSelectedBranches[repo.name] = repo.defaultBranch;
-          });
-          setSelectedBranches(initialSelectedBranches);
-
-          // Log details for debugging
-          foundRepos.forEach((repo, idx) => {
-            addDebugInfo(
-              `📦 ${repo.name} (${repo.branches.length} ${repo.branches.length === 1 ? 'branch' : 'branches'})`
-            );
-          });
-        } else {
-          addDebugInfo('❌ No repositories found');
         }
-
-        setRepositories(foundRepos);
       } catch (error) {
         console.error('저장소 목록 로딩 오류:', error);
         const errorMessage =
@@ -129,8 +145,8 @@ export default function RepoList({
             : '알 수 없는 오류가 발생했습니다.';
         setError(`Failed to fetch repositories: ${errorMessage}`);
         addDebugInfo(`❌ Error: ${errorMessage}`);
-      } finally {
         setLoading(false);
+      } finally {
         setSearchProgress('');
       }
     };
@@ -138,7 +154,7 @@ export default function RepoList({
     if (owner) {
       loadRepos();
     }
-  }, [owner]);
+  }, [owner, currentWallet]);
 
   if (loading) {
     return (
