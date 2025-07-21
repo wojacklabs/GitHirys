@@ -239,79 +239,89 @@ export async function searchAllRepositories(
 
   try {
     // 닉네임 데이터 먼저 로드 (순차적으로 변경)
-    const nicknameResponse = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: `
-            query getAllNicknames {
-              transactions(
-                tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
-              first: 100,
-                order: DESC
-              ) {
-                edges {
-                  node {
-                    id
-                    tags {
-                      name
-                      value
+    const nicknameResult = await executeQuery(
+      'searchAllRepositories-nicknames',
+      async () => {
+        const nicknameResponse = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `
+              query getAllNicknames {
+                transactions(
+                  tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+                first: 100,
+                  order: DESC
+                ) {
+                  edges {
+                    node {
+                      id
+                      tags {
+                        name
+                        value
+                      }
+                      timestamp
                     }
-                    timestamp
                   }
                 }
               }
-            }
-          `,
-      }),
-    });
+            `,
+          }),
+        });
 
-    if (!nicknameResponse.ok) {
-      return [];
-    }
+        if (!nicknameResponse.ok) {
+          throw new Error(`HTTP error! status: ${nicknameResponse.status}`);
+        }
 
-    const nicknameResult = await nicknameResponse.json();
+        return await nicknameResponse.json();
+      }
+    );
     if (nicknameResult.errors) {
       return [];
     }
 
     // 저장소 데이터 로드
-    const repositoryResponse = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: `
-            query getAllRepositories {
-              transactions(
-                tags: [{ name: "App-Name", values: ["irys-git"] }],
-              first: 100,
-                order: DESC
-              ) {
-                edges {
-                  node {
-                    id
-                    tags {
-                      name
-                      value
+    const repositoryResult = await executeQuery(
+      'searchAllRepositories-repos',
+      async () => {
+        const repositoryResponse = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `
+              query getAllRepositories {
+                transactions(
+                  tags: [{ name: "App-Name", values: ["irys-git"] }],
+                first: 100,
+                  order: DESC
+                ) {
+                  edges {
+                    node {
+                      id
+                      tags {
+                        name
+                        value
+                      }
+                      timestamp
                     }
-                    timestamp
                   }
                 }
               }
-            }
-          `,
-      }),
-    });
+            `,
+          }),
+        });
 
-    if (!repositoryResponse.ok) {
-      return [];
-    }
+        if (!repositoryResponse.ok) {
+          throw new Error(`HTTP error! status: ${repositoryResponse.status}`);
+        }
 
-    const repositoryResult = await repositoryResponse.json();
+        return await repositoryResponse.json();
+      }
+    );
     if (repositoryResult.errors) {
       return [];
     }
@@ -2087,116 +2097,115 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
         walletAddress: query,
       });
     }
+    return results;
   } else {
     // 닉네임으로 부분검색 지원
     try {
       const endpoint = 'https://uploader.irys.xyz/graphql';
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: `
-            query getAllNicknames {
-              transactions(
-                tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
-                first: 1000,
-                order: DESC
-              ) {
-                edges {
-                  node {
-                    id
-                    tags {
-                      name
-                      value
+      const result = await executeQuery('searchUsers', async () => {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `
+              query getAllNicknames {
+                transactions(
+                  tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+                  first: 1000,
+                  order: DESC
+                ) {
+                  edges {
+                    node {
+                      id
+                      tags {
+                        name
+                        value
+                      }
+                      timestamp
                     }
-                    timestamp
                   }
                 }
               }
-            }
-          `,
-        }),
+            `,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (result.errors) {
+        return results;
+      }
 
-        if (!result.errors) {
-          const nicknameTransactions = result.data?.transactions?.edges || [];
+      const nicknameTransactions = result.data?.transactions?.edges || [];
 
-          // 고유한 프로필 맵 생성 (중복 제거)
-          const uniqueProfiles = new Map<string, UserProfile>();
+      // 고유한 프로필 맵 생성 (중복 제거)
+      const uniqueProfiles = new Map<string, UserProfile>();
 
-          for (const edge of nicknameTransactions) {
-            const node = edge.node;
-            const nicknameTag = node.tags?.find(
-              (tag: any) => tag.name === 'githirys_nickname'
-            );
-            const accountTag = node.tags?.find(
-              (tag: any) => tag.name === 'githirys_account_address'
-            );
-            const twitterTag = node.tags?.find(
-              (tag: any) => tag.name === 'githirys_twitter'
-            );
-            const rootTxTag = node.tags?.find(
-              (tag: any) => tag.name === 'Root-TX'
-            );
+      for (const edge of nicknameTransactions) {
+        const node = edge.node;
+        const nicknameTag = node.tags?.find(
+          (tag: any) => tag.name === 'githirys_nickname'
+        );
+        const accountTag = node.tags?.find(
+          (tag: any) => tag.name === 'githirys_account_address'
+        );
+        const twitterTag = node.tags?.find(
+          (tag: any) => tag.name === 'githirys_twitter'
+        );
 
-            if (nicknameTag && accountTag) {
-              const rootTxId = rootTxTag?.value || node.id;
+        if (nicknameTag && accountTag) {
+          const profileImageUrl = URLUtils.createIrysUrl(node.id);
+          const rootTxId = node.id;
 
-              // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
-              let profileImageUrl: string | undefined;
-              if (node.id && URLUtils.isValidTransactionId(node.id)) {
-                // 최신 트랜잭션 ID를 직접 사용 (mutable URL 대신)
-                profileImageUrl = `https://gateway.irys.xyz/${node.id}`;
-              }
+          const profile: UserProfile = {
+            nickname: nicknameTag.value,
+            twitterHandle: twitterTag?.value || '',
+            accountAddress: accountTag.value,
+            profileImageUrl,
+            rootTxId,
+            timestamp: node.timestamp,
+          };
 
-              const profile: UserProfile = {
-                nickname: nicknameTag.value,
-                accountAddress: accountTag.value,
-                twitterHandle: twitterTag?.value || '',
-                profileImageUrl,
-                rootTxId,
-                timestamp: node.timestamp,
-              };
-
-              // 같은 지갑 주소의 최신 프로필만 유지
-              const existingProfile = uniqueProfiles.get(accountTag.value);
-              if (
-                !existingProfile ||
-                profile.timestamp > existingProfile.timestamp
-              ) {
-                uniqueProfiles.set(accountTag.value, profile);
-              }
-            }
+          // 같은 지갑 주소의 최신 프로필만 유지
+          const existingProfile = uniqueProfiles.get(accountTag.value);
+          if (
+            !existingProfile ||
+            profile.timestamp > existingProfile.timestamp
+          ) {
+            uniqueProfiles.set(accountTag.value, profile);
           }
+        }
+      }
 
-          // 검색 쿼리와 매칭 처리 (case-insensitive)
-          for (const profile of Array.from(uniqueProfiles.values())) {
-            const nickname = profile.nickname.toLowerCase();
-            const walletAddress = profile.accountAddress.toLowerCase();
+      // 검색 쿼리와 매칭 처리 (case-insensitive)
+      for (const profile of Array.from(uniqueProfiles.values())) {
+        const nickname = profile.nickname.toLowerCase();
+        const walletAddress = profile.accountAddress.toLowerCase();
 
-            if (
-              nickname.includes(searchQuery) ||
-              walletAddress.includes(searchQuery)
-            ) {
-              results.push({
-                type: 'nickname',
-                displayName: profile.nickname,
-                walletAddress: profile.accountAddress,
-                nickname: profile.nickname,
-                profileImageUrl: profile.profileImageUrl,
-                twitterHandle: profile.twitterHandle,
-              });
-            }
-          }
+        if (
+          nickname.includes(searchQuery) ||
+          walletAddress.includes(searchQuery)
+        ) {
+          results.push({
+            type: 'nickname',
+            displayName: profile.nickname,
+            walletAddress: profile.accountAddress,
+            nickname: profile.nickname,
+            profileImageUrl: profile.profileImageUrl,
+            twitterHandle: profile.twitterHandle,
+          });
         }
       }
     } catch (error) {
       console.error('Search error:', error);
+      return results;
     }
   }
 
@@ -3092,22 +3101,24 @@ export async function getRepositoryIssues(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
-      }),
+    const result = await executeQuery('getRepositoryIssues', async () => {
+      const response = await fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -3235,22 +3246,24 @@ export async function getIssueComments(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
-      }),
+    const result = await executeQuery('getIssueComments', async () => {
+      const response = await fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -3692,22 +3705,24 @@ export async function getIssueVisibility(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
-      }),
+    const result = await executeQuery('getIssueVisibility', async () => {
+      const response = await fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return true; // Default to visible if can't check
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return true; // Default to visible if can't check
@@ -3795,22 +3810,24 @@ export async function getCommentVisibility(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
-      }),
+    const result = await executeQuery('getCommentVisibility', async () => {
+      const response = await fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return true; // Default to visible if can't check
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return true; // Default to visible if can't check
@@ -4274,6 +4291,11 @@ export const URLUtils = {
     } catch {
       return false;
     }
+  },
+
+  // Create Irys URL
+  createIrysUrl: (txId: string): string => {
+    return `https://gateway.irys.xyz/${txId}`;
   },
 };
 
