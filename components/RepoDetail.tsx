@@ -1906,7 +1906,7 @@ export default function RepoDetail({
         {repository && owner && (loadingDescription || description) && (
           <div className={styles.descriptionSection}>
             <h3 className={styles.descriptionTitle}>Project Description</h3>
-            {loadingDescription ? (
+            {loadingDescription && !description ? (
               <div className={styles.descriptionSkeleton}>
                 <div
                   className={styles.skeletonLine}
@@ -1915,7 +1915,7 @@ export default function RepoDetail({
                 <div className={styles.skeletonLine} style={{ width: '90%' }} />
                 <div className={styles.skeletonLine} style={{ width: '70%' }} />
               </div>
-            ) : (
+            ) : !loadingDescription && description ? (
               <>
                 <div className={styles.descriptionText}>{description}</div>
                 {/* Edit button only visible to repository owner */}
@@ -1930,7 +1930,7 @@ export default function RepoDetail({
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         )}
 

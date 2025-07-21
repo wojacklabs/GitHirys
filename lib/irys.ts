@@ -2441,25 +2441,47 @@ export async function getRepositoryDescription(
       tags.map((t: any) => ({ name: t.name, value: t.value }))
     );
 
-    const descriptionTag = tags.find(
-      (tag: any) => tag.name === 'git-repo-description'
-    )?.value;
     const rootTxIdTag = tags.find((tag: any) => tag.name === 'Root-TX')?.value;
 
-    const description: RepositoryDescription = {
-      repository,
-      owner,
-      description: descriptionTag || '',
-      rootTxId: rootTxIdTag || latestTx.id,
-      mutableAddress: rootTxIdTag
-        ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
-        : undefined,
-      timestamp: TimestampUtils.normalize(latestTx.timestamp),
-    };
+    // Download the actual description data from Irys (like profile)
+    try {
+      const dataUrl = `https://gateway.irys.xyz/${latestTx.id}`;
+      console.log('[getRepositoryDescription] 데이터 다운로드 시작:', dataUrl);
 
-    console.log('[getRepositoryDescription] 설명 데이터 반환:', description);
+      const dataResponse = await fetch(dataUrl);
+      if (!dataResponse.ok) {
+        throw new Error(
+          `Failed to download description data: ${dataResponse.status}`
+        );
+      }
 
-    return description;
+      const descriptionData = await dataResponse.json();
+      console.log(
+        '[getRepositoryDescription] 다운로드된 데이터:',
+        descriptionData
+      );
+
+      const description: RepositoryDescription = {
+        repository,
+        owner,
+        description: descriptionData.description || '',
+        rootTxId: rootTxIdTag || latestTx.id,
+        mutableAddress: rootTxIdTag
+          ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
+          : undefined,
+        timestamp: TimestampUtils.normalize(latestTx.timestamp),
+      };
+
+      console.log('[getRepositoryDescription] 설명 데이터 반환:', description);
+
+      return description;
+    } catch (downloadError) {
+      console.error(
+        '[getRepositoryDescription] 데이터 다운로드 오류:',
+        downloadError
+      );
+      return null;
+    }
   } catch (error) {
     return null;
   }
@@ -2500,7 +2522,6 @@ export async function updateRepositoryDescription(
       { name: 'App-Name', value: 'irys-git-repo-description' },
       { name: 'Repository', value: descriptionData.repository },
       { name: 'git-owner', value: descriptionData.owner },
-      { name: 'git-repo-description', value: descriptionData.description },
       { name: 'Content-Type', value: 'application/json' },
     ];
 
@@ -3196,11 +3217,21 @@ export async function getRepositoryIssues(
 
       const existingIssue = issueMap.get(issueCount);
       if (!existingIssue || timestamp > existingIssue.updatedAt) {
-        // Load issue content
-        const issueContent = await downloadData(node.id);
-        const content = issueContent
-          ? new TextDecoder().decode(issueContent)
-          : '';
+        // Load issue content as JSON
+        let content = '';
+        try {
+          const issueDataUrl = `https://gateway.irys.xyz/${node.id}`;
+          const issueResponse = await fetch(issueDataUrl);
+          if (issueResponse.ok) {
+            const issueData = await issueResponse.json();
+            content = issueData.content || '';
+          }
+        } catch (error) {
+          console.error(
+            '[getRepositoryIssues] Issue 데이터 다운로드 오류:',
+            error
+          );
+        }
 
         issueMap.set(issueCount, {
           id: node.id,
@@ -3337,11 +3368,21 @@ export async function getIssueComments(
 
       const existingComment = commentMap.get(commentCount);
       if (!existingComment || timestamp > existingComment.updatedAt) {
-        // Load comment content
-        const commentContent = await downloadData(node.id);
-        const content = commentContent
-          ? new TextDecoder().decode(commentContent)
-          : '';
+        // Load comment content as JSON
+        let content = '';
+        try {
+          const commentDataUrl = `https://gateway.irys.xyz/${node.id}`;
+          const commentResponse = await fetch(commentDataUrl);
+          if (commentResponse.ok) {
+            const commentData = await commentResponse.json();
+            content = commentData.content || '';
+          }
+        } catch (error) {
+          console.error(
+            '[getIssueComments] Comment 데이터 다운로드 오류:',
+            error
+          );
+        }
 
         commentMap.set(commentCount, {
           id: node.id,
@@ -3406,6 +3447,20 @@ export async function createIssue(
     );
     const nextIssueCount = existingIssues.length + 1;
 
+    // Create JSON data for issue
+    const issueJson = {
+      repository: issueData.repository,
+      owner: issueData.owner,
+      title: issueData.title,
+      content: issueData.content,
+      author: issueData.author,
+      issueCount: nextIssueCount,
+      timestamp: new Date().toISOString(),
+    };
+
+    const jsonData = JSON.stringify(issueJson, null, 2);
+    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+
     // Create tags
     const tags = [
       { name: 'App-Name', value: 'irys-git-issues' },
@@ -3415,11 +3470,12 @@ export async function createIssue(
       { name: 'issue-name', value: issueData.title },
       { name: 'issue-owner', value: issueData.author },
       { name: 'issue-visibility', value: 'true' },
+      { name: 'Content-Type', value: 'application/json' },
       { name: 'Timestamp', value: new Date().toISOString() },
     ];
 
-    // Upload issue - pass content as string directly
-    const receipt = await uploader.upload(issueData.content, { tags });
+    // Upload issue using uploadFile like profile
+    const receipt = await uploader.uploadFile(dataBlob, { tags });
 
     return {
       success: true,
@@ -3447,6 +3503,20 @@ export async function updateIssue(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
+    // Create JSON data for issue
+    const issueJson = {
+      repository: issueData.repository,
+      owner: issueData.owner,
+      title: issueData.title,
+      content: issueData.content,
+      author: issueData.author,
+      issueCount: issueData.issueCount,
+      timestamp: new Date().toISOString(),
+    };
+
+    const jsonData = JSON.stringify(issueJson, null, 2);
+    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+
     // Create tags
     const tags = [
       { name: 'App-Name', value: 'irys-git-issues' },
@@ -3456,6 +3526,7 @@ export async function updateIssue(
       { name: 'issue-name', value: issueData.title },
       { name: 'issue-owner', value: issueData.author },
       { name: 'issue-visibility', value: 'true' },
+      { name: 'Content-Type', value: 'application/json' },
       { name: 'Timestamp', value: new Date().toISOString() },
     ];
 
@@ -3464,8 +3535,8 @@ export async function updateIssue(
       tags.push({ name: 'Root-TX', value: issueData.existingRootTxId });
     }
 
-    // Upload updated issue - pass content as string directly
-    const receipt = await uploader.upload(issueData.content, { tags });
+    // Upload updated issue using uploadFile like profile
+    const receipt = await uploader.uploadFile(dataBlob, { tags });
 
     return {
       success: true,
@@ -3503,6 +3574,22 @@ export async function createIssueComment(
     );
     const nextCommentCount = existingComments.length + 1;
 
+    // Create JSON data for comment
+    const commentJson = {
+      repository: commentData.repository,
+      owner: commentData.owner,
+      issueCount: commentData.issueCount,
+      issueTitle: commentData.issueTitle,
+      issueAuthor: commentData.issueAuthor,
+      content: commentData.content,
+      author: commentData.author,
+      commentCount: nextCommentCount,
+      timestamp: new Date().toISOString(),
+    };
+
+    const jsonData = JSON.stringify(commentJson, null, 2);
+    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+
     // Create tags
     const tags = [
       { name: 'App-Name', value: 'irys-git-issue-comments' },
@@ -3514,11 +3601,12 @@ export async function createIssueComment(
       { name: 'issue-comment-count', value: nextCommentCount.toString() },
       { name: 'issue-comment-owner', value: commentData.author },
       { name: 'issue-comment-visibility', value: 'true' },
+      { name: 'Content-Type', value: 'application/json' },
       { name: 'Timestamp', value: new Date().toISOString() },
     ];
 
-    // Upload comment - pass content as string directly
-    const receipt = await uploader.upload(commentData.content, { tags });
+    // Upload comment using uploadFile like profile
+    const receipt = await uploader.uploadFile(dataBlob, { tags });
 
     return {
       success: true,
@@ -3548,6 +3636,22 @@ export async function updateIssueComment(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
+    // Create JSON data for comment
+    const commentJson = {
+      repository: commentData.repository,
+      owner: commentData.owner,
+      issueCount: commentData.issueCount,
+      issueTitle: commentData.issueTitle,
+      issueAuthor: commentData.issueAuthor,
+      content: commentData.content,
+      author: commentData.author,
+      commentCount: commentData.commentCount,
+      timestamp: new Date().toISOString(),
+    };
+
+    const jsonData = JSON.stringify(commentJson, null, 2);
+    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+
     // Create tags
     const tags = [
       { name: 'App-Name', value: 'irys-git-issue-comments' },
@@ -3562,6 +3666,7 @@ export async function updateIssueComment(
       },
       { name: 'issue-comment-owner', value: commentData.author },
       { name: 'issue-comment-visibility', value: 'true' },
+      { name: 'Content-Type', value: 'application/json' },
       { name: 'Timestamp', value: new Date().toISOString() },
     ];
 
@@ -3570,8 +3675,8 @@ export async function updateIssueComment(
       tags.push({ name: 'Root-TX', value: commentData.existingRootTxId });
     }
 
-    // Upload updated comment - pass content as string directly
-    const receipt = await uploader.upload(commentData.content, { tags });
+    // Upload updated comment using uploadFile like profile
+    const receipt = await uploader.uploadFile(dataBlob, { tags });
 
     return {
       success: true,
