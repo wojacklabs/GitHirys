@@ -184,16 +184,23 @@ export async function testIrysConnection(): Promise<boolean> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query: testQuery }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: testQuery }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
 
-    const result = await response.json();
-    return response.ok && !result.errors;
+    return !result.errors;
   } catch (error) {
     return false;
   }
@@ -1070,21 +1077,23 @@ export async function getTransactionById(
   };
 
   try {
-    const response = await fetch(strategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: strategy.query,
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch(strategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: strategy.query,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return null;
@@ -1221,18 +1230,24 @@ export async function getProfileImageUrl(
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { address },
-      }),
-    });
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { address },
+        }),
+      });
 
-    const result = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    });
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length > 0) {
@@ -2312,18 +2327,24 @@ export async function getRepositoryDescription(
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { repository, owner },
-      }),
-    });
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { repository, owner },
+        }),
+      });
 
-    const result = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    });
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
@@ -2446,19 +2467,21 @@ export async function getRepositoryStats(): Promise<number> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return 0;
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return 0;
@@ -2515,19 +2538,21 @@ export async function debugAllTags(): Promise<void> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return;
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return;
@@ -2581,19 +2606,21 @@ export async function getUserStats(): Promise<number> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return 0;
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return 0;
@@ -2646,19 +2673,21 @@ export async function getCommitStats(): Promise<number> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return 0;
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return 0;
@@ -2799,19 +2828,21 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -2898,19 +2929,21 @@ export async function getRecentRepositories(): Promise<RecentRepository[]> {
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
