@@ -9,6 +9,7 @@ import {
   RepoBranch,
   TimestampUtils,
   getRepositoryPermissions,
+  getRepositoryVisibility,
   getProfileByAddress,
   getRepositoryDescription,
   updateRepositoryDescription,
@@ -883,7 +884,7 @@ export default function RepoDetail({
         setError(null);
         setCheckingAccess(true);
 
-        let transactionId: string;
+        let transactionId: string = '';
         let mutableAddress: string | null = null;
         let repositoryInfo: Repository | null = null;
         let currentBranch: RepoBranch | null = null;
@@ -894,52 +895,58 @@ export default function RepoDetail({
             throw new Error('Wallet not connected.');
           }
 
-          // 저장소 검색 (프로필과 동일한 단순한 방식)
-          const repositories = await searchRepositories(owner, currentWallet);
-          const targetRepo = repositories.find(r => r.name === repoName);
+          // 권한 체크
+          const visibility = await getRepositoryVisibility(repoName, owner);
+          const isPrivate = visibility?.visibility === 'private';
 
-          if (!targetRepo) {
-            // 저장소를 찾을 수 없는 경우 접근 권한 확인
-            setCheckingAccess(false);
-            setAccessCheck({
-              canAccess: false,
-              reason: `Can't find repo from '${owner}'`,
-            });
-            setLoading(false);
-            return;
+          // private 저장소인 경우 권한 확인
+          if (isPrivate && currentWallet && currentWallet !== owner) {
+            const permissions = await getRepositoryPermissions(repoName, owner);
+            const hasAccess = permissions?.contributors.some(
+              c => c.address === currentWallet
+            );
+
+            if (!hasAccess) {
+              setCheckingAccess(false);
+              setAccessCheck({
+                canAccess: false,
+                reason: `You don't have permission to access this private repository`,
+              });
+              setLoading(false);
+              return;
+            }
           }
 
-          repositoryInfo = targetRepo;
-
-          // 저장소를 찾은 경우 접근 가능
+          // 접근 가능
           setCheckingAccess(false);
           setAccessCheck({ canAccess: true });
 
-          // 설명만 추가로 로드 (권한은 searchRepositories에서 이미 체크됨)
+          // 설명 로드
           const desc = await getRepositoryDescription(repoName, owner);
           if (desc) {
             setDescription(desc.description);
           }
 
-          // 전달받은 repo 데이터에서 선택된 브랜치가 있으면 사용, 없으면 기본 브랜치 사용
-          if (repo && repo.selectedBranch) {
+          // props로 전달받은 repo 데이터가 있으면 사용, 없으면 기본값 설정
+          if (repo && repo.repository) {
+            repositoryInfo = repo.repository;
             currentBranch =
-              targetRepo.branches.find(
-                b => b.name === repo.selectedBranch?.name
-              ) ||
-              targetRepo.branches.find(
-                b => b.name === targetRepo.defaultBranch
-              ) ||
-              targetRepo.branches[0];
+              repo.selectedBranch || repo.repository.branches?.[0];
+            if (currentBranch) {
+              transactionId = currentBranch.transactionId;
+              mutableAddress = currentBranch.mutableAddress;
+            }
           } else {
-            currentBranch =
-              targetRepo.branches.find(
-                b => b.name === targetRepo.defaultBranch
-              ) || targetRepo.branches[0];
+            // 기본 브랜치 정보 설정 (실제 브랜치 정보는 transaction에서 가져옴)
+            transactionId = repoName; // 트랜잭션 ID로 직접 접근하는 경우
+            repositoryInfo = {
+              name: repoName,
+              owner: owner,
+              branches: [],
+              defaultBranch: 'main',
+              tags: [],
+            };
           }
-
-          transactionId = currentBranch.transactionId;
-          mutableAddress = currentBranch.mutableAddress;
         }
         // 직접 트랜잭션 ID로 접근하는 경우
         else {
@@ -1001,26 +1008,27 @@ export default function RepoDetail({
     loadRepositoryData();
   }, [repository, owner, refreshPermissions]);
 
-  // permissions 변경 시 contributors 프로필 로드
+  // permissions 변경 시 contributors 설정
   useEffect(() => {
-    const loadContributorProfiles = async () => {
-      if (!permissions || !permissions.contributors || !owner) return;
+    if (!permissions || !permissions.contributors || !owner) return;
 
-      const contributorAddresses = permissions.contributors.filter(
-        address => address !== owner
-      );
+    // 이미 permissions.contributors에 프로필 정보가 포함되어 있음
+    const contributorProfiles = permissions.contributors
+      .filter(c => c.address !== owner)
+      .map(c => ({
+        address: c.address,
+        profile: c.nickname
+          ? {
+              nickname: c.nickname,
+              profileImageUrl: c.profileImageUrl,
+              twitterHandle: c.twitterHandle || '',
+              accountAddress: c.address,
+              timestamp: Date.now(),
+            }
+          : undefined,
+      }));
 
-      const contributorProfiles = await Promise.all(
-        contributorAddresses.map(async address => {
-          const profile = await getProfileByAddress(address);
-          return { address, profile };
-        })
-      );
-
-      setContributors(contributorProfiles);
-    };
-
-    loadContributorProfiles();
+    setContributors(contributorProfiles);
   }, [permissions, owner]);
 
   // Load repository issues

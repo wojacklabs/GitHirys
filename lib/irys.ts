@@ -238,25 +238,25 @@ export async function searchAllRepositories(
       },
       body: JSON.stringify({
         query: `
-          query getAllNicknames {
-            transactions(
-              tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
+            query getAllNicknames {
+              transactions(
+                tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
               first: 100,
-              order: DESC
-            ) {
-              edges {
-                node {
-                  id
-                  tags {
-                    name
-                    value
+                order: DESC
+              ) {
+                edges {
+                  node {
+                    id
+                    tags {
+                      name
+                      value
+                    }
+                    timestamp
                   }
-                  timestamp
                 }
               }
             }
-          }
-        `,
+          `,
       }),
     });
 
@@ -277,25 +277,25 @@ export async function searchAllRepositories(
       },
       body: JSON.stringify({
         query: `
-          query getAllRepositories {
-            transactions(
-              tags: [{ name: "App-Name", values: ["irys-git"] }],
+            query getAllRepositories {
+              transactions(
+                tags: [{ name: "App-Name", values: ["irys-git"] }],
               first: 100,
-              order: DESC
-            ) {
-              edges {
-                node {
-                  id
-                  tags {
-                    name
-                    value
+                order: DESC
+              ) {
+                edges {
+                  node {
+                    id
+                    tags {
+                      name
+                      value
+                    }
+                    timestamp
                   }
-                  timestamp
                 }
               }
             }
-          }
-        `,
+          `,
       }),
     });
 
@@ -484,7 +484,10 @@ export async function searchAllRepositories(
             repo.name,
             repo.owner
           );
-          if (permissions && permissions.contributors.includes(currentWallet)) {
+          if (
+            permissions &&
+            permissions.contributors.some(c => c.address === currentWallet)
+          ) {
             visibleRepositories.push(repo);
           }
         }
@@ -538,26 +541,26 @@ export async function searchRepositories(
   // 프로필 쿼리와 동일한 방식으로 단순화
   const query = `
     query getRepositories($owner: String!) {
-      transactions(
+        transactions(
         tags: [
           { name: "App-Name", values: ["irys-git"] },
           { name: "git-owner", values: [$owner] }
         ],
         first: 50,
-        order: DESC
-      ) {
-        edges {
-          node {
-            id
-            tags {
-              name
-              value
+          order: DESC
+        ) {
+          edges {
+            node {
+              id
+              tags {
+                name
+                value
+              }
+              timestamp
             }
-            timestamp
           }
         }
       }
-    }
   `;
 
   try {
@@ -735,7 +738,10 @@ export async function searchRepositories(
           repo.name,
           repo.owner
         );
-        if (permissions && permissions.contributors.includes(currentWallet)) {
+        if (
+          permissions &&
+          permissions.contributors.some(c => c.address === currentWallet)
+        ) {
           filteredRepositories.push(repo);
         }
       }
@@ -975,7 +981,10 @@ export async function* searchRepositoriesProgressive(
             }
           }
 
-          if (permissions && permissions.contributors.includes(currentWallet)) {
+          if (
+            permissions &&
+            permissions.contributors.some(c => c.address === currentWallet)
+          ) {
             yield repository;
           }
         }
@@ -1055,6 +1064,11 @@ export async function preloadRepositoryPermissions(
 export async function getTransactionById(
   transactionId: string
 ): Promise<any | null> {
+  // 캐시 확인 (트랜잭션은 불변이므로 영구 캐싱)
+  const cacheKey = getCacheKey('transaction', { id: transactionId });
+  const cached = getFromCache<any>(cacheKey);
+  if (cached) return cached;
+
   const strategy = {
     name: 'Irys GraphQL',
     endpoint: 'https://uploader.irys.xyz/graphql',
@@ -1106,11 +1120,15 @@ export async function getTransactionById(
       // Timestamp 정규화
       const normalizedTimestamp = TimestampUtils.normalize(tx.timestamp);
 
-      return {
+      const txData = {
         ...tx,
         timestamp: normalizedTimestamp, // 정규화된 timestamp 반환
         owner: { address: tx.address },
       };
+
+      // 캐시에 저장 (트랜잭션은 불변이므로 30일간 캐싱)
+      setCache(cacheKey, txData, 30 * 24 * 60 * 60 * 1000);
+      return txData;
     }
   } catch (error) {
     // 에러가 발생하면 null 반환
@@ -1193,7 +1211,14 @@ export interface UserProfile {
   timestamp: number;
   // 권한 관리 필드 추가
   privateRepos?: string[]; // private 저장소 목록 ["repo1", "repo2"]
-  repoPermissions?: { [key: string]: string[] }; // 저장소별 권한 {"owner/repo": ["user1", "user2"]}
+  repoPermissions?: {
+    [key: string]: Array<{
+      address: string;
+      nickname?: string;
+      profileImageUrl?: string;
+      twitterHandle?: string;
+    }>;
+  }; // 저장소별 권한 {"owner/repo": [{address, nickname, ...}]}
 }
 
 // 프로필 이미지만 별도로 조회하는 함수 (개선된 버전)
@@ -1436,14 +1461,29 @@ export async function getProfileByAddress(
     )?.value;
 
     let privateRepos: string[] | undefined;
-    let repoPermissions: { [key: string]: string[] } | undefined;
+    let repoPermissions: UserProfile['repoPermissions'] | undefined;
 
     try {
       if (privateReposTag) {
         privateRepos = JSON.parse(privateReposTag);
       }
       if (repoPermissionsTag) {
-        repoPermissions = JSON.parse(repoPermissionsTag);
+        const parsedPermissions = JSON.parse(repoPermissionsTag);
+        // 기존 형식(string[])과의 호환성 처리
+        repoPermissions = {};
+        for (const [key, value] of Object.entries(parsedPermissions)) {
+          if (Array.isArray(value)) {
+            if (value.length > 0 && typeof value[0] === 'string') {
+              // 기존 형식: string[]
+              repoPermissions[key] = value.map(addr => ({
+                address: addr as string,
+              }));
+            } else {
+              // 새 형식: 객체 배열
+              repoPermissions[key] = value as any;
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('권한 태그 파싱 오류:', e);
@@ -1549,14 +1589,29 @@ export async function getProfileByNickname(
     )?.value;
 
     let privateRepos: string[] | undefined;
-    let repoPermissions: { [key: string]: string[] } | undefined;
+    let repoPermissions: UserProfile['repoPermissions'] | undefined;
 
     try {
       if (privateReposTag) {
         privateRepos = JSON.parse(privateReposTag);
       }
       if (repoPermissionsTag) {
-        repoPermissions = JSON.parse(repoPermissionsTag);
+        const parsedPermissions = JSON.parse(repoPermissionsTag);
+        // 기존 형식(string[])과의 호환성 처리
+        repoPermissions = {};
+        for (const [key, value] of Object.entries(parsedPermissions)) {
+          if (Array.isArray(value)) {
+            if (value.length > 0 && typeof value[0] === 'string') {
+              // 기존 형식: string[]
+              repoPermissions[key] = value.map(addr => ({
+                address: addr as string,
+              }));
+            } else {
+              // 새 형식: 객체 배열
+              repoPermissions[key] = value as any;
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('권한 태그 파싱 오류:', e);
@@ -1601,7 +1656,7 @@ export async function uploadProfile(
     existingRootTxId?: string;
     existingProfileImageUrl?: string;
     privateRepos?: string[];
-    repoPermissions?: { [key: string]: string[] };
+    repoPermissions?: UserProfile['repoPermissions'];
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
@@ -1823,7 +1878,12 @@ async function generateDefaultProfileImage(
 export interface RepositoryPermissions {
   repository: string;
   owner: string;
-  contributors: string[]; // 지갑 주소 배열
+  contributors: Array<{
+    address: string;
+    nickname?: string;
+    profileImageUrl?: string;
+    twitterHandle?: string;
+  }>; // contributor 정보 배열
   rootTxId?: string;
   mutableAddress?: string;
   timestamp: number;
@@ -1910,7 +1970,7 @@ export async function getRepositoryPermissions(
       const defaultPermissions: RepositoryPermissions = {
         repository,
         owner,
-        contributors: [owner],
+        contributors: [{ address: owner }],
         timestamp: TimestampUtils.normalize(Date.now()),
       };
       setCache(cacheKey, defaultPermissions, 10 * 60 * 1000);
@@ -1919,17 +1979,37 @@ export async function getRepositoryPermissions(
 
     // 저장소별 권한 정보 확인
     const repoKey = `${owner}/${repository}`;
-    const contributors = ownerProfile.repoPermissions?.[repoKey] || [owner];
+    const contributorInfo = ownerProfile.repoPermissions?.[repoKey] || [
+      {
+        address: owner,
+        nickname: ownerProfile.nickname,
+        profileImageUrl: ownerProfile.profileImageUrl,
+        twitterHandle: ownerProfile.twitterHandle,
+      },
+    ];
 
     // 소유자가 contributors에 없으면 추가
-    if (!contributors.includes(owner)) {
-      contributors.unshift(owner);
+    const ownerExists = contributorInfo.some(
+      c => (typeof c === 'string' ? c : c.address) === owner
+    );
+    if (!ownerExists) {
+      contributorInfo.unshift({
+        address: owner,
+        nickname: ownerProfile.nickname,
+        profileImageUrl: ownerProfile.profileImageUrl,
+        twitterHandle: ownerProfile.twitterHandle,
+      });
     }
+
+    // 기존 형식(string[])과의 호환성 처리
+    const normalizedContributors = contributorInfo.map(c =>
+      typeof c === 'string' ? { address: c } : c
+    );
 
     const permissions: RepositoryPermissions = {
       repository,
       owner,
-      contributors,
+      contributors: normalizedContributors,
       timestamp: ownerProfile.timestamp,
     };
 
@@ -1982,7 +2062,19 @@ export async function updateRepositoryPermissions(
     ) {
       delete updatedRepoPermissions[repoKey];
     } else {
-      updatedRepoPermissions[repoKey] = permissionsData.contributors;
+      // 각 contributor의 프로필 정보를 조회하여 함께 저장
+      const contributorProfiles = await Promise.all(
+        permissionsData.contributors.map(async address => {
+          const profile = await getProfileByAddress(address);
+          return {
+            address,
+            nickname: profile?.nickname,
+            profileImageUrl: profile?.profileImageUrl,
+            twitterHandle: profile?.twitterHandle,
+          };
+        })
+      );
+      updatedRepoPermissions[repoKey] = contributorProfiles;
     }
 
     // 프로필 업데이트
@@ -2301,6 +2393,11 @@ export async function getRepositoryDescription(
   repository: string,
   owner: string
 ): Promise<RepositoryDescription | null> {
+  // 캐시 확인
+  const cacheKey = getCacheKey('repo-description', { repo: repository, owner });
+  const cached = getFromCache<RepositoryDescription>(cacheKey);
+  if (cached) return cached;
+
   const query = `
     query getRepositoryDescription($repository: String!, $owner: String!) {
       transactions(
@@ -2371,6 +2468,8 @@ export async function getRepositoryDescription(
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
 
+    // 캐시에 저장 (10분)
+    setCache(cacheKey, description, 10 * 60 * 1000);
     return description;
   } catch (error) {
     return null;
@@ -3026,6 +3125,11 @@ export async function getRepositoryIssues(
   repository: string,
   owner: string
 ): Promise<Issue[]> {
+  // 캐시 확인 (5분)
+  const cacheKey = getCacheKey('repo-issues', { repo: repository, owner });
+  const cached = getFromCache<Issue[]>(cacheKey);
+  if (cached) return cached;
+
   const searchStrategy = {
     name: 'irys-git-issues 태그로 이슈 검색',
     endpoint: 'https://uploader.irys.xyz/graphql',
@@ -3057,22 +3161,24 @@ export async function getRepositoryIssues(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -3146,7 +3252,13 @@ export async function getRepositoryIssues(
       }
     }
 
-    return visibleIssues.sort((a, b) => b.updatedAt - a.updatedAt);
+    const sortedIssues = visibleIssues.sort(
+      (a, b) => b.updatedAt - a.updatedAt
+    );
+
+    // 캐시에 저장 (5분)
+    setCache(cacheKey, sortedIssues, 5 * 60 * 1000);
+    return sortedIssues;
   } catch (error) {
     console.error('Error fetching repository issues:', error);
     return [];
@@ -3160,6 +3272,16 @@ export async function getIssueComments(
   issueTitle: string,
   issueAuthor: string
 ): Promise<IssueComment[]> {
+  // 캐시 확인 (5분)
+  const cacheKey = getCacheKey('issue-comments', {
+    repo: repository,
+    owner,
+    issueCount,
+    issueTitle,
+  });
+  const cached = getFromCache<IssueComment[]>(cacheKey);
+  if (cached) return cached;
+
   const searchStrategy = {
     name: 'irys-git-issue-comments 태그로 이슈 댓글 검색',
     endpoint: 'https://uploader.irys.xyz/graphql',
@@ -3200,22 +3322,24 @@ export async function getIssueComments(
   };
 
   try {
-    const response = await fetch(searchStrategy.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchStrategy.query,
-        variables: searchStrategy.variables,
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch(searchStrategy.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchStrategy.query,
+          variables: searchStrategy.variables,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -3289,7 +3413,13 @@ export async function getIssueComments(
       }
     }
 
-    return visibleComments.sort((a, b) => a.createdAt - b.createdAt);
+    const sortedComments = visibleComments.sort(
+      (a, b) => a.createdAt - b.createdAt
+    );
+
+    // 캐시에 저장 (5분)
+    setCache(cacheKey, sortedComments, 5 * 60 * 1000);
+    return sortedComments;
   } catch (error) {
     console.error('Error fetching issue comments:', error);
     return [];
@@ -3966,7 +4096,10 @@ export async function checkRepositoryAccess(
 
       // 편집 권한 확인
       const permissions = await getRepositoryPermissions(repository, owner);
-      if (permissions && permissions.contributors.includes(currentWallet)) {
+      if (
+        permissions &&
+        permissions.contributors.some(c => c.address === currentWallet)
+      ) {
         return { canAccess: true };
       }
 

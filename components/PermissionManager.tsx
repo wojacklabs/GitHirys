@@ -73,16 +73,20 @@ export default function PermissionManager({
         setPermissions(permissionsData);
 
         if (permissionsData) {
-          // 각 contributor의 프로필 정보를 순차적으로 가져옴 (프로필과 동일한 방식)
-          const contributorsWithProfiles: ContributorWithProfile[] = [];
-
-          for (const address of permissionsData.contributors) {
-            const profile = await getProfileByAddress(address);
-            contributorsWithProfiles.push({
-              address,
-              profile: profile || undefined,
-            });
-          }
+          // 이미 프로필 정보가 포함되어 있음
+          const contributorsWithProfiles: ContributorWithProfile[] =
+            permissionsData.contributors.map(c => ({
+              address: c.address,
+              profile: c.nickname
+                ? {
+                    nickname: c.nickname,
+                    profileImageUrl: c.profileImageUrl,
+                    twitterHandle: c.twitterHandle || '',
+                    accountAddress: c.address,
+                    timestamp: Date.now(),
+                  }
+                : undefined,
+            }));
 
           setContributors(contributorsWithProfiles);
         }
@@ -234,9 +238,17 @@ export default function PermissionManager({
   const handleCancel = () => {
     if (permissions) {
       // 원래 상태로 복원
-      const originalContributors = permissions.contributors.map(address => ({
-        address,
-        profile: contributors.find(c => c.address === address)?.profile,
+      const originalContributors = permissions.contributors.map(c => ({
+        address: c.address,
+        profile: c.nickname
+          ? {
+              nickname: c.nickname,
+              profileImageUrl: c.profileImageUrl,
+              twitterHandle: c.twitterHandle || '',
+              accountAddress: c.address,
+              timestamp: Date.now(),
+            }
+          : undefined,
       }));
       setContributors(originalContributors);
       setMessage(null);
@@ -304,7 +316,7 @@ export default function PermissionManager({
   const hasChanges =
     permissions &&
     JSON.stringify(contributors.map(c => c.address).sort()) !==
-      JSON.stringify(permissions.contributors.sort());
+      JSON.stringify(permissions.contributors.map(c => c.address).sort());
 
   return (
     <div className={styles.permissionSection}>
