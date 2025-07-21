@@ -9,7 +9,6 @@ import {
   RepoBranch,
   TimestampUtils,
   getRepositoryPermissions,
-  getRepositoryVisibility,
   getProfileByAddress,
   getRepositoryDescription,
   updateRepositoryDescription,
@@ -26,6 +25,8 @@ import {
   updateIssueComment,
   updateIssueVisibility,
   updateCommentVisibility,
+  getRepositoryVisibility,
+  getLatestRepositoryTransaction,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -884,33 +885,47 @@ export default function RepoDetail({
         setError(null);
         setCheckingAccess(true);
 
-        let transactionId: string = '';
-        let mutableAddress: string | null = null;
+        let transactionId: string;
+        const mutableAddress: string | null = null;
         let repositoryInfo: Repository | null = null;
         let currentBranch: RepoBranch | null = null;
 
-        // 항상 최신 정보를 가져오기 위해 저장소 검색을 다시 수행
-        if (!repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
+        // 직접 트랜잭션 ID로 접근하는 경우
+        if (repoName.match(/^[a-zA-Z0-9_-]{43}$/)) {
+          console.log('[RepoDetail] 직접 트랜잭션 ID 접근:', repoName);
+          // 직접 트랜잭션 ID 접근은 허용 (공개 저장소로 간주)
+          setAccessCheck({ canAccess: true });
+          setCheckingAccess(false);
+
+          transactionId = repoName;
+        }
+        // 저장소 이름으로 접근하는 경우
+        else {
           if (!owner) {
             throw new Error('Wallet not connected.');
           }
 
+          console.log('[RepoDetail] 저장소 권한 체크 시작:', owner, repoName);
+
           // 권한 체크
           const visibility = await getRepositoryVisibility(repoName, owner);
-          const isPrivate = visibility?.visibility === 'private';
+          console.log('[RepoDetail] 저장소 가시성:', visibility);
 
-          // private 저장소인 경우 권한 확인
-          if (isPrivate && currentWallet && currentWallet !== owner) {
+          // Private 저장소인 경우 권한 체크
+          if (visibility?.visibility === 'private') {
             const permissions = await getRepositoryPermissions(repoName, owner);
-            const hasAccess = permissions?.contributors.some(
-              c => c.address === currentWallet
-            );
+            console.log('[RepoDetail] 저장소 권한:', permissions);
 
-            if (!hasAccess) {
+            const canAccess =
+              currentWallet &&
+              (currentWallet === owner ||
+                permissions?.contributors.includes(currentWallet));
+
+            if (!canAccess) {
               setCheckingAccess(false);
               setAccessCheck({
                 canAccess: false,
-                reason: `You don't have permission to access this private repository`,
+                reason: 'Private repository. Access denied.',
               });
               setLoading(false);
               return;
@@ -921,40 +936,48 @@ export default function RepoDetail({
           setCheckingAccess(false);
           setAccessCheck({ canAccess: true });
 
-          // 설명 로드
+          // 저장소 설명 로드
+          console.log('[RepoDetail] 저장소 설명 조회 시작');
           const desc = await getRepositoryDescription(repoName, owner);
+          console.log('[RepoDetail] 저장소 설명 조회 완료:', desc);
           if (desc) {
             setDescription(desc.description);
           }
 
-          // props로 전달받은 repo 데이터가 있으면 사용, 없으면 기본값 설정
-          if (repo && repo.repository) {
-            repositoryInfo = repo.repository;
-            currentBranch =
-              repo.selectedBranch || repo.repository.branches?.[0];
-            if (currentBranch) {
-              transactionId = currentBranch.transactionId;
-              mutableAddress = currentBranch.mutableAddress;
-            }
-          } else {
-            // 기본 브랜치 정보 설정 (실제 브랜치 정보는 transaction에서 가져옴)
-            transactionId = repoName; // 트랜잭션 ID로 직접 접근하는 경우
-            repositoryInfo = {
-              name: repoName,
-              owner: owner,
-              branches: [],
-              defaultBranch: 'main',
-              tags: [],
-            };
-          }
-        }
-        // 직접 트랜잭션 ID로 접근하는 경우
-        else {
-          // 직접 트랜잭션 ID 접근은 허용 (공개 저장소로 간주)
-          setAccessCheck({ canAccess: true });
-          setCheckingAccess(false);
+          // 기본 저장소 정보 생성 (브랜치 정보는 나중에 로드)
+          repositoryInfo = {
+            name: repoName,
+            owner: owner,
+            visibility: visibility?.visibility || 'public',
+            branches: [],
+            defaultBranch: 'main',
+            permissionTimestamp: visibility?.timestamp || 0,
+            tags: [],
+          };
 
-          transactionId = repoName;
+          // 최신 트랜잭션 ID 가져오기 (기본 브랜치로 가정)
+          console.log('[RepoDetail] 최신 트랜잭션 조회 시작');
+          const latestTx = await getLatestRepositoryTransaction(
+            repoName,
+            owner
+          );
+          console.log('[RepoDetail] 최신 트랜잭션 조회 완료:', latestTx);
+
+          if (!latestTx) {
+            throw new Error('Repository not found');
+          }
+
+          transactionId = latestTx.id;
+          currentBranch = {
+            name: 'main',
+            transactionId: latestTx.id,
+            mutableAddress: null,
+            commitMessage: '',
+            timestamp: latestTx.timestamp,
+            tags: [],
+          };
+
+          repositoryInfo.branches = [currentBranch];
         }
 
         // 저장소와 브랜치 정보 설정
@@ -964,9 +987,11 @@ export default function RepoDetail({
         }
 
         // 브랜치 데이터 로드 (강제 새로고침 옵션 포함)
+        console.log('[RepoDetail] 브랜치 데이터 로드 시작:', transactionId);
         await loadBranchData(transactionId, mutableAddress, true);
+        console.log('[RepoDetail] 브랜치 데이터 로드 완료');
       } catch (error) {
-        console.error('저장소 정보 로딩 중 오류:', error);
+        console.error('[RepoDetail] 저장소 정보 로딩 중 오류:', error);
         setError(error instanceof Error ? error.message : 'Unknown error.');
         setLoading(false);
       }
@@ -983,8 +1008,12 @@ export default function RepoDetail({
       if (!repository || !owner) return;
 
       try {
+        console.log('[RepoDetail] 저장소 데이터 로드 시작');
+
         // 소유자 프로필과 권한 정보를 순차적으로 로드 (프로필과 동일한 방식)
+        console.log('[RepoDetail] 소유자 프로필 조회 시작:', owner);
         const ownerProfile = await getProfileByAddress(owner);
+        console.log('[RepoDetail] 소유자 프로필 조회 완료:', ownerProfile);
 
         // 소유자 정보 설정
         setRepositoryOwner({
@@ -993,42 +1022,53 @@ export default function RepoDetail({
         });
 
         // 권한 정보 로드
+        console.log('[RepoDetail] 권한 정보 조회 시작');
         const repoPermissions = await getRepositoryPermissions(
           repository.name,
           owner
         );
+        console.log('[RepoDetail] 권한 정보 조회 완료:', repoPermissions);
+
         if (repoPermissions) {
           setPermissions(repoPermissions);
         }
       } catch (error) {
-        console.error('저장소 데이터 로딩 중 오류:', error);
+        console.error('[RepoDetail] 저장소 데이터 로딩 중 오류:', error);
       }
     };
 
     loadRepositoryData();
   }, [repository, owner, refreshPermissions]);
 
-  // permissions 변경 시 contributors 설정
+  // permissions 변경 시 contributors 프로필 로드
   useEffect(() => {
-    if (!permissions || !permissions.contributors || !owner) return;
+    const loadContributorProfiles = async () => {
+      if (!permissions || !permissions.contributors || !owner) return;
 
-    // 이미 permissions.contributors에 프로필 정보가 포함되어 있음
-    const contributorProfiles = permissions.contributors
-      .filter(c => c.address !== owner)
-      .map(c => ({
-        address: c.address,
-        profile: c.nickname
-          ? {
-              nickname: c.nickname,
-              profileImageUrl: c.profileImageUrl,
-              twitterHandle: c.twitterHandle || '',
-              accountAddress: c.address,
-              timestamp: Date.now(),
-            }
-          : undefined,
-      }));
+      const contributorAddresses = permissions.contributors.filter(
+        address => address !== owner
+      );
 
-    setContributors(contributorProfiles);
+      console.log(
+        '[RepoDetail] Contributor 프로필 로드 시작:',
+        contributorAddresses.length,
+        '명'
+      );
+
+      const contributorProfiles = await Promise.all(
+        contributorAddresses.map(async address => {
+          console.log('[RepoDetail] Contributor 프로필 조회 시작:', address);
+          const profile = await getProfileByAddress(address);
+          console.log('[RepoDetail] Contributor 프로필 조회 완료:', address);
+          return { address, profile };
+        })
+      );
+
+      console.log('[RepoDetail] 모든 Contributor 프로필 로드 완료');
+      setContributors(contributorProfiles);
+    };
+
+    loadContributorProfiles();
   }, [permissions, owner]);
 
   // Load repository issues
