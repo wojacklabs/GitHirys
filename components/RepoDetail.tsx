@@ -957,7 +957,10 @@ export default function RepoDetail({
           };
 
           // 최신 트랜잭션 ID 가져오기 (기본 브랜치로 가정)
-          console.log('[RepoDetail] 최신 트랜잭션 조회 시작');
+          console.log('[RepoDetail] 최신 트랜잭션 조회 시작:', {
+            repository: repoName,
+            owner: owner,
+          });
           const latestTx = await getLatestRepositoryTransaction(
             repoName,
             owner
@@ -965,7 +968,13 @@ export default function RepoDetail({
           console.log('[RepoDetail] 최신 트랜잭션 조회 완료:', latestTx);
 
           if (!latestTx) {
-            throw new Error('Repository not found');
+            console.error('[RepoDetail] 저장소를 찾을 수 없습니다:', {
+              repository: repoName,
+              owner: owner,
+            });
+            throw new Error(
+              `Repository '${repoName}' not found for owner '${owner}'. Please check the repository name and owner address.`
+            );
           }
 
           transactionId = latestTx.id;

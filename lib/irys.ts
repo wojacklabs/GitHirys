@@ -4455,13 +4455,33 @@ export async function getLatestRepositoryTransaction(
     );
     console.log('[getLatestRepositoryTransaction] 쿼리 완료');
 
+    // 쿼리 결과 로깅
+    console.log('[getLatestRepositoryTransaction] 쿼리 결과:', {
+      hasData: !!result.data,
+      hasErrors: !!result.errors,
+      transactionCount: result.data?.transactions?.edges?.length || 0,
+    });
+
+    if (result.errors) {
+      console.error(
+        '[getLatestRepositoryTransaction] GraphQL 에러:',
+        result.errors
+      );
+    }
+
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
+      console.log('[getLatestRepositoryTransaction] 트랜잭션이 없습니다');
       return null;
     }
 
     const latestTx = transactions[0].node;
+    console.log('[getLatestRepositoryTransaction] 최신 트랜잭션:', {
+      id: latestTx.id,
+      timestamp: latestTx.timestamp,
+    });
+
     return {
       id: latestTx.id,
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
