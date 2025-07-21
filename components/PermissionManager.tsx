@@ -15,6 +15,8 @@ interface PermissionManagerProps {
   owner: string;
   currentWallet?: string;
   uploader: any;
+  initialPermissions?: RepositoryPermissions | null;
+  onPermissionsUpdate?: () => void;
 }
 
 interface ContributorWithProfile {
@@ -27,6 +29,8 @@ export default function PermissionManager({
   owner,
   currentWallet,
   uploader,
+  initialPermissions,
+  onPermissionsUpdate,
 }: PermissionManagerProps) {
   const [permissions, setPermissions] = useState<RepositoryPermissions | null>(
     null
@@ -55,20 +59,31 @@ export default function PermissionManager({
     const loadPermissions = async () => {
       try {
         setIsLoading(true);
-        const permissionsData = await getRepositoryPermissions(
-          repositoryName,
-          owner
-        );
+
+        // initialPermissions가 있으면 사용, 없으면 로드
+        let permissionsData = initialPermissions;
+
+        if (!permissionsData) {
+          permissionsData = await getRepositoryPermissions(
+            repositoryName,
+            owner
+          );
+        }
+
         setPermissions(permissionsData);
 
         if (permissionsData) {
-          // 각 contributor의 프로필 정보를 가져옴
-          const contributorsWithProfiles = await Promise.all(
-            permissionsData.contributors.map(async address => {
-              const profile = await getProfileByAddress(address);
-              return { address, profile: profile || undefined };
-            })
-          );
+          // 각 contributor의 프로필 정보를 순차적으로 가져옴 (프로필과 동일한 방식)
+          const contributorsWithProfiles: ContributorWithProfile[] = [];
+
+          for (const address of permissionsData.contributors) {
+            const profile = await getProfileByAddress(address);
+            contributorsWithProfiles.push({
+              address,
+              profile: profile || undefined,
+            });
+          }
+
           setContributors(contributorsWithProfiles);
         }
       } catch (error) {
@@ -85,7 +100,7 @@ export default function PermissionManager({
     if (repositoryName && owner) {
       loadPermissions();
     }
-  }, [repositoryName, owner]);
+  }, [repositoryName, owner, initialPermissions]);
 
   // 사용자 검색
   useEffect(() => {
@@ -197,6 +212,11 @@ export default function PermissionManager({
           owner
         );
         setPermissions(updatedPermissions);
+
+        // 부모 컴포넌트에 업데이트 알림
+        if (onPermissionsUpdate) {
+          onPermissionsUpdate();
+        }
       } else {
         setMessage({
           type: 'error',

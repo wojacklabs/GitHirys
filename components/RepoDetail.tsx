@@ -1812,6 +1812,9 @@ export default function RepoDetail({
                 owner={owner}
                 currentWallet={currentWallet}
                 uploader={uploader}
+                initialVisibility={
+                  repository.branches.length > 0 ? 'public' : 'public'
+                } // searchRepositories에서 이미 필터링됨
               />
             </div>
           )}
@@ -2353,6 +2356,10 @@ export default function RepoDetail({
                 owner={owner}
                 currentWallet={currentWallet}
                 uploader={uploader}
+                initialPermissions={permissions}
+                onPermissionsUpdate={() =>
+                  setRefreshPermissions(prev => prev + 1)
+                }
               />
             </div>
           </div>

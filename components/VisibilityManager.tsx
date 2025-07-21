@@ -11,6 +11,7 @@ interface VisibilityManagerProps {
   owner: string;
   currentWallet?: string;
   uploader?: any;
+  initialVisibility?: 'public' | 'private';
 }
 
 export default function VisibilityManager({
@@ -18,6 +19,7 @@ export default function VisibilityManager({
   owner,
   currentWallet,
   uploader,
+  initialVisibility,
 }: VisibilityManagerProps) {
   const [visibility, setVisibility] = useState<RepositoryVisibility | null>(
     null
