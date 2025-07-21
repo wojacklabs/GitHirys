@@ -4488,3 +4488,131 @@ export async function getLatestRepositoryTransaction(
     return null;
   }
 }
+
+// 저장소 브랜치 정보만 조회 (최적화 버전)
+export async function getRepositoryBranches(
+  repository: string,
+  owner: string
+): Promise<RepoBranch[]> {
+  // 캐시 확인
+  const cacheKey = getCacheKey('repo-branches', { repository, owner });
+  const cached = getFromCache<RepoBranch[]>(cacheKey);
+  if (cached) {
+    console.log('[getRepositoryBranches] 캐시에서 반환:', repository);
+    return cached;
+  }
+
+  console.log('[getRepositoryBranches] 쿼리 시작:', repository, owner);
+
+  const query = `
+    query getRepositoryBranches($repository: String!, $owner: String!) {
+      transactions(
+        tags: [
+          { name: "App-Name", values: ["irys-git"] },
+          { name: "Repository", values: [$repository] },
+          { name: "git-owner", values: [$owner] }
+        ],
+        first: 50,
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+            timestamp
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const result = await executeQuery('getRepositoryBranches', async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { repository, owner },
+        }),
+      });
+
+      return await response.json();
+    });
+
+    console.log('[getRepositoryBranches] 쿼리 완료');
+    console.log('[getRepositoryBranches] 쿼리 결과:', {
+      hasData: !!result.data,
+      hasErrors: !!result.errors,
+      transactionCount: result.data?.transactions?.edges?.length || 0,
+    });
+
+    if (result.errors) {
+      console.error('[getRepositoryBranches] GraphQL 에러:', result.errors);
+      return [];
+    }
+
+    const transactions = result.data?.transactions?.edges || [];
+
+    // 브랜치별로 그룹핑
+    const branchMap = new Map<string, BranchTransactionData>();
+
+    for (const edge of transactions) {
+      const node = edge.node;
+      const tags = node.tags || [];
+
+      const branchTag = tags.find((tag: any) => tag.name === 'Branch');
+      const commitHashTag = tags.find((tag: any) => tag.name === 'Commit-Hash');
+      const commitMsgTag = tags.find(
+        (tag: any) => tag.name === 'Commit-Message'
+      );
+      const authorTag = tags.find((tag: any) => tag.name === 'Author');
+      const timestampTag = tags.find((tag: any) => tag.name === 'Timestamp');
+
+      const branchName = branchTag?.value || 'main';
+
+      // 가장 최신 트랜잭션만 유지
+      const existingBranch = branchMap.get(branchName);
+      const nodeTimestamp = TimestampUtils.normalize(node.timestamp);
+
+      if (!existingBranch || nodeTimestamp > existingBranch.nodeTimestamp) {
+        branchMap.set(branchName, {
+          name: branchName,
+          transactionId: node.id,
+          mutableAddress: null,
+          timestamp: timestampTag?.value || node.timestamp,
+          commitHash: commitHashTag?.value || '',
+          commitMessage: commitMsgTag?.value || '',
+          author: authorTag?.value || '',
+          tags: tags,
+          nodeTimestamp: nodeTimestamp,
+        });
+      }
+    }
+
+    const branches: RepoBranch[] = Array.from(branchMap.values()).map(
+      branch => ({
+        name: branch.name,
+        transactionId: branch.transactionId,
+        mutableAddress: branch.mutableAddress,
+        commitMessage: branch.commitMessage,
+        timestamp: TimestampUtils.normalize(branch.timestamp),
+        tags: branch.tags,
+      })
+    );
+
+    // 캐시에 저장 (5분)
+    setCache(cacheKey, branches, 5 * 60 * 1000);
+    console.log('[getRepositoryBranches] 브랜치 수:', branches.length);
+
+    return branches;
+  } catch (error) {
+    console.error('[getRepositoryBranches] 오류:', error);
+    return [];
+  }
+}

@@ -25,7 +25,7 @@ import {
   updateIssueVisibility,
   updateCommentVisibility,
   getRepositoryVisibility,
-  getLatestRepositoryTransaction,
+  getRepositoryBranches,
 } from '../lib/irys';
 import JSZip from 'jszip';
 import PermissionManager from './PermissionManager';
@@ -948,29 +948,19 @@ export default function RepoDetail({
           //   setDescription(desc.description);
           // }
 
-          // 기본 저장소 정보 생성 (브랜치 정보는 나중에 로드)
-          repositoryInfo = {
-            name: repoName,
-            owner: owner,
-            visibility: visibility?.visibility || 'public',
-            branches: [],
-            defaultBranch: 'main',
-            permissionTimestamp: visibility?.timestamp || 0,
-            tags: [],
-          };
-
-          // 최신 트랜잭션 ID 가져오기 (기본 브랜치로 가정)
-          console.log('[RepoDetail] 최신 트랜잭션 조회 시작:', {
+          // 브랜치 정보 가져오기
+          console.log('[RepoDetail] 브랜치 정보 조회 시작:', {
             repository: repoName,
             owner: owner,
           });
-          const latestTx = await getLatestRepositoryTransaction(
-            repoName,
-            owner
+          const branches = await getRepositoryBranches(repoName, owner);
+          console.log(
+            '[RepoDetail] 브랜치 정보 조회 완료:',
+            branches.length,
+            '개 브랜치'
           );
-          console.log('[RepoDetail] 최신 트랜잭션 조회 완료:', latestTx);
 
-          if (!latestTx) {
+          if (branches.length === 0) {
             console.error('[RepoDetail] 저장소를 찾을 수 없습니다:', {
               repository: repoName,
               owner: owner,
@@ -980,17 +970,23 @@ export default function RepoDetail({
             );
           }
 
-          transactionId = latestTx.id;
-          currentBranch = {
-            name: 'main',
-            transactionId: latestTx.id,
-            mutableAddress: null,
-            commitMessage: '',
-            timestamp: latestTx.timestamp,
+          // 기본 브랜치 찾기 (main 또는 첫 번째 브랜치)
+          const defaultBranch =
+            branches.find(b => b.name === 'main') || branches[0];
+
+          // 저장소 정보 생성
+          repositoryInfo = {
+            name: repoName,
+            owner: owner,
+            visibility: visibility?.visibility || 'public',
+            branches: branches,
+            defaultBranch: defaultBranch.name,
+            permissionTimestamp: visibility?.timestamp || 0,
             tags: [],
           };
 
-          repositoryInfo.branches = [currentBranch];
+          transactionId = defaultBranch.transactionId;
+          currentBranch = defaultBranch;
         }
 
         // 저장소와 브랜치 정보 설정
