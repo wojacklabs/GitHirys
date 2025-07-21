@@ -89,7 +89,6 @@ export default function VisibilityManager({
         repository: repositoryName,
         owner,
         visibility: newVisibility,
-        existingRootTxId: visibility?.rootTxId,
       });
 
       if (result.success) {

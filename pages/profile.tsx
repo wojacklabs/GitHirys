@@ -289,6 +289,8 @@ const ProfilePage: NextPage = () => {
           !profileImage && existingProfile?.profileImageUrl
             ? existingProfile.profileImageUrl
             : undefined,
+        privateRepos: existingProfile?.privateRepos,
+        repoPermissions: existingProfile?.repoPermissions,
       };
 
       const result = await uploadProfile(uploader, profileData);

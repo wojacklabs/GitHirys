@@ -198,7 +198,6 @@ export default function PermissionManager({
         repository: repositoryName,
         owner: owner,
         contributors: contributorAddresses,
-        existingRootTxId: permissions.rootTxId,
       });
 
       if (result.success) {

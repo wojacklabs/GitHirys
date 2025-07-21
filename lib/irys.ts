@@ -1182,6 +1182,9 @@ export interface UserProfile {
   rootTxId?: string;
   mutableAddress?: string; // [Deprecated] 더 이상 사용되지 않음
   timestamp: number;
+  // 권한 관리 필드 추가
+  privateRepos?: string[]; // private 저장소 목록 ["repo1", "repo2"]
+  repoPermissions?: { [key: string]: string[] }; // 저장소별 권한 {"owner/repo": ["user1", "user2"]}
 }
 
 // 프로필 이미지만 별도로 조회하는 함수 (개선된 버전)
@@ -1409,6 +1412,28 @@ export async function getProfileByAddress(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
+    // 권한 관리 태그 파싱
+    const privateReposTag = tags.find(
+      (tag: any) => tag.name === 'githirys_private_repos'
+    )?.value;
+    const repoPermissionsTag = tags.find(
+      (tag: any) => tag.name === 'githirys_repo_permissions'
+    )?.value;
+
+    let privateRepos: string[] | undefined;
+    let repoPermissions: { [key: string]: string[] } | undefined;
+
+    try {
+      if (privateReposTag) {
+        privateRepos = JSON.parse(privateReposTag);
+      }
+      if (repoPermissionsTag) {
+        repoPermissions = JSON.parse(repoPermissionsTag);
+      }
+    } catch (e) {
+      console.error('권한 태그 파싱 오류:', e);
+    }
+
     // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
     let profileImageUrl: string | undefined;
     if (latestTx.id && URLUtils.isValidTransactionId(latestTx.id)) {
@@ -1424,6 +1449,8 @@ export async function getProfileByAddress(
       rootTxId: rootTxId,
       mutableAddress: undefined, // mutable 기능 사용하지 않음
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
+      privateRepos,
+      repoPermissions,
     };
 
     // 캐시에 저장 (프로필은 더 오래 캐싱)
@@ -1498,6 +1525,28 @@ export async function getProfileByNickname(
     const rootTxId =
       tags.find((tag: any) => tag.name === 'Root-TX')?.value || latestTx.id;
 
+    // 권한 관리 태그 파싱
+    const privateReposTag = tags.find(
+      (tag: any) => tag.name === 'githirys_private_repos'
+    )?.value;
+    const repoPermissionsTag = tags.find(
+      (tag: any) => tag.name === 'githirys_repo_permissions'
+    )?.value;
+
+    let privateRepos: string[] | undefined;
+    let repoPermissions: { [key: string]: string[] } | undefined;
+
+    try {
+      if (privateReposTag) {
+        privateRepos = JSON.parse(privateReposTag);
+      }
+      if (repoPermissionsTag) {
+        repoPermissions = JSON.parse(repoPermissionsTag);
+      }
+    } catch (e) {
+      console.error('권한 태그 파싱 오류:', e);
+    }
+
     // 개선된 프로필 이미지 URL 생성 - 일반 트랜잭션 URL 사용
     let profileImageUrl: string | undefined;
     if (latestTx.id && URLUtils.isValidTransactionId(latestTx.id)) {
@@ -1513,6 +1562,8 @@ export async function getProfileByNickname(
       rootTxId: rootTxId,
       mutableAddress: undefined, // mutable 기능 사용하지 않음
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
+      privateRepos,
+      repoPermissions,
     };
 
     // 캐시에 저장 (프로필은 더 오래 캐싱)
@@ -1534,6 +1585,8 @@ export async function uploadProfile(
     profileImage?: File;
     existingRootTxId?: string;
     existingProfileImageUrl?: string;
+    privateRepos?: string[];
+    repoPermissions?: { [key: string]: string[] };
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
@@ -1581,6 +1634,24 @@ export async function uploadProfile(
       { name: 'githirys_account_address', value: profileData.accountAddress },
       { name: 'Content-Type', value: contentType },
     ];
+
+    // 권한 관리 태그 추가
+    if (profileData.privateRepos && profileData.privateRepos.length > 0) {
+      tags.push({
+        name: 'githirys_private_repos',
+        value: JSON.stringify(profileData.privateRepos),
+      });
+    }
+
+    if (
+      profileData.repoPermissions &&
+      Object.keys(profileData.repoPermissions).length > 0
+    ) {
+      tags.push({
+        name: 'githirys_repo_permissions',
+        value: JSON.stringify(profileData.repoPermissions),
+      });
+    }
 
     // 기존 프로필이 있는 경우 Root-TX 태그 추가
     if (profileData.existingRootTxId) {
@@ -1805,7 +1876,7 @@ export interface IssueComment {
   tags?: any[];
 }
 
-// 저장소 권한 정보 조회
+// 저장소 권한 정보 조회 (프로필 기반)
 export async function getRepositoryPermissions(
   repository: string,
   owner: string
@@ -1815,98 +1886,25 @@ export async function getRepositoryPermissions(
   const cached = getFromCache<RepositoryPermissions>(cacheKey);
   if (cached) return cached;
 
-  const query = `
-    query getRepositoryPermissions($repository: String!, $owner: String!) {
-      transactions(
-        tags: [
-          { name: "App-Name", values: ["irys-git-permissions"] },
-          { name: "Repository", values: [$repository] },
-          { name: "git-owner", values: [$owner] }
-        ],
-        first: 1,
-        order: DESC
-      ) {
-        edges {
-          node {
-            id
-            tags {
-              name
-              value
-            }
-            timestamp
-          }
-        }
-      }
-    }
-  `;
-
   try {
-    const result = await executeQuery(async () => {
-      const response = await fetch('https://uploader.irys.xyz/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { repository, owner },
-        }),
-      });
+    // 소유자의 프로필을 조회하여 권한 정보 확인
+    const ownerProfile = await getProfileByAddress(owner);
 
-      if (!response.ok) {
-        throw new Error('Response not ok');
-      }
-
-      return await response.json();
-    });
-
-    const transactions = result.data?.transactions?.edges || [];
-
-    if (transactions.length === 0) {
-      // 권한 정보가 없으면 기본값 반환 (소유자만 포함)
-      const defaultPermissions = {
+    if (!ownerProfile) {
+      // 프로필이 없으면 기본값 반환 (소유자만 포함)
+      const defaultPermissions: RepositoryPermissions = {
         repository,
         owner,
         contributors: [owner],
         timestamp: TimestampUtils.normalize(Date.now()),
       };
-      // 기본값도 캐싱 (더 짧은 시간)
       setCache(cacheKey, defaultPermissions, 10 * 60 * 1000);
       return defaultPermissions;
     }
 
-    // 가장 최신 권한 정보 사용
-    const latestTx = transactions[0].node;
-    const tags = latestTx.tags || [];
-
-    const contributorsTag = tags.find(
-      (tag: any) => tag.name === 'igit-repo-contributor'
-    )?.value;
-    const rootTxIdTag = tags.find((tag: any) => tag.name === 'Root-TX')?.value;
-
-    let contributors: string[] = [owner]; // 기본적으로 소유자 포함
-
-    if (contributorsTag) {
-      try {
-        // JSON 문자열로 저장된 경우
-        if (
-          typeof contributorsTag === 'string' &&
-          contributorsTag.startsWith('[')
-        ) {
-          contributors = JSON.parse(contributorsTag);
-        }
-        // 배열로 저장된 경우
-        else if (Array.isArray(contributorsTag)) {
-          contributors = contributorsTag;
-        }
-        // 문자열로 저장된 경우 (쉼표로 구분)
-        else if (typeof contributorsTag === 'string') {
-          contributors = contributorsTag.split(',').map(addr => addr.trim());
-        }
-      } catch (parseError) {
-        contributors = [owner];
-      }
-    }
+    // 저장소별 권한 정보 확인
+    const repoKey = `${owner}/${repository}`;
+    const contributors = ownerProfile.repoPermissions?.[repoKey] || [owner];
 
     // 소유자가 contributors에 없으면 추가
     if (!contributors.includes(owner)) {
@@ -1917,29 +1915,24 @@ export async function getRepositoryPermissions(
       repository,
       owner,
       contributors,
-      rootTxId: rootTxIdTag || latestTx.id,
-      mutableAddress: rootTxIdTag
-        ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
-        : undefined,
-      timestamp: TimestampUtils.normalize(latestTx.timestamp),
+      timestamp: ownerProfile.timestamp,
     };
 
-    // 결과 캐싱 (30분)
-    setCache(cacheKey, permissions, 30 * 60 * 1000);
+    // 결과 캐싱 (프로필과 동일한 시간)
+    setCache(cacheKey, permissions, 10 * 60 * 1000);
     return permissions;
   } catch (error) {
     return null;
   }
 }
 
-// 저장소 권한 업데이트
+// 저장소 권한 업데이트 (프로필 기반)
 export async function updateRepositoryPermissions(
   uploader: any,
   permissionsData: {
     repository: string;
     owner: string;
     contributors: string[];
-    existingRootTxId?: string;
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
@@ -1951,41 +1944,58 @@ export async function updateRepositoryPermissions(
       };
     }
 
-    // 최소한의 JSON 데이터 생성 (권한 정보)
-    const permissionsJson = {
-      repository: permissionsData.repository,
-      owner: permissionsData.owner,
-      contributors: permissionsData.contributors,
-      timestamp: Math.floor(Date.now() / 1000),
-    };
-
-    const jsonData = JSON.stringify(permissionsJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
-
-    // 태그 구성
-    const tags = [
-      { name: 'App-Name', value: 'irys-git-permissions' },
-      { name: 'Repository', value: permissionsData.repository },
-      { name: 'git-owner', value: permissionsData.owner },
-      {
-        name: 'igit-repo-contributor',
-        value: JSON.stringify(permissionsData.contributors),
-      },
-      { name: 'Content-Type', value: 'application/json' },
-    ];
-
-    // 업데이트인 경우 Root-TX 태그 추가
-    if (permissionsData.existingRootTxId) {
-      tags.push({ name: 'Root-TX', value: permissionsData.existingRootTxId });
+    // 현재 프로필 정보 가져오기
+    const currentProfile = await getProfileByAddress(permissionsData.owner);
+    if (!currentProfile) {
+      return {
+        success: false,
+        error: '프로필을 찾을 수 없습니다.',
+      };
     }
 
-    // Irys에 업로드
-    const result = await uploader.uploadFile(dataBlob, { tags });
-
-    return {
-      success: true,
-      txId: result.id,
+    // 저장소별 권한 정보 업데이트
+    const updatedRepoPermissions = {
+      ...(currentProfile.repoPermissions || {}),
     };
+
+    const repoKey = `${permissionsData.owner}/${permissionsData.repository}`;
+
+    // contributors가 비어있거나 소유자만 있으면 삭제
+    if (
+      permissionsData.contributors.length <= 1 &&
+      permissionsData.contributors[0] === permissionsData.owner
+    ) {
+      delete updatedRepoPermissions[repoKey];
+    } else {
+      updatedRepoPermissions[repoKey] = permissionsData.contributors;
+    }
+
+    // 프로필 업데이트
+    const result = await uploadProfile(uploader, {
+      nickname: currentProfile.nickname,
+      twitterHandle: currentProfile.twitterHandle,
+      accountAddress: currentProfile.accountAddress,
+      existingRootTxId: currentProfile.rootTxId,
+      existingProfileImageUrl: currentProfile.profileImageUrl,
+      privateRepos: currentProfile.privateRepos,
+      repoPermissions: updatedRepoPermissions,
+    });
+
+    // 캐시 무효화
+    if (result.success) {
+      const cacheKey = getCacheKey('profile-address', {
+        address: permissionsData.owner,
+      });
+      removeFromCache(cacheKey);
+
+      const permissionsCacheKey = getCacheKey('repo-permissions', {
+        repo: permissionsData.repository,
+        owner: permissionsData.owner,
+      });
+      removeFromCache(permissionsCacheKey);
+    }
+
+    return result;
   } catch (error) {
     return {
       success: false,
@@ -2148,7 +2158,7 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
   return results;
 }
 
-// 저장소 노출 권한 정보 조회
+// 저장소 노출 권한 정보 조회 (프로필 기반)
 export async function getRepositoryVisibility(
   repository: string,
   owner: string
@@ -2158,105 +2168,47 @@ export async function getRepositoryVisibility(
   const cached = getFromCache<RepositoryVisibility>(cacheKey);
   if (cached) return cached;
 
-  const query = `
-    query getRepositoryVisibility($repository: String!, $owner: String!) {
-      transactions(
-        tags: [
-          { name: "App-Name", values: ["irys-git-visibility"] },
-          { name: "Repository", values: [$repository] },
-          { name: "git-owner", values: [$owner] }
-        ],
-        first: 1,
-        order: DESC
-      ) {
-        edges {
-          node {
-            id
-            tags {
-              name
-              value
-            }
-            timestamp
-          }
-        }
-      }
-    }
-  `;
-
   try {
-    const result = await executeQuery(async () => {
-      const response = await fetch('https://uploader.irys.xyz/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { repository, owner },
-        }),
-      });
+    // 소유자의 프로필을 조회하여 private 저장소 목록 확인
+    const ownerProfile = await getProfileByAddress(owner);
 
-      if (!response.ok) {
-        throw new Error('Response not ok');
-      }
-
-      return await response.json();
-    });
-
-    const transactions = result.data?.transactions?.edges || [];
-
-    if (transactions.length === 0) {
-      // 노출 권한 정보가 없으면 기본값 반환 (public)
-      const defaultVisibility = {
+    if (!ownerProfile) {
+      // 프로필이 없으면 기본값 반환 (public)
+      const defaultVisibility: RepositoryVisibility = {
         repository,
         owner,
-        visibility: 'public' as 'public' | 'private',
+        visibility: 'public',
         timestamp: TimestampUtils.normalize(Date.now()),
       };
-      // 기본값도 캐싱 (더 짧은 시간)
       setCache(cacheKey, defaultVisibility, 10 * 60 * 1000);
       return defaultVisibility;
     }
 
-    // 가장 최신 노출 권한 정보 사용
-    const latestTx = transactions[0].node;
-    const tags = latestTx.tags || [];
-
-    const visibilityTag = tags.find(
-      (tag: any) => tag.name === 'git-repo-visibility'
-    )?.value;
-    const rootTxIdTag = tags.find((tag: any) => tag.name === 'Root-TX')?.value;
+    // private 저장소 목록에 포함되어 있는지 확인
+    const isPrivate = ownerProfile.privateRepos?.includes(repository) || false;
 
     const visibility: RepositoryVisibility = {
       repository,
       owner,
-      visibility:
-        visibilityTag === 'private' || visibilityTag === 'public'
-          ? visibilityTag
-          : 'public',
-      rootTxId: rootTxIdTag || latestTx.id,
-      mutableAddress: rootTxIdTag
-        ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
-        : undefined,
-      timestamp: TimestampUtils.normalize(latestTx.timestamp),
+      visibility: isPrivate ? 'private' : 'public',
+      timestamp: ownerProfile.timestamp,
     };
 
-    // 결과 캐싱 (30분)
-    setCache(cacheKey, visibility, 30 * 60 * 1000);
+    // 결과 캐싱 (프로필과 동일한 시간)
+    setCache(cacheKey, visibility, 10 * 60 * 1000);
     return visibility;
   } catch (error) {
     return null;
   }
 }
 
-// 저장소 노출 권한 업데이트
+// 저장소 노출 권한 업데이트 (프로필 기반)
 export async function updateRepositoryVisibility(
   uploader: any,
   visibilityData: {
     repository: string;
     owner: string;
     visibility: 'public' | 'private';
-    existingRootTxId?: string;
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
@@ -2268,38 +2220,56 @@ export async function updateRepositoryVisibility(
       };
     }
 
-    // 최소한의 JSON 데이터 생성 (노출 권한 정보)
-    const visibilityJson = {
-      repository: visibilityData.repository,
-      owner: visibilityData.owner,
-      visibility: visibilityData.visibility,
-      timestamp: Math.floor(Date.now() / 1000),
-    };
-
-    const jsonData = JSON.stringify(visibilityJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
-
-    // 태그 구성
-    const tags = [
-      { name: 'App-Name', value: 'irys-git-visibility' },
-      { name: 'Repository', value: visibilityData.repository },
-      { name: 'git-owner', value: visibilityData.owner },
-      { name: 'git-repo-visibility', value: visibilityData.visibility },
-      { name: 'Content-Type', value: 'application/json' },
-    ];
-
-    // 업데이트인 경우 Root-TX 태그 추가
-    if (visibilityData.existingRootTxId) {
-      tags.push({ name: 'Root-TX', value: visibilityData.existingRootTxId });
+    // 현재 프로필 정보 가져오기
+    const currentProfile = await getProfileByAddress(visibilityData.owner);
+    if (!currentProfile) {
+      return {
+        success: false,
+        error: '프로필을 찾을 수 없습니다.',
+      };
     }
 
-    // Irys에 업로드
-    const result = await uploader.uploadFile(dataBlob, { tags });
+    // private 저장소 목록 업데이트
+    let updatedPrivateRepos = currentProfile.privateRepos || [];
 
-    return {
-      success: true,
-      txId: result.id,
-    };
+    if (visibilityData.visibility === 'private') {
+      // private으로 변경 - 목록에 추가
+      if (!updatedPrivateRepos.includes(visibilityData.repository)) {
+        updatedPrivateRepos.push(visibilityData.repository);
+      }
+    } else {
+      // public으로 변경 - 목록에서 제거
+      updatedPrivateRepos = updatedPrivateRepos.filter(
+        repo => repo !== visibilityData.repository
+      );
+    }
+
+    // 프로필 업데이트
+    const result = await uploadProfile(uploader, {
+      nickname: currentProfile.nickname,
+      twitterHandle: currentProfile.twitterHandle,
+      accountAddress: currentProfile.accountAddress,
+      existingRootTxId: currentProfile.rootTxId,
+      existingProfileImageUrl: currentProfile.profileImageUrl,
+      privateRepos: updatedPrivateRepos,
+      repoPermissions: currentProfile.repoPermissions,
+    });
+
+    // 캐시 무효화
+    if (result.success) {
+      const cacheKey = getCacheKey('profile-address', {
+        address: visibilityData.owner,
+      });
+      removeFromCache(cacheKey);
+
+      const visibilityCacheKey = getCacheKey('repo-visibility', {
+        repo: visibilityData.repository,
+        owner: visibilityData.owner,
+      });
+      removeFromCache(visibilityCacheKey);
+    }
+
+    return result;
   } catch (error) {
     return {
       success: false,
@@ -3832,6 +3802,10 @@ function setCache(
   ttl: number = DEFAULT_CACHE_TTL
 ): void {
   cache.set(key, { data, timestamp: Date.now(), ttl });
+}
+
+function removeFromCache(key: string): void {
+  cache.delete(key);
 }
 
 // 캐시 정리 함수
