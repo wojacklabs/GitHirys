@@ -7,16 +7,19 @@ let isQueryRunning = false;
 const queryQueue: (() => Promise<any>)[] = [];
 
 // 쿼리 실행 함수 - 동시 실행 방지
-async function executeQuery<T>(queryFn: () => Promise<T>): Promise<T> {
+async function executeQuery<T>(
+  queryName: string,
+  queryFn: () => Promise<T>
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const wrappedQuery = async () => {
       try {
-        console.log('[executeQuery] 쿼리 실행 시작');
+        console.log(`[executeQuery] ${queryName} 쿼리 실행 시작`);
         const result = await queryFn();
-        console.log('[executeQuery] 쿼리 실행 완료');
+        console.log(`[executeQuery] ${queryName} 쿼리 실행 완료`);
         resolve(result);
       } catch (error) {
-        console.error('[executeQuery] 쿼리 실행 오류:', error);
+        console.error(`[executeQuery] ${queryName} 쿼리 실행 오류:`, error);
         reject(error);
       }
     };
@@ -189,7 +192,7 @@ export async function testIrysConnection(): Promise<boolean> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('testIrysConnection', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -543,31 +546,31 @@ export async function searchRepositories(
   // 프로필 쿼리와 동일한 방식으로 단순화
   const query = `
     query getRepositories($owner: String!) {
-        transactions(
+      transactions(
         tags: [
           { name: "App-Name", values: ["irys-git"] },
           { name: "git-owner", values: [$owner] }
         ],
         first: 50,
-          order: DESC
-        ) {
-          edges {
-            node {
-              id
-              tags {
-                name
-                value
-              }
-              timestamp
+        order: DESC
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
             }
+            timestamp
           }
         }
       }
+    }
   `;
 
   try {
     // 단일 요청으로 단순화 (프로필 조회와 동일한 패턴)
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('searchRepositories', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -792,24 +795,27 @@ export async function* searchRepositoriesProgressive(
 
   try {
     // 단일 요청으로 단순화 (프로필 조회와 동일한 패턴)
-    const result = await executeQuery(async () => {
-      const response = await fetch('https://uploader.irys.xyz/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { owner },
-        }),
-      });
+    const result = await executeQuery(
+      'searchRepositoriesProgressive',
+      async () => {
+        const response = await fetch('https://uploader.irys.xyz/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query,
+            variables: { owner },
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Response not ok');
+        if (!response.ok) {
+          throw new Error('Response not ok');
+        }
+
+        return await response.json();
       }
-
-      return await response.json();
-    });
+    );
 
     if (result.errors) {
       return;
@@ -1083,7 +1089,7 @@ export async function getTransactionById(
   };
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getTransactionById', async () => {
       const response = await fetch(strategy.endpoint, {
         method: 'POST',
         headers: {
@@ -1241,7 +1247,7 @@ export async function getProfileImageUrl(
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getProfileImageUrl', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -1407,7 +1413,7 @@ export async function getProfileByAddress(
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getProfileByAddress', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -1524,18 +1530,24 @@ export async function getProfileByNickname(
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { nickname },
-      }),
-    });
+    const result = await executeQuery('getProfileByNickname', async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { nickname },
+        }),
+      });
 
-    const result = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    });
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
@@ -2350,7 +2362,7 @@ export async function getRepositoryDescription(
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getRepositoryDescription', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -2490,7 +2502,7 @@ export async function getRepositoryStats(): Promise<number> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getRepositoryStats', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -2561,7 +2573,7 @@ export async function debugAllTags(): Promise<void> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('debugAllTags', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -2629,7 +2641,7 @@ export async function getUserStats(): Promise<number> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getUserStats', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -2696,7 +2708,7 @@ export async function getCommitStats(): Promise<number> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getCommitStats', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -2851,7 +2863,7 @@ export async function getRecentUsers(): Promise<RecentUser[]> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getRecentUsers', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -2952,7 +2964,7 @@ export async function getRecentRepositories(): Promise<RecentRepository[]> {
   `;
 
   try {
-    const result = await executeQuery(async () => {
+    const result = await executeQuery('getRecentRepositories', async () => {
       const response = await fetch('https://uploader.irys.xyz/graphql', {
         method: 'POST',
         headers: {
@@ -4364,24 +4376,27 @@ export async function getLatestRepositoryTransaction(
       repository,
       owner
     );
-    const result = await executeQuery(async () => {
-      const response = await fetch('https://uploader.irys.xyz/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { repository, owner },
-        }),
-      });
+    const result = await executeQuery(
+      'getLatestRepositoryTransaction',
+      async () => {
+        const response = await fetch('https://uploader.irys.xyz/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query,
+            variables: { repository, owner },
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
       }
-
-      return await response.json();
-    });
+    );
     console.log('[getLatestRepositoryTransaction] 쿼리 완료');
 
     const transactions = result.data?.transactions?.edges || [];
