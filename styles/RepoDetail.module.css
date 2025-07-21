@@ -1239,3 +1239,42 @@
     flex-direction: column;
   }
 }
+
+/* Skeleton Loading Styles */
+.descriptionSkeleton,
+.issueSkeleton {
+  padding: 16px 0;
+}
+
+.skeletonLine {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  height: 16px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.issuesLoading {
+  padding: 24px 0;
+}
+
+.issueSkeleton {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.issueSkeleton:last-child {
+  margin-bottom: 0;
+}

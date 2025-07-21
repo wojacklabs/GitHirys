@@ -179,6 +179,15 @@ export async function createIrysUploader(wallet?: any) {
 
 // Test function to check if we can connect to Irys GraphQL
 export async function testIrysConnection(): Promise<boolean> {
+  // 연결 상태를 5분간 캐시
+  const cacheKey = getCacheKey('irys-connection', {});
+  const cached = getFromCache<boolean>(cacheKey);
+
+  if (cached !== null && cached !== undefined) {
+    console.log('[testIrysConnection] 캐시된 연결 상태 사용:', cached);
+    return cached;
+  }
+
   const testQuery = `
     query {
       transactions(limit: 1) {
@@ -208,8 +217,17 @@ export async function testIrysConnection(): Promise<boolean> {
       return await response.json();
     });
 
-    return !result.errors;
+    const isConnected = !result.errors;
+
+    // 연결 상태를 5분간 캐시에 저장
+    setCache(cacheKey, isConnected, 5 * 60 * 1000); // 5분
+    console.log('[testIrysConnection] 연결 상태 캐시에 저장:', isConnected);
+
+    return isConnected;
   } catch (error) {
+    // 오류 발생 시에도 false로 캐시 (단, 더 짧은 시간)
+    setCache(cacheKey, false, 60 * 1000); // 1분
+    console.log('[testIrysConnection] 연결 실패, 1분간 캐시에 저장');
     return false;
   }
 }
@@ -231,9 +249,6 @@ export async function searchAllRepositories(
   });
   const cached = getFromCache<Repository[]>(cacheKey);
   if (cached) return cached;
-
-  // Test Irys connection first
-  const canConnect = await testIrysConnection();
 
   const endpoint = 'https://uploader.irys.xyz/graphql';
 
@@ -2389,15 +2404,32 @@ export async function getRepositoryDescription(
 
       return await response.json();
     });
+
+    console.log('[getRepositoryDescription] 쿼리 결과:', {
+      hasData: !!result.data,
+      hasErrors: !!result.errors,
+      transactionCount: result.data?.transactions?.edges?.length || 0,
+    });
+
+    if (result.errors) {
+      console.error('[getRepositoryDescription] GraphQL 에러:', result.errors);
+    }
+
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
+      console.log('[getRepositoryDescription] 설명 데이터가 없습니다');
       return null;
     }
 
     // Get the latest description data
     const latestTx = transactions[0].node;
     const tags = latestTx.tags || [];
+
+    console.log(
+      '[getRepositoryDescription] 트랜잭션 태그:',
+      tags.map((t: any) => ({ name: t.name, value: t.value }))
+    );
 
     const descriptionTag = tags.find(
       (tag: any) => tag.name === 'git-repo-description'
@@ -2414,6 +2446,8 @@ export async function getRepositoryDescription(
         : undefined,
       timestamp: TimestampUtils.normalize(latestTx.timestamp),
     };
+
+    console.log('[getRepositoryDescription] 설명 데이터 반환:', description);
 
     return description;
   } catch (error) {

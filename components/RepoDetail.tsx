@@ -541,6 +541,7 @@ export default function RepoDetail({
   const [savingDescription, setSavingDescription] = useState(false);
   const [repositoryDescription, setRepositoryDescription] =
     useState<RepositoryDescription | null>(null);
+  const [loadingDescription, setLoadingDescription] = useState(false);
   const [showRepoShareCard, setShowRepoShareCard] = useState(false);
   const [permissions, setPermissions] = useState<RepositoryPermissions | null>(
     null
@@ -936,13 +937,13 @@ export default function RepoDetail({
           setCheckingAccess(false);
           setAccessCheck({ canAccess: true });
 
-          // 저장소 설명 로드
-          console.log('[RepoDetail] 저장소 설명 조회 시작');
-          const desc = await getRepositoryDescription(repoName, owner);
-          console.log('[RepoDetail] 저장소 설명 조회 완료:', desc);
-          if (desc) {
-            setDescription(desc.description);
-          }
+          // 저장소 설명은 나중에 별도로 로드
+          // console.log('[RepoDetail] 저장소 설명 조회 시작');
+          // const desc = await getRepositoryDescription(repoName, owner);
+          // console.log('[RepoDetail] 저장소 설명 조회 완료:', desc);
+          // if (desc) {
+          //   setDescription(desc.description);
+          // }
 
           // 기본 저장소 정보 생성 (브랜치 정보는 나중에 로드)
           repositoryInfo = {
@@ -1032,13 +1033,19 @@ export default function RepoDetail({
         if (repoPermissions) {
           setPermissions(repoPermissions);
         }
+
+        // Load description and issues after main repository data
+        console.log('[RepoDetail] 저장소 설명과 이슈 로드 시작');
+        await loadDescription();
+        await loadIssues();
+        console.log('[RepoDetail] 저장소 설명과 이슈 로드 완료');
       } catch (error) {
         console.error('[RepoDetail] 저장소 데이터 로딩 중 오류:', error);
       }
     };
 
     loadRepositoryData();
-  }, [repository, owner, refreshPermissions]);
+  }, [repository, owner, refreshPermissions, refreshIssues]);
 
   // permissions 변경 시 contributors 프로필 로드
   useEffect(() => {
@@ -1071,10 +1078,40 @@ export default function RepoDetail({
     loadContributorProfiles();
   }, [permissions, owner]);
 
-  // Load repository issues
-  useEffect(() => {
-    loadIssues();
-  }, [repository, owner, refreshIssues]);
+  // Load repository description separately
+  const loadDescription = async () => {
+    if (!repository || !owner) return;
+
+    try {
+      setLoadingDescription(true);
+      console.log('[RepoDetail] 저장소 설명 조회 시작 (별도 로드)');
+      const desc = await getRepositoryDescription(repository.name, owner);
+      console.log('[RepoDetail] 저장소 설명 조회 완료:', desc);
+      if (desc) {
+        setDescription(desc.description);
+        setRepositoryDescription(desc);
+      }
+    } catch (error) {
+      console.error('Error loading description:', error);
+    } finally {
+      setLoadingDescription(false);
+    }
+  };
+
+  // Issue-related handlers
+  const loadIssues = async () => {
+    if (!repository || !owner) return;
+
+    try {
+      setLoadingIssues(true);
+      const repoIssues = await getRepositoryIssues(repository.name, owner);
+      setIssues(repoIssues);
+    } catch (error) {
+      console.error('Error loading issues:', error);
+    } finally {
+      setLoadingIssues(false);
+    }
+  };
 
   // Save repository description
   const handleSaveDescription = async () => {
@@ -1149,21 +1186,6 @@ export default function RepoDetail({
   // 저장소 공유 카드 닫기 핸들러
   const handleCloseRepoShareCard = () => {
     setShowRepoShareCard(false);
-  };
-
-  // Issue-related handlers
-  const loadIssues = async () => {
-    if (!repository || !owner) return;
-
-    try {
-      setLoadingIssues(true);
-      const repoIssues = await getRepositoryIssues(repository.name, owner);
-      setIssues(repoIssues);
-    } catch (error) {
-      console.error('Error loading issues:', error);
-    } finally {
-      setLoadingIssues(false);
-    }
   };
 
   const loadIssueComments = async (issue: Issue) => {
@@ -1869,20 +1891,33 @@ export default function RepoDetail({
         </div>
 
         {/* Repository Description Section - Description visible to all, editing only for owner */}
-        {repository && owner && description && (
+        {repository && owner && (loadingDescription || description) && (
           <div className={styles.descriptionSection}>
             <h3 className={styles.descriptionTitle}>Project Description</h3>
-            <div className={styles.descriptionText}>{description}</div>
-            {/* Edit button only visible to repository owner */}
-            {currentWallet === owner && (
-              <div className={styles.areaeditDescriptionButton}>
-                <button
-                  onClick={handleStartEditDescription}
-                  className={styles.editDescriptionButton}
-                >
-                  Edit Description
-                </button>
+            {loadingDescription ? (
+              <div className={styles.descriptionSkeleton}>
+                <div
+                  className={styles.skeletonLine}
+                  style={{ width: '100%' }}
+                />
+                <div className={styles.skeletonLine} style={{ width: '90%' }} />
+                <div className={styles.skeletonLine} style={{ width: '70%' }} />
               </div>
+            ) : (
+              <>
+                <div className={styles.descriptionText}>{description}</div>
+                {/* Edit button only visible to repository owner */}
+                {currentWallet === owner && (
+                  <div className={styles.areaeditDescriptionButton}>
+                    <button
+                      onClick={handleStartEditDescription}
+                      className={styles.editDescriptionButton}
+                    >
+                      Edit Description
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
