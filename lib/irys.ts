@@ -42,8 +42,8 @@ async function processQueue() {
     console.error('Query execution error:', error);
   } finally {
     isQueryRunning = false;
-    // 100ms 대기 후 다음 쿼리 실행
-    setTimeout(() => processQueue(), 100);
+    // 300ms 대기 후 다음 쿼리 실행 (rate limit 방지)
+    setTimeout(() => processQueue(), 300);
   }
 }
 
@@ -4446,10 +4446,7 @@ export async function getLatestRepositoryTransaction(
           }),
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
+        // response.ok 체크를 일시적으로 제거 (getProfileByAddress처럼)
         return await response.json();
       }
     );

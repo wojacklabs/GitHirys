@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 import {
   getTransactionById,
   downloadData,
-  searchRepositories,
   Repository,
   RepoBranch,
   TimestampUtils,
@@ -882,6 +881,10 @@ export default function RepoDetail({
   useEffect(() => {
     const loadRepoDetails = async () => {
       try {
+        console.log('[RepoDetail] ===== 저장소 상세 페이지 로딩 시작 =====');
+        console.log('[RepoDetail] Repository:', repoName);
+        console.log('[RepoDetail] Owner:', owner);
+
         setLoading(true);
         setError(null);
         setCheckingAccess(true);
@@ -1000,6 +1003,10 @@ export default function RepoDetail({
         console.log('[RepoDetail] 브랜치 데이터 로드 시작:', transactionId);
         await loadBranchData(transactionId, mutableAddress, true);
         console.log('[RepoDetail] 브랜치 데이터 로드 완료');
+
+        // 메인 로딩 완료
+        setLoading(false);
+        console.log('[RepoDetail] ===== 저장소 상세 페이지 로딩 완료 =====');
       } catch (error) {
         console.error('[RepoDetail] 저장소 정보 로딩 중 오류:', error);
         setError(error instanceof Error ? error.message : 'Unknown error.');
@@ -1763,7 +1770,7 @@ export default function RepoDetail({
     if (type === 'audio') return '🎵';
     if (type === 'document') return '📄';
     if (type === 'archive') return '📦';
-    if (type === 'code') return '💻';
+    if (type === 'code') return '��';
     if (type === 'text') return '📄';
 
     return '📄';
