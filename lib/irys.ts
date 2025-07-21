@@ -19,8 +19,21 @@ async function executeQuery<T>(
         console.log(`[executeQuery] ${queryName} 쿼리 실행 완료`);
         resolve(result);
       } catch (error) {
-        console.error(`[executeQuery] ${queryName} 쿼리 실행 오류:`, error);
-        reject(error);
+        // HTTP 상태 에러는 로그만 남기고 계속 진행
+        if (
+          error instanceof Error &&
+          error.message.includes('HTTP error! status:')
+        ) {
+          console.warn(
+            `[executeQuery] ${queryName} HTTP 상태 경고:`,
+            error.message
+          );
+          // 빈 결과 반환 (각 함수에서 처리)
+          resolve({ data: null, errors: [error.message] } as T);
+        } else {
+          console.error(`[executeQuery] ${queryName} 쿼리 실행 오류:`, error);
+          reject(error);
+        }
       }
     };
 
@@ -2398,10 +2411,7 @@ export async function getRepositoryDescription(
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      // response.ok 체크 제거 (getRepositoryBranches처럼)
       return await response.json();
     });
 
