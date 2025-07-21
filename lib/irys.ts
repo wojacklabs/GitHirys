@@ -19,21 +19,8 @@ async function executeQuery<T>(
         console.log(`[executeQuery] ${queryName} 쿼리 실행 완료`);
         resolve(result);
       } catch (error) {
-        // HTTP 상태 에러는 로그만 남기고 계속 진행
-        if (
-          error instanceof Error &&
-          error.message.includes('HTTP error! status:')
-        ) {
-          console.warn(
-            `[executeQuery] ${queryName} HTTP 상태 경고:`,
-            error.message
-          );
-          // 빈 결과 반환 (각 함수에서 처리)
-          resolve({ data: null, errors: [error.message] } as T);
-        } else {
-          console.error(`[executeQuery] ${queryName} 쿼리 실행 오류:`, error);
-          reject(error);
-        }
+        console.error(`[executeQuery] ${queryName} 쿼리 실행 오류:`, error);
+        reject(error);
       }
     };
 
@@ -2160,10 +2147,7 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
           }),
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
+        // response.ok 체크 제거 (프로필처럼)
         return await response.json();
       });
 
@@ -2498,8 +2482,14 @@ export async function updateRepositoryDescription(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
+    console.log('[updateRepositoryDescription] 시작:', descriptionData);
+
     // Verify owner wallet address
     if (!uploader?.address || uploader.address !== descriptionData.owner) {
+      console.log('[updateRepositoryDescription] 소유자 확인 실패:', {
+        uploaderAddress: uploader?.address,
+        expectedOwner: descriptionData.owner,
+      });
       return {
         success: false,
         error: 'Wallet address is not the repository owner.',
@@ -2531,7 +2521,24 @@ export async function updateRepositoryDescription(
     }
 
     // Upload to Irys
-    const result = await uploader.uploadFile(dataBlob, { tags });
+    console.log('[updateRepositoryDescription] 업로드 시작...');
+    console.log(
+      '[updateRepositoryDescription] uploader.uploadFile:',
+      uploader?.uploadFile
+    );
+    console.log(
+      '[updateRepositoryDescription] uploader.upload:',
+      uploader?.upload
+    );
+    console.log('[updateRepositoryDescription] dataBlob:', dataBlob);
+    console.log('[updateRepositoryDescription] tags:', tags);
+
+    // uploadFile이 없으면 upload 사용
+    const result = uploader.uploadFile
+      ? await uploader.uploadFile(dataBlob, { tags })
+      : await uploader.upload(jsonData, { tags });
+
+    console.log('[updateRepositoryDescription] 업로드 완료:', result.id);
 
     return {
       success: true,
@@ -3178,10 +3185,7 @@ export async function getRepositoryIssues(
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      // response.ok 체크 제거 (프로필처럼)
       return await response.json();
     });
 
@@ -3333,10 +3337,7 @@ export async function getIssueComments(
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      // response.ok 체크 제거 (프로필처럼)
       return await response.json();
     });
 
@@ -3440,11 +3441,15 @@ export async function createIssue(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
+    console.log('[createIssue] 시작:', issueData);
+
     // Get next issue count
+    console.log('[createIssue] 기존 이슈 조회 중...');
     const existingIssues = await getRepositoryIssues(
       issueData.repository,
       issueData.owner
     );
+    console.log('[createIssue] 기존 이슈 수:', existingIssues.length);
     const nextIssueCount = existingIssues.length + 1;
 
     // Create JSON data for issue
@@ -3475,7 +3480,19 @@ export async function createIssue(
     ];
 
     // Upload issue using uploadFile like profile
-    const receipt = await uploader.uploadFile(dataBlob, { tags });
+    console.log('[createIssue] 업로드 시작...');
+    console.log('[createIssue] uploader:', uploader);
+    console.log('[createIssue] uploader.uploadFile:', uploader?.uploadFile);
+    console.log('[createIssue] uploader.upload:', uploader?.upload);
+    console.log('[createIssue] dataBlob:', dataBlob);
+    console.log('[createIssue] tags:', tags);
+
+    // uploadFile이 없으면 upload 사용
+    const receipt = uploader.uploadFile
+      ? await uploader.uploadFile(dataBlob, { tags })
+      : await uploader.upload(jsonData, { tags });
+
+    console.log('[createIssue] 업로드 완료:', receipt.id);
 
     return {
       success: true,
@@ -3536,7 +3553,9 @@ export async function updateIssue(
     }
 
     // Upload updated issue using uploadFile like profile
-    const receipt = await uploader.uploadFile(dataBlob, { tags });
+    const receipt = uploader.uploadFile
+      ? await uploader.uploadFile(dataBlob, { tags })
+      : await uploader.upload(jsonData, { tags });
 
     return {
       success: true,
@@ -3606,7 +3625,9 @@ export async function createIssueComment(
     ];
 
     // Upload comment using uploadFile like profile
-    const receipt = await uploader.uploadFile(dataBlob, { tags });
+    const receipt = uploader.uploadFile
+      ? await uploader.uploadFile(dataBlob, { tags })
+      : await uploader.upload(jsonData, { tags });
 
     return {
       success: true,
@@ -3676,7 +3697,9 @@ export async function updateIssueComment(
     }
 
     // Upload updated comment using uploadFile like profile
-    const receipt = await uploader.uploadFile(dataBlob, { tags });
+    const receipt = uploader.uploadFile
+      ? await uploader.uploadFile(dataBlob, { tags })
+      : await uploader.upload(jsonData, { tags });
 
     return {
       success: true,
