@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   searchRepositories,
   searchRepositoriesProgressive,
+  preloadRepositoryPermissions,
   testIrysConnection,
   Repository,
   RepoBranch,
@@ -117,6 +118,11 @@ export default function RepoList({
           // 첫 번째 저장소가 로드되면 로딩 상태 해제
           if (repoCount === 1) {
             setLoading(false);
+
+            // 백그라운드에서 권한 정보 미리 로드 시작
+            preloadRepositoryPermissions(loadedRepos, currentWallet).catch(
+              err => console.error('권한 미리 로드 실패:', err)
+            );
           }
 
           // 디버그 정보 업데이트

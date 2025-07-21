@@ -8,7 +8,8 @@ import {
   createIrysUploader,
   getRecentUsers,
   getRecentRepositories,
-  searchRepositories,
+  searchRepositoriesAsArray,
+  preloadRepositoryPermissions,
   RecentUser,
   RecentRepository,
 } from '../lib/irys';
@@ -53,40 +54,43 @@ const Home: NextPage = () => {
 
       try {
         const userRepoMap = new Map<string, any[]>();
+        const currentWallet = wallet.connected
+          ? wallet.publicKey?.toBase58()
+          : undefined;
 
-        // Load repositories for each user in parallel
-        const repositoryPromises = recentUsers.map(async user => {
+        // 순차적으로 각 사용자의 저장소 로드 (CORS 에러 방지)
+        for (const user of recentUsers) {
           try {
-            const repos = await searchRepositories(
+            const repos = await searchRepositoriesAsArray(
               user.accountAddress,
-              wallet.connected ? wallet.publicKey?.toBase58() : undefined
+              currentWallet
             );
-            return { userAddress: user.accountAddress, repositories: repos };
+
+            if (repos.length > 0) {
+              userRepoMap.set(user.accountAddress, repos);
+
+              // 백그라운드에서 권한 정보 미리 로드
+              preloadRepositoryPermissions(repos, currentWallet).catch(err =>
+                console.error('권한 미리 로드 실패:', err)
+              );
+            }
+
+            // 상태 업데이트 (각 사용자별로)
+            setUserRepositories(new Map(userRepoMap));
           } catch (error) {
             console.error(
               `Error loading repos for user ${user.accountAddress}:`,
               error
             );
-            return { userAddress: user.accountAddress, repositories: [] };
           }
-        });
-
-        const results = await Promise.all(repositoryPromises);
-
-        results.forEach(({ userAddress, repositories }) => {
-          if (repositories.length > 0) {
-            userRepoMap.set(userAddress, repositories);
-          }
-        });
-
-        setUserRepositories(userRepoMap);
+        }
       } catch (error) {
         console.error('User repositories load error:', error);
       }
     };
 
     loadUserRepositories();
-  }, [recentUsers]);
+  }, [recentUsers, wallet.connected, wallet.publicKey]);
 
   // Create uploader when wallet changes
   useEffect(() => {

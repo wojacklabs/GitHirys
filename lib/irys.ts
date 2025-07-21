@@ -2,6 +2,45 @@
 import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
 
+// 쿼리 큐 관리를 위한 변수
+let isQueryRunning = false;
+const queryQueue: (() => Promise<any>)[] = [];
+
+// 쿼리 실행 함수 - 동시 실행 방지
+async function executeQuery<T>(queryFn: () => Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const wrappedQuery = async () => {
+      try {
+        const result = await queryFn();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    queryQueue.push(wrappedQuery);
+    processQueue();
+  });
+}
+
+// 큐 처리 함수
+async function processQueue() {
+  if (isQueryRunning || queryQueue.length === 0) return;
+
+  isQueryRunning = true;
+  const query = queryQueue.shift();
+
+  try {
+    await query!();
+  } catch (error) {
+    console.error('Query execution error:', error);
+  } finally {
+    isQueryRunning = false;
+    // 100ms 대기 후 다음 쿼리 실행
+    setTimeout(() => processQueue(), 100);
+  }
+}
+
 // Timestamp 처리 유틸리티 함수들
 export const TimestampUtils = {
   // 다양한 형식의 timestamp를 Unix timestamp (초)로 정규화
@@ -516,22 +555,24 @@ export async function searchRepositories(
 
   try {
     // 단일 요청으로 단순화 (프로필 조회와 동일한 패턴)
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { owner },
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { owner },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Response not ok');
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return [];
@@ -739,22 +780,24 @@ export async function* searchRepositoriesProgressive(
 
   try {
     // 단일 요청으로 단순화 (프로필 조회와 동일한 패턴)
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { owner },
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { owner },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Response not ok');
+      }
+
+      return await response.json();
     });
-
-    if (!response.ok) {
-      return;
-    }
-
-    const result = await response.json();
 
     if (result.errors) {
       return;
@@ -933,6 +976,71 @@ export async function* searchRepositoriesProgressive(
     }
   } catch (error) {
     console.error('저장소 검색 오류:', error);
+  }
+}
+
+// 점진적 로딩을 배열로 변환하는 헬퍼 함수
+export async function searchRepositoriesAsArray(
+  owner: string,
+  currentWallet?: string
+): Promise<Repository[]> {
+  const repositories: Repository[] = [];
+
+  try {
+    for await (const repo of searchRepositoriesProgressive(
+      owner,
+      currentWallet
+    )) {
+      repositories.push(repo);
+    }
+  } catch (error) {
+    console.error('저장소 검색 오류:', error);
+  }
+
+  return repositories;
+}
+
+// 백그라운드에서 권한 정보를 미리 로드하는 함수
+export async function preloadRepositoryPermissions(
+  repositories: Repository[],
+  currentWallet?: string
+): Promise<void> {
+  if (!currentWallet) return;
+
+  // 권한 체크가 필요한 저장소만 필터링 (소유자가 아닌 경우)
+  const reposToCheck = repositories.filter(
+    repo => repo.owner !== currentWallet
+  );
+
+  // 순차적으로 권한 정보 로드 (CORS 에러 방지)
+  for (const repo of reposToCheck) {
+    try {
+      // 캐시 키 확인
+      const visibilityCacheKey = getCacheKey('repo-visibility', {
+        repo: repo.name,
+        owner: repo.owner,
+      });
+      const permissionsCacheKey = getCacheKey('repo-permissions', {
+        repo: repo.name,
+        owner: repo.owner,
+      });
+
+      // 캐시가 없는 경우에만 로드
+      if (!getFromCache(visibilityCacheKey)) {
+        await getRepositoryVisibility(repo.name, repo.owner);
+      }
+
+      // private 저장소인 경우에만 권한 체크
+      const visibility = getFromCache<RepositoryVisibility>(visibilityCacheKey);
+      if (
+        visibility?.visibility === 'private' &&
+        !getFromCache(permissionsCacheKey)
+      ) {
+        await getRepositoryPermissions(repo.name, repo.owner);
+      }
+    } catch (error) {
+      console.error(`권한 미리 로드 실패 ${repo.owner}/${repo.name}:`, error);
+    }
   }
 }
 
@@ -1267,18 +1375,20 @@ export async function getProfileByAddress(
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { address },
-      }),
-    });
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { address },
+        }),
+      });
 
-    const result = await response.json();
+      return await response.json();
+    });
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
@@ -1731,18 +1841,25 @@ export async function getRepositoryPermissions(
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { repository, owner },
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { repository, owner },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Response not ok');
+      }
+
+      return await response.json();
     });
 
-    const result = await response.json();
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
@@ -2067,18 +2184,25 @@ export async function getRepositoryVisibility(
   `;
 
   try {
-    const response = await fetch('https://uploader.irys.xyz/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { repository, owner },
-      }),
+    const result = await executeQuery(async () => {
+      const response = await fetch('https://uploader.irys.xyz/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: { repository, owner },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Response not ok');
+      }
+
+      return await response.json();
     });
 
-    const result = await response.json();
     const transactions = result.data?.transactions?.edges || [];
 
     if (transactions.length === 0) {
