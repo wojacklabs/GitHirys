@@ -6,6 +6,10 @@ import { WebSolana } from '@irys/web-upload-solana';
 let isQueryRunning = false;
 const queryQueue: (() => Promise<any>)[] = [];
 
+// 업로드 큐 관리를 위한 변수
+let isUploadRunning = false;
+const uploadQueue: (() => Promise<any>)[] = [];
+
 // 쿼리 실행 함수 - 동시 실행 방지
 async function executeQuery<T>(
   queryName: string,
@@ -29,6 +33,29 @@ async function executeQuery<T>(
   });
 }
 
+// 업로드 실행 함수 - 동시 실행 방지
+async function executeUpload<T>(
+  uploadName: string,
+  uploadFn: () => Promise<T>
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const wrappedUpload = async () => {
+      try {
+        console.log(`[executeUpload] ${uploadName} 업로드 시작`);
+        const result = await uploadFn();
+        console.log(`[executeUpload] ${uploadName} 업로드 완료`);
+        resolve(result);
+      } catch (error) {
+        console.error(`[executeUpload] ${uploadName} 업로드 오류:`, error);
+        reject(error);
+      }
+    };
+
+    uploadQueue.push(wrappedUpload);
+    processUploadQueue();
+  });
+}
+
 // 큐 처리 함수
 async function processQueue() {
   if (isQueryRunning || queryQueue.length === 0) return;
@@ -44,6 +71,24 @@ async function processQueue() {
     isQueryRunning = false;
     // 300ms 대기 후 다음 쿼리 실행 (rate limit 방지)
     setTimeout(() => processQueue(), 300);
+  }
+}
+
+// 업로드 큐 처리 함수
+async function processUploadQueue() {
+  if (isUploadRunning || uploadQueue.length === 0) return;
+
+  isUploadRunning = true;
+  const upload = uploadQueue.shift();
+
+  try {
+    await upload!();
+  } catch (error) {
+    console.error('Upload execution error:', error);
+  } finally {
+    isUploadRunning = false;
+    // 500ms 대기 후 다음 업로드 실행 (업로드는 더 긴 간격 필요)
+    setTimeout(() => processUploadQueue(), 500);
   }
 }
 
@@ -2426,46 +2471,25 @@ export async function getRepositoryDescription(
     );
 
     const rootTxIdTag = tags.find((tag: any) => tag.name === 'Root-TX')?.value;
+    const descriptionTag = tags.find(
+      (tag: any) => tag.name === 'git-repo-description'
+    )?.value;
 
-    // Download the actual description data from Irys (like profile)
-    try {
-      const dataUrl = `https://gateway.irys.xyz/${latestTx.id}`;
-      console.log('[getRepositoryDescription] 데이터 다운로드 시작:', dataUrl);
+    // getRepositoryBranches처럼 태그에서 직접 데이터 추출
+    const description: RepositoryDescription = {
+      repository,
+      owner,
+      description: descriptionTag || '',
+      rootTxId: rootTxIdTag || latestTx.id,
+      mutableAddress: rootTxIdTag
+        ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
+        : undefined,
+      timestamp: TimestampUtils.normalize(latestTx.timestamp),
+    };
 
-      const dataResponse = await fetch(dataUrl);
-      if (!dataResponse.ok) {
-        throw new Error(
-          `Failed to download description data: ${dataResponse.status}`
-        );
-      }
+    console.log('[getRepositoryDescription] 설명 데이터 반환:', description);
 
-      const descriptionData = await dataResponse.json();
-      console.log(
-        '[getRepositoryDescription] 다운로드된 데이터:',
-        descriptionData
-      );
-
-      const description: RepositoryDescription = {
-        repository,
-        owner,
-        description: descriptionData.description || '',
-        rootTxId: rootTxIdTag || latestTx.id,
-        mutableAddress: rootTxIdTag
-          ? `https://gateway.irys.xyz/mutable/${rootTxIdTag}`
-          : undefined,
-        timestamp: TimestampUtils.normalize(latestTx.timestamp),
-      };
-
-      console.log('[getRepositoryDescription] 설명 데이터 반환:', description);
-
-      return description;
-    } catch (downloadError) {
-      console.error(
-        '[getRepositoryDescription] 데이터 다운로드 오류:',
-        downloadError
-      );
-      return null;
-    }
+    return description;
   } catch (error) {
     return null;
   }
@@ -2496,22 +2520,15 @@ export async function updateRepositoryDescription(
       };
     }
 
-    // Create JSON data for description
-    const descriptionJson = {
-      repository: descriptionData.repository,
-      owner: descriptionData.owner,
-      description: descriptionData.description,
-      timestamp: Math.floor(Date.now() / 1000),
-    };
-
-    const jsonData = JSON.stringify(descriptionJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+    // 간단한 텍스트 데이터로 업로드 (getRepositoryBranches 방식처럼)
+    const uploadData = descriptionData.description;
 
     // Configure tags
     const tags = [
       { name: 'App-Name', value: 'irys-git-repo-description' },
       { name: 'Repository', value: descriptionData.repository },
       { name: 'git-owner', value: descriptionData.owner },
+      { name: 'git-repo-description', value: descriptionData.description },
       { name: 'Content-Type', value: 'application/json' },
     ];
 
@@ -2521,22 +2538,16 @@ export async function updateRepositoryDescription(
     }
 
     // Upload to Irys
-    console.log('[updateRepositoryDescription] 업로드 시작...');
-    console.log(
-      '[updateRepositoryDescription] uploader.uploadFile:',
-      uploader?.uploadFile
-    );
-    console.log(
-      '[updateRepositoryDescription] uploader.upload:',
-      uploader?.upload
-    );
-    console.log('[updateRepositoryDescription] dataBlob:', dataBlob);
+    console.log('[updateRepositoryDescription] uploadData:', uploadData);
     console.log('[updateRepositoryDescription] tags:', tags);
 
-    // uploadFile이 없으면 upload 사용
-    const result = uploader.uploadFile
-      ? await uploader.uploadFile(dataBlob, { tags })
-      : await uploader.upload(jsonData, { tags });
+    // 업로드 큐를 통해 실행
+    const result = await executeUpload(
+      'updateRepositoryDescription',
+      async () => {
+        return await uploader.upload(uploadData, { tags });
+      }
+    );
 
     console.log('[updateRepositoryDescription] 업로드 완료:', result.id);
 
@@ -3221,21 +3232,11 @@ export async function getRepositoryIssues(
 
       const existingIssue = issueMap.get(issueCount);
       if (!existingIssue || timestamp > existingIssue.updatedAt) {
-        // Load issue content as JSON
-        let content = '';
-        try {
-          const issueDataUrl = `https://gateway.irys.xyz/${node.id}`;
-          const issueResponse = await fetch(issueDataUrl);
-          if (issueResponse.ok) {
-            const issueData = await issueResponse.json();
-            content = issueData.content || '';
-          }
-        } catch (error) {
-          console.error(
-            '[getRepositoryIssues] Issue 데이터 다운로드 오류:',
-            error
-          );
-        }
+        // getRepositoryBranches처럼 태그에서 직접 데이터 추출
+        const issueContentTag = node.tags?.find(
+          (tag: any) => tag.name === 'issue-content'
+        );
+        const content = issueContentTag?.value || '';
 
         issueMap.set(issueCount, {
           id: node.id,
@@ -3369,21 +3370,11 @@ export async function getIssueComments(
 
       const existingComment = commentMap.get(commentCount);
       if (!existingComment || timestamp > existingComment.updatedAt) {
-        // Load comment content as JSON
-        let content = '';
-        try {
-          const commentDataUrl = `https://gateway.irys.xyz/${node.id}`;
-          const commentResponse = await fetch(commentDataUrl);
-          if (commentResponse.ok) {
-            const commentData = await commentResponse.json();
-            content = commentData.content || '';
-          }
-        } catch (error) {
-          console.error(
-            '[getIssueComments] Comment 데이터 다운로드 오류:',
-            error
-          );
-        }
+        // getRepositoryBranches처럼 태그에서 직접 데이터 추출
+        const commentContentTag = node.tags?.find(
+          (tag: any) => tag.name === 'issue-comment-content'
+        );
+        const content = commentContentTag?.value || '';
 
         commentMap.set(commentCount, {
           id: node.id,
@@ -3452,19 +3443,8 @@ export async function createIssue(
     console.log('[createIssue] 기존 이슈 수:', existingIssues.length);
     const nextIssueCount = existingIssues.length + 1;
 
-    // Create JSON data for issue
-    const issueJson = {
-      repository: issueData.repository,
-      owner: issueData.owner,
-      title: issueData.title,
-      content: issueData.content,
-      author: issueData.author,
-      issueCount: nextIssueCount,
-      timestamp: new Date().toISOString(),
-    };
-
-    const jsonData = JSON.stringify(issueJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+    // 간단한 텍스트 데이터로 업로드 (getRepositoryBranches 방식처럼)
+    const uploadData = issueData.content;
 
     // Create tags
     const tags = [
@@ -3473,24 +3453,21 @@ export async function createIssue(
       { name: 'git-owner', value: issueData.owner },
       { name: 'issue-count', value: nextIssueCount.toString() },
       { name: 'issue-name', value: issueData.title },
+      { name: 'issue-content', value: issueData.content },
       { name: 'issue-owner', value: issueData.author },
       { name: 'issue-visibility', value: 'true' },
       { name: 'Content-Type', value: 'application/json' },
       { name: 'Timestamp', value: new Date().toISOString() },
     ];
 
-    // Upload issue using uploadFile like profile
-    console.log('[createIssue] 업로드 시작...');
-    console.log('[createIssue] uploader:', uploader);
-    console.log('[createIssue] uploader.uploadFile:', uploader?.uploadFile);
-    console.log('[createIssue] uploader.upload:', uploader?.upload);
-    console.log('[createIssue] dataBlob:', dataBlob);
+    // Upload issue
+    console.log('[createIssue] uploadData:', uploadData);
     console.log('[createIssue] tags:', tags);
 
-    // uploadFile이 없으면 upload 사용
-    const receipt = uploader.uploadFile
-      ? await uploader.uploadFile(dataBlob, { tags })
-      : await uploader.upload(jsonData, { tags });
+    // 업로드 큐를 통해 실행
+    const receipt = await executeUpload('createIssue', async () => {
+      return await uploader.upload(uploadData, { tags });
+    });
 
     console.log('[createIssue] 업로드 완료:', receipt.id);
 
@@ -3520,19 +3497,8 @@ export async function updateIssue(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
-    // Create JSON data for issue
-    const issueJson = {
-      repository: issueData.repository,
-      owner: issueData.owner,
-      title: issueData.title,
-      content: issueData.content,
-      author: issueData.author,
-      issueCount: issueData.issueCount,
-      timestamp: new Date().toISOString(),
-    };
-
-    const jsonData = JSON.stringify(issueJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+    // 간단한 텍스트 데이터로 업로드 (getRepositoryBranches 방식처럼)
+    const uploadData = issueData.content;
 
     // Create tags
     const tags = [
@@ -3541,6 +3507,7 @@ export async function updateIssue(
       { name: 'git-owner', value: issueData.owner },
       { name: 'issue-count', value: issueData.issueCount.toString() },
       { name: 'issue-name', value: issueData.title },
+      { name: 'issue-content', value: issueData.content },
       { name: 'issue-owner', value: issueData.author },
       { name: 'issue-visibility', value: 'true' },
       { name: 'Content-Type', value: 'application/json' },
@@ -3552,10 +3519,10 @@ export async function updateIssue(
       tags.push({ name: 'Root-TX', value: issueData.existingRootTxId });
     }
 
-    // Upload updated issue using uploadFile like profile
-    const receipt = uploader.uploadFile
-      ? await uploader.uploadFile(dataBlob, { tags })
-      : await uploader.upload(jsonData, { tags });
+    // Upload updated issue
+    const receipt = await executeUpload('updateIssue', async () => {
+      return await uploader.upload(uploadData, { tags });
+    });
 
     return {
       success: true,
@@ -3593,21 +3560,8 @@ export async function createIssueComment(
     );
     const nextCommentCount = existingComments.length + 1;
 
-    // Create JSON data for comment
-    const commentJson = {
-      repository: commentData.repository,
-      owner: commentData.owner,
-      issueCount: commentData.issueCount,
-      issueTitle: commentData.issueTitle,
-      issueAuthor: commentData.issueAuthor,
-      content: commentData.content,
-      author: commentData.author,
-      commentCount: nextCommentCount,
-      timestamp: new Date().toISOString(),
-    };
-
-    const jsonData = JSON.stringify(commentJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+    // 간단한 텍스트 데이터로 업로드 (getRepositoryBranches 방식처럼)
+    const uploadData = commentData.content;
 
     // Create tags
     const tags = [
@@ -3618,16 +3572,17 @@ export async function createIssueComment(
       { name: 'issue-name', value: commentData.issueTitle },
       { name: 'issue-owner', value: commentData.issueAuthor },
       { name: 'issue-comment-count', value: nextCommentCount.toString() },
+      { name: 'issue-comment-content', value: commentData.content },
       { name: 'issue-comment-owner', value: commentData.author },
       { name: 'issue-comment-visibility', value: 'true' },
       { name: 'Content-Type', value: 'application/json' },
       { name: 'Timestamp', value: new Date().toISOString() },
     ];
 
-    // Upload comment using uploadFile like profile
-    const receipt = uploader.uploadFile
-      ? await uploader.uploadFile(dataBlob, { tags })
-      : await uploader.upload(jsonData, { tags });
+    // Upload comment
+    const receipt = await executeUpload('createIssueComment', async () => {
+      return await uploader.upload(uploadData, { tags });
+    });
 
     return {
       success: true,
@@ -3657,21 +3612,8 @@ export async function updateIssueComment(
   }
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
-    // Create JSON data for comment
-    const commentJson = {
-      repository: commentData.repository,
-      owner: commentData.owner,
-      issueCount: commentData.issueCount,
-      issueTitle: commentData.issueTitle,
-      issueAuthor: commentData.issueAuthor,
-      content: commentData.content,
-      author: commentData.author,
-      commentCount: commentData.commentCount,
-      timestamp: new Date().toISOString(),
-    };
-
-    const jsonData = JSON.stringify(commentJson, null, 2);
-    const dataBlob = new Blob([jsonData], { type: 'application/json' });
+    // 간단한 텍스트 데이터로 업로드 (getRepositoryBranches 방식처럼)
+    const uploadData = commentData.content;
 
     // Create tags
     const tags = [
@@ -3685,6 +3627,7 @@ export async function updateIssueComment(
         name: 'issue-comment-count',
         value: commentData.commentCount.toString(),
       },
+      { name: 'issue-comment-content', value: commentData.content },
       { name: 'issue-comment-owner', value: commentData.author },
       { name: 'issue-comment-visibility', value: 'true' },
       { name: 'Content-Type', value: 'application/json' },
@@ -3696,10 +3639,10 @@ export async function updateIssueComment(
       tags.push({ name: 'Root-TX', value: commentData.existingRootTxId });
     }
 
-    // Upload updated comment using uploadFile like profile
-    const receipt = uploader.uploadFile
-      ? await uploader.uploadFile(dataBlob, { tags })
-      : await uploader.upload(jsonData, { tags });
+    // Upload updated comment
+    const receipt = await executeUpload('updateIssueComment', async () => {
+      return await uploader.upload(uploadData, { tags });
+    });
 
     return {
       success: true,

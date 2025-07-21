@@ -443,10 +443,10 @@ export default function PermissionManager({
             {isSaving ? (
               <>
                 <div className={styles.loadingSpinner}></div>
-                저장 중...
+                Saving...
               </>
             ) : (
-              '권한 저장'
+              'Save'
             )}
           </button>
           <button
@@ -454,7 +454,7 @@ export default function PermissionManager({
             disabled={isSaving}
             className={styles.cancelButton}
           >
-            취소
+            Cancel
           </button>
         </div>
       )}

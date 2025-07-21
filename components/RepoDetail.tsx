@@ -1046,11 +1046,14 @@ export default function RepoDetail({
           setPermissions(repoPermissions);
         }
 
-        // Load description and issues after main repository data
-        console.log('[RepoDetail] 저장소 설명과 이슈 로드 시작');
-        await loadDescription();
+        // Load issues first, then description (lowest priority)
+        console.log('[RepoDetail] 이슈 로드 시작');
         await loadIssues();
-        console.log('[RepoDetail] 저장소 설명과 이슈 로드 완료');
+        console.log('[RepoDetail] 이슈 로드 완료');
+
+        console.log('[RepoDetail] 저장소 설명 로드 시작 (최저 우선순위)');
+        await loadDescription();
+        console.log('[RepoDetail] 저장소 설명 로드 완료');
       } catch (error) {
         console.error('[RepoDetail] 저장소 데이터 로딩 중 오류:', error);
       }
