@@ -1299,7 +1299,7 @@ export async function getProfileImageUrl(
           { name: "githirys_account_address", values: [$address] },
           { name: "Content-Type", values: ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"] }
         ],
-        first: 1,
+        first: 10,
         order: DESC
       ) {
         edges {
@@ -1414,7 +1414,7 @@ export async function checkNicknameAvailability(
         tags: [
           { name: "githirys_nickname", values: [$nickname] }
         ],
-        first: 1
+        first: 10
       ) {
         edges {
           node {
@@ -2173,7 +2173,7 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
               query getAllNicknames {
                 transactions(
                   tags: [{ name: "App-Name", values: ["irys-git-nickname"] }],
-                  first: 1000,
+                  first: 300,
                   order: DESC
                 ) {
                   edges {
@@ -2410,7 +2410,7 @@ export async function getRepositoryDescription(
           { name: "Repository", values: [$repository] },
           { name: "git-owner", values: [$owner] }
         ],
-        first: 1,
+        first: 10,
         order: DESC
       ) {
         edges {
@@ -4494,7 +4494,7 @@ export async function getLatestRepositoryTransaction(
           { name: "Repository", values: [$repository] },
           { name: "git-owner", values: [$owner] }
         ],
-        first: 1,
+        first: 10,
         order: DESC
       ) {
         edges {
