@@ -896,6 +896,7 @@
 
 .issueCard {
   flex: 0 0 300px;
+  max-width: 300px;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
