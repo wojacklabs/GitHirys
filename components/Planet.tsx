@@ -45,20 +45,19 @@ const Planet: React.FC<PlanetProps> = ({
   const groupRef = useRef<THREE.Group>(null);
 
   // Fade in state
-  const [opacity, setOpacity] = useState(0);
+  const [opacity, setOpacity] = useState(isVisible ? 1 : 0);
 
   // Fade in effect when isVisible becomes true
   useEffect(() => {
     if (isVisible) {
-      setOpacity(0);
+      let currentOpacity = 0;
       const fadeIn = () => {
-        setOpacity(prev => {
-          const newOpacity = Math.min(prev + 0.03, 1);
-          if (newOpacity < 1) {
-            requestAnimationFrame(fadeIn);
-          }
-          return newOpacity;
-        });
+        currentOpacity = Math.min(currentOpacity + 0.04, 1);
+        setOpacity(currentOpacity);
+
+        if (currentOpacity < 1) {
+          requestAnimationFrame(fadeIn);
+        }
       };
       fadeIn();
     } else {
@@ -252,51 +251,6 @@ const Planet: React.FC<PlanetProps> = ({
     return planetTypes[hash % planetTypes.length];
   }, [repo.name]);
 
-  // Update materials when opacity changes
-  useEffect(() => {
-    const currentOpacity = isVisible ? opacity : 0;
-
-    // Planet core opacity
-    if (planetRef.current?.material instanceof THREE.MeshStandardMaterial) {
-      planetRef.current.material.opacity = currentOpacity;
-      planetRef.current.material.transparent = true;
-    }
-
-    // Atmosphere opacity
-    if (atmosphereRef.current?.material instanceof THREE.MeshBasicMaterial) {
-      const baseOpacity =
-        planetType.name === 'Venus-like' || planetType.name === 'Toxic World'
-          ? 0.5
-          : 0.2;
-      atmosphereRef.current.material.opacity = baseOpacity * currentOpacity;
-    }
-
-    // Clouds opacity
-    if (
-      cloudsRef.current &&
-      cloudsRef.current.material instanceof THREE.MeshBasicMaterial
-    ) {
-      const baseOpacity = planetType.name.includes('Giant') ? 0.7 : 0.3;
-      cloudsRef.current.material.opacity = baseOpacity * currentOpacity;
-    }
-
-    // Oceans opacity
-    if (
-      oceansRef.current &&
-      oceansRef.current.material instanceof THREE.MeshStandardMaterial
-    ) {
-      oceansRef.current.material.opacity = 0.9 * currentOpacity;
-    }
-
-    // Surface detail opacity
-    if (
-      surfaceDetailRef.current &&
-      surfaceDetailRef.current.material instanceof THREE.MeshStandardMaterial
-    ) {
-      surfaceDetailRef.current.material.opacity = 0.9 * currentOpacity;
-    }
-  }, [opacity, isVisible, planetType]);
-
   // Planet size and properties (based on branch count and planet type)
   const planetProperties = useMemo(() => {
     const branchCount = Array.isArray(repo.branches) ? repo.branches.length : 0;
@@ -438,12 +392,13 @@ const Planet: React.FC<PlanetProps> = ({
         <icosahedronGeometry args={[1, 3]} />
         <meshBasicMaterial
           color={planetProperties.atmosphereColor}
-          transparent
+          transparent={true}
           opacity={
-            planetType.name === 'Venus-like' ||
+            opacity *
+            (planetType.name === 'Venus-like' ||
             planetType.name === 'Toxic World'
               ? 0.5
-              : 0.2
+              : 0.2)
           }
           blending={THREE.AdditiveBlending}
         />
@@ -462,8 +417,8 @@ const Planet: React.FC<PlanetProps> = ({
           <icosahedronGeometry args={[1, 4]} />
           <meshStandardMaterial
             color={planetType.name === 'Frozen Ocean' ? '#87CEEB' : '#1E90FF'}
-            transparent
-            opacity={0.9}
+            transparent={true}
+            opacity={opacity * 0.9}
             roughness={0.03}
             metalness={0.85}
             envMapIntensity={1.5}
@@ -484,8 +439,8 @@ const Planet: React.FC<PlanetProps> = ({
           <icosahedronGeometry args={[1, 3]} />
           <meshBasicMaterial
             color={planetType.name === 'Storm Giant' ? '#8B4513' : '#FFFFFF'}
-            transparent
-            opacity={planetType.name.includes('Giant') ? 0.7 : 0.3}
+            transparent={true}
+            opacity={opacity * (planetType.name.includes('Giant') ? 0.7 : 0.3)}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -506,8 +461,8 @@ const Planet: React.FC<PlanetProps> = ({
             color={planetProperties.planetColor.clone().multiplyScalar(0.7)}
             roughness={0.98}
             metalness={0.05}
-            transparent
-            opacity={0.9}
+            transparent={true}
+            opacity={opacity * 0.9}
           />
         </mesh>
       )}
@@ -542,15 +497,15 @@ const Planet: React.FC<PlanetProps> = ({
               ? 0.5
               : 0.0
           }
-          transparent
-          opacity={1}
+          transparent={true}
+          opacity={opacity}
         />
       </mesh>
 
       {/* Enhanced planetary lighting */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={0.15 * (isVisible ? opacity : 0)}
+        intensity={0.15 * opacity}
         color={planetProperties.planetColor}
         distance={planetProperties.size * 10}
         decay={1.8}
