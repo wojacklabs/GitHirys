@@ -46,7 +46,7 @@ const Star: React.FC<StarProps> = ({
       setOpacity(0);
       const fadeIn = () => {
         setOpacity(prev => {
-          const newOpacity = Math.min(prev + 0.02, 1);
+          const newOpacity = Math.min(prev + 0.03, 1);
           if (newOpacity < 1) {
             requestAnimationFrame(fadeIn);
           }
@@ -58,6 +58,41 @@ const Star: React.FC<StarProps> = ({
       setOpacity(0);
     }
   }, [isVisible]);
+
+  // Update materials when opacity changes
+  useEffect(() => {
+    const currentOpacity = isVisible ? opacity : 0;
+
+    // Update star core material
+    if (starRef.current?.material instanceof THREE.MeshStandardMaterial) {
+      starRef.current.material.opacity = currentOpacity;
+      starRef.current.material.transparent = true;
+    }
+
+    // Update glow material
+    if (glowRef.current?.material instanceof THREE.MeshBasicMaterial) {
+      glowRef.current.material.opacity = 0.8 * currentOpacity;
+    }
+
+    // Update corona material
+    if (coronaRef.current?.material instanceof THREE.MeshBasicMaterial) {
+      coronaRef.current.material.opacity = 0.25 * currentOpacity;
+    }
+
+    // Update flare material
+    if (flareRef.current?.material instanceof THREE.MeshBasicMaterial) {
+      flareRef.current.material.opacity = 0.12 * currentOpacity;
+    }
+
+    // Update current user indicator
+    if (
+      currentUserIndicatorRef.current?.material instanceof
+        THREE.MeshBasicMaterial &&
+      isCurrentUser
+    ) {
+      currentUserIndicatorRef.current.material.opacity = 0.9 * currentOpacity;
+    }
+  }, [opacity, isVisible, isCurrentUser]);
 
   // Create star shape geometry for current user indicator
   const createStarShape = useMemo(() => {
@@ -159,26 +194,6 @@ const Star: React.FC<StarProps> = ({
         starRef.current.material.emissiveIntensity = 2.8;
       }
 
-      // Update opacity for all materials
-      const currentOpacity = isVisible ? opacity : 0;
-
-      if (starRef.current.material instanceof THREE.MeshStandardMaterial) {
-        starRef.current.material.opacity = currentOpacity;
-        starRef.current.material.transparent = true;
-      }
-
-      if (glowRef.current.material instanceof THREE.MeshBasicMaterial) {
-        glowRef.current.material.opacity = 0.8 * currentOpacity;
-      }
-
-      if (coronaRef.current.material instanceof THREE.MeshBasicMaterial) {
-        coronaRef.current.material.opacity = 0.25 * currentOpacity;
-      }
-
-      if (flareRef.current.material instanceof THREE.MeshBasicMaterial) {
-        flareRef.current.material.opacity = 0.12 * currentOpacity;
-      }
-
       // Animate current user indicator
       if (currentUserIndicatorRef.current && isCurrentUser) {
         const indicatorPulse = Math.sin(time * 2.5) * 0.1 + 1;
@@ -190,15 +205,6 @@ const Star: React.FC<StarProps> = ({
         const floatOffset = Math.sin(time * 1.8) * 0.5;
         currentUserIndicatorRef.current.position.y =
           starProperties.size * 0.825 + floatOffset;
-
-        // Update indicator opacity
-        if (
-          currentUserIndicatorRef.current.material instanceof
-          THREE.MeshBasicMaterial
-        ) {
-          currentUserIndicatorRef.current.material.opacity =
-            0.9 * currentOpacity;
-        }
       }
     }
   });
@@ -288,7 +294,10 @@ const Star: React.FC<StarProps> = ({
       <pointLight
         position={[0, 0, 0]}
         intensity={
-          starProperties.brightness * starProperties.size * 5.0 * opacity
+          starProperties.brightness *
+          starProperties.size *
+          5.0 *
+          (isVisible ? opacity : 0)
         }
         color={starProperties.brightColor}
         distance={starProperties.size * 50}
@@ -300,7 +309,10 @@ const Star: React.FC<StarProps> = ({
       <pointLight
         position={[0, 0, 0]}
         intensity={
-          starProperties.brightness * starProperties.size * 2.5 * opacity
+          starProperties.brightness *
+          starProperties.size *
+          2.5 *
+          (isVisible ? opacity : 0)
         }
         color={starProperties.baseColor}
         distance={starProperties.size * 80}
@@ -310,7 +322,7 @@ const Star: React.FC<StarProps> = ({
       {/* Stellar wind simulation */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={starProperties.brightness * 1.2 * opacity}
+        intensity={starProperties.brightness * 1.2 * (isVisible ? opacity : 0)}
         color={starProperties.brightColor}
         distance={starProperties.size * 120}
         decay={2.2}
@@ -343,7 +355,7 @@ const Star: React.FC<StarProps> = ({
           <meshBasicMaterial
             color="#FFD700"
             transparent
-            opacity={0.3 * opacity}
+            opacity={0.3 * (isVisible ? opacity : 0)}
             side={THREE.DoubleSide}
             blending={THREE.AdditiveBlending}
           />

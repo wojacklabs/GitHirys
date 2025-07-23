@@ -53,7 +53,7 @@ const Planet: React.FC<PlanetProps> = ({
       setOpacity(0);
       const fadeIn = () => {
         setOpacity(prev => {
-          const newOpacity = Math.min(prev + 0.02, 1);
+          const newOpacity = Math.min(prev + 0.03, 1);
           if (newOpacity < 1) {
             requestAnimationFrame(fadeIn);
           }
@@ -65,6 +65,51 @@ const Planet: React.FC<PlanetProps> = ({
       setOpacity(0);
     }
   }, [isVisible]);
+
+  // Update materials when opacity changes
+  useEffect(() => {
+    const currentOpacity = isVisible ? opacity : 0;
+
+    // Planet core opacity
+    if (planetRef.current?.material instanceof THREE.MeshStandardMaterial) {
+      planetRef.current.material.opacity = currentOpacity;
+      planetRef.current.material.transparent = true;
+    }
+
+    // Atmosphere opacity
+    if (atmosphereRef.current?.material instanceof THREE.MeshBasicMaterial) {
+      const baseOpacity =
+        planetType.name === 'Venus-like' || planetType.name === 'Toxic World'
+          ? 0.5
+          : 0.2;
+      atmosphereRef.current.material.opacity = baseOpacity * currentOpacity;
+    }
+
+    // Clouds opacity
+    if (
+      cloudsRef.current &&
+      cloudsRef.current.material instanceof THREE.MeshBasicMaterial
+    ) {
+      const baseOpacity = planetType.name.includes('Giant') ? 0.7 : 0.3;
+      cloudsRef.current.material.opacity = baseOpacity * currentOpacity;
+    }
+
+    // Oceans opacity
+    if (
+      oceansRef.current &&
+      oceansRef.current.material instanceof THREE.MeshStandardMaterial
+    ) {
+      oceansRef.current.material.opacity = 0.9 * currentOpacity;
+    }
+
+    // Surface detail opacity
+    if (
+      surfaceDetailRef.current &&
+      surfaceDetailRef.current.material instanceof THREE.MeshStandardMaterial
+    ) {
+      surfaceDetailRef.current.material.opacity = 0.9 * currentOpacity;
+    }
+  }, [opacity, isVisible, planetType]);
 
   // Expanded realistic planet type determination (based on repository name)
   const planetType = useMemo(() => {
@@ -329,49 +374,6 @@ const Planet: React.FC<PlanetProps> = ({
 
       planetRef.current.scale.setScalar(hoverScale);
       atmosphereRef.current.scale.setScalar(hoverScale * 1.5);
-
-      // Update opacity for all materials
-      const currentOpacity = isVisible ? opacity : 0;
-
-      // Planet core opacity
-      if (planetRef.current.material instanceof THREE.MeshStandardMaterial) {
-        planetRef.current.material.opacity = currentOpacity;
-        planetRef.current.material.transparent = true;
-      }
-
-      // Atmosphere opacity
-      if (atmosphereRef.current.material instanceof THREE.MeshBasicMaterial) {
-        const baseOpacity =
-          planetType.name === 'Venus-like' || planetType.name === 'Toxic World'
-            ? 0.5
-            : 0.2;
-        atmosphereRef.current.material.opacity = baseOpacity * currentOpacity;
-      }
-
-      // Clouds opacity
-      if (
-        cloudsRef.current &&
-        cloudsRef.current.material instanceof THREE.MeshBasicMaterial
-      ) {
-        const baseOpacity = planetType.name.includes('Giant') ? 0.7 : 0.3;
-        cloudsRef.current.material.opacity = baseOpacity * currentOpacity;
-      }
-
-      // Oceans opacity
-      if (
-        oceansRef.current &&
-        oceansRef.current.material instanceof THREE.MeshStandardMaterial
-      ) {
-        oceansRef.current.material.opacity = 0.9 * currentOpacity;
-      }
-
-      // Surface detail opacity
-      if (
-        surfaceDetailRef.current &&
-        surfaceDetailRef.current.material instanceof THREE.MeshStandardMaterial
-      ) {
-        surfaceDetailRef.current.material.opacity = 0.9 * currentOpacity;
-      }
     }
   });
 
@@ -548,7 +550,7 @@ const Planet: React.FC<PlanetProps> = ({
       {/* Enhanced planetary lighting */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={0.15 * opacity}
+        intensity={0.15 * (isVisible ? opacity : 0)}
         color={planetProperties.planetColor}
         distance={planetProperties.size * 10}
         decay={1.8}
