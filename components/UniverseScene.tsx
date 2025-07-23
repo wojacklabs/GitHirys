@@ -78,7 +78,14 @@ function UniverseBackground() {
     return { positions, colors };
   }, []);
 
-  // Star field animation - removed rotation for static background
+  // Star field animation - slow rotation for dynamic background
+  useFrame((state, delta) => {
+    if (distantStarsRef.current) {
+      // Slow rotation of background stars around Y axis
+      distantStarsRef.current.rotation.y += delta * 0.005; // Very slow rotation
+      distantStarsRef.current.rotation.x += delta * 0.002; // Even slower X rotation
+    }
+  });
 
   return (
     <>
