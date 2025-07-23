@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -27,6 +27,8 @@ interface StarSystemProps {
   onHideTooltip: () => void;
   isFocused: boolean;
   currentWallet?: string;
+  starLoaded?: boolean;
+  planetsStartLoading?: boolean;
 }
 
 const StarSystem: React.FC<StarSystemProps> = ({
@@ -40,8 +42,11 @@ const StarSystem: React.FC<StarSystemProps> = ({
   onHideTooltip,
   isFocused,
   currentWallet,
+  starLoaded = true,
+  planetsStartLoading = false,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const [loadedPlanets, setLoadedPlanets] = useState<Set<string>>(new Set());
 
   // Use only actual repository data (remove dummy data)
   const repositories = user.repositories || [];
@@ -50,6 +55,21 @@ const StarSystem: React.FC<StarSystemProps> = ({
   const isCurrentUser = Boolean(
     currentWallet && user.accountAddress === currentWallet
   );
+
+  // Load planets sequentially after stars are loaded
+  useEffect(() => {
+    if (planetsStartLoading && repositories.length > 0) {
+      setLoadedPlanets(new Set()); // Reset loaded planets
+
+      repositories.forEach((repo, index) => {
+        setTimeout(() => {
+          setLoadedPlanets(prev => new Set([...prev, repo.name]));
+        }, index * 150); // 150ms delay between each planet
+      });
+    } else if (!planetsStartLoading) {
+      setLoadedPlanets(new Set()); // Clear loaded planets when not loading
+    }
+  }, [planetsStartLoading, repositories]);
 
   // Calculate planet orbit information
   const planetOrbits = useMemo(() => {
@@ -138,6 +158,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
         isHovered={false} // Always false for click-only tooltips
         isFocused={isFocused}
         isCurrentUser={isCurrentUser}
+        isVisible={starLoaded}
       />
 
       {/* User nickname display */}
@@ -151,8 +172,8 @@ const StarSystem: React.FC<StarSystemProps> = ({
         {getDisplayName()}
       </Text>
 
-      {/* Render orbits and planets only if repositories exist */}
-      {repositories.length > 0 && (
+      {/* Render orbits and planets only if repositories exist and planets should start loading */}
+      {repositories.length > 0 && planetsStartLoading && (
         <>
           {/* Enhanced orbital rings (around star) */}
           {planetOrbits.map((orbit, index) => (
@@ -223,6 +244,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
               onPlanetHover={handlePlanetHover}
               onPlanetLeave={handlePlanetLeave}
               isFocused={isFocused}
+              isVisible={loadedPlanets.has(orbit.repo.name)}
             />
           ))}
         </>

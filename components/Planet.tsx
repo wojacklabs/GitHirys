@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -21,6 +21,7 @@ interface PlanetProps {
   onPlanetHover: (repo: any, position: [number, number, number]) => void;
   onPlanetLeave: () => void;
   isFocused: boolean;
+  isVisible?: boolean;
 }
 
 const Planet: React.FC<PlanetProps> = ({
@@ -34,6 +35,7 @@ const Planet: React.FC<PlanetProps> = ({
   onPlanetHover,
   onPlanetLeave,
   isFocused,
+  isVisible = true,
 }) => {
   const planetRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
@@ -41,6 +43,28 @@ const Planet: React.FC<PlanetProps> = ({
   const oceansRef = useRef<THREE.Mesh>(null);
   const surfaceDetailRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
+
+  // Fade in state
+  const [opacity, setOpacity] = useState(0);
+
+  // Fade in effect when isVisible becomes true
+  useEffect(() => {
+    if (isVisible) {
+      setOpacity(0);
+      const fadeIn = () => {
+        setOpacity(prev => {
+          const newOpacity = Math.min(prev + 0.02, 1);
+          if (newOpacity < 1) {
+            requestAnimationFrame(fadeIn);
+          }
+          return newOpacity;
+        });
+      };
+      fadeIn();
+    } else {
+      setOpacity(0);
+    }
+  }, [isVisible]);
 
   // Expanded realistic planet type determination (based on repository name)
   const planetType = useMemo(() => {
@@ -305,6 +329,49 @@ const Planet: React.FC<PlanetProps> = ({
 
       planetRef.current.scale.setScalar(hoverScale);
       atmosphereRef.current.scale.setScalar(hoverScale * 1.5);
+
+      // Update opacity for all materials
+      const currentOpacity = isVisible ? opacity : 0;
+
+      // Planet core opacity
+      if (planetRef.current.material instanceof THREE.MeshStandardMaterial) {
+        planetRef.current.material.opacity = currentOpacity;
+        planetRef.current.material.transparent = true;
+      }
+
+      // Atmosphere opacity
+      if (atmosphereRef.current.material instanceof THREE.MeshBasicMaterial) {
+        const baseOpacity =
+          planetType.name === 'Venus-like' || planetType.name === 'Toxic World'
+            ? 0.5
+            : 0.2;
+        atmosphereRef.current.material.opacity = baseOpacity * currentOpacity;
+      }
+
+      // Clouds opacity
+      if (
+        cloudsRef.current &&
+        cloudsRef.current.material instanceof THREE.MeshBasicMaterial
+      ) {
+        const baseOpacity = planetType.name.includes('Giant') ? 0.7 : 0.3;
+        cloudsRef.current.material.opacity = baseOpacity * currentOpacity;
+      }
+
+      // Oceans opacity
+      if (
+        oceansRef.current &&
+        oceansRef.current.material instanceof THREE.MeshStandardMaterial
+      ) {
+        oceansRef.current.material.opacity = 0.9 * currentOpacity;
+      }
+
+      // Surface detail opacity
+      if (
+        surfaceDetailRef.current &&
+        surfaceDetailRef.current.material instanceof THREE.MeshStandardMaterial
+      ) {
+        surfaceDetailRef.current.material.opacity = 0.9 * currentOpacity;
+      }
     }
   });
 
@@ -473,13 +540,15 @@ const Planet: React.FC<PlanetProps> = ({
               ? 0.5
               : 0.0
           }
+          transparent
+          opacity={1}
         />
       </mesh>
 
       {/* Enhanced planetary lighting */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={0.15}
+        intensity={0.15 * opacity}
         color={planetProperties.planetColor}
         distance={planetProperties.size * 10}
         decay={1.8}
