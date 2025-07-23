@@ -1190,7 +1190,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     sortedUsers.forEach((user, index) => {
       setTimeout(() => {
         setLoadedStars(prev => {
-          const newSet = new Set([...prev, user.accountAddress]);
+          const newSet = new Set([...Array.from(prev), user.accountAddress]);
 
           // Check if all stars are loaded
           if (newSet.size === sortedUsers.length) {

@@ -63,7 +63,7 @@ const StarSystem: React.FC<StarSystemProps> = ({
 
       repositories.forEach((repo, index) => {
         setTimeout(() => {
-          setLoadedPlanets(prev => new Set([...prev, repo.name]));
+          setLoadedPlanets(prev => new Set([...Array.from(prev), repo.name]));
         }, index * 150); // 150ms delay between each planet
       });
     } else if (!planetsStartLoading) {
