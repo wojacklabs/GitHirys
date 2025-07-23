@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useEffect } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -21,7 +21,6 @@ interface PlanetProps {
   onPlanetHover: (repo: any, position: [number, number, number]) => void;
   onPlanetLeave: () => void;
   isFocused: boolean;
-  isVisible?: boolean;
 }
 
 const Planet: React.FC<PlanetProps> = ({
@@ -35,7 +34,6 @@ const Planet: React.FC<PlanetProps> = ({
   onPlanetHover,
   onPlanetLeave,
   isFocused,
-  isVisible = true,
 }) => {
   const planetRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
@@ -43,27 +41,6 @@ const Planet: React.FC<PlanetProps> = ({
   const oceansRef = useRef<THREE.Mesh>(null);
   const surfaceDetailRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
-
-  // Fade in state
-  const [opacity, setOpacity] = useState(isVisible ? 1 : 0);
-
-  // Fade in effect when isVisible becomes true
-  useEffect(() => {
-    if (isVisible) {
-      let currentOpacity = 0;
-      const fadeIn = () => {
-        currentOpacity = Math.min(currentOpacity + 0.04, 1);
-        setOpacity(currentOpacity);
-
-        if (currentOpacity < 1) {
-          requestAnimationFrame(fadeIn);
-        }
-      };
-      fadeIn();
-    } else {
-      setOpacity(0);
-    }
-  }, [isVisible]);
 
   // Expanded realistic planet type determination (based on repository name)
   const planetType = useMemo(() => {
@@ -392,13 +369,12 @@ const Planet: React.FC<PlanetProps> = ({
         <icosahedronGeometry args={[1, 3]} />
         <meshBasicMaterial
           color={planetProperties.atmosphereColor}
-          transparent={true}
+          transparent
           opacity={
-            opacity *
-            (planetType.name === 'Venus-like' ||
+            planetType.name === 'Venus-like' ||
             planetType.name === 'Toxic World'
               ? 0.5
-              : 0.2)
+              : 0.2
           }
           blending={THREE.AdditiveBlending}
         />
@@ -417,8 +393,8 @@ const Planet: React.FC<PlanetProps> = ({
           <icosahedronGeometry args={[1, 4]} />
           <meshStandardMaterial
             color={planetType.name === 'Frozen Ocean' ? '#87CEEB' : '#1E90FF'}
-            transparent={true}
-            opacity={opacity * 0.9}
+            transparent
+            opacity={0.9}
             roughness={0.03}
             metalness={0.85}
             envMapIntensity={1.5}
@@ -439,8 +415,8 @@ const Planet: React.FC<PlanetProps> = ({
           <icosahedronGeometry args={[1, 3]} />
           <meshBasicMaterial
             color={planetType.name === 'Storm Giant' ? '#8B4513' : '#FFFFFF'}
-            transparent={true}
-            opacity={opacity * (planetType.name.includes('Giant') ? 0.7 : 0.3)}
+            transparent
+            opacity={planetType.name.includes('Giant') ? 0.7 : 0.3}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
@@ -461,8 +437,8 @@ const Planet: React.FC<PlanetProps> = ({
             color={planetProperties.planetColor.clone().multiplyScalar(0.7)}
             roughness={0.98}
             metalness={0.05}
-            transparent={true}
-            opacity={opacity * 0.9}
+            transparent
+            opacity={0.9}
           />
         </mesh>
       )}
@@ -497,15 +473,13 @@ const Planet: React.FC<PlanetProps> = ({
               ? 0.5
               : 0.0
           }
-          transparent={true}
-          opacity={opacity}
         />
       </mesh>
 
       {/* Enhanced planetary lighting */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={0.15 * opacity}
+        intensity={0.15}
         color={planetProperties.planetColor}
         distance={planetProperties.size * 10}
         decay={1.8}

@@ -948,8 +948,6 @@ function OrbitingStarSystem({
   isFocused,
   currentWallet,
   onRef,
-  starLoaded,
-  planetsStartLoading,
 }: {
   systemData: {
     position: [number, number, number];
@@ -967,8 +965,6 @@ function OrbitingStarSystem({
   isFocused: boolean;
   currentWallet?: string;
   onRef?: (ref: THREE.Group | null) => void;
-  starLoaded: boolean;
-  planetsStartLoading: boolean;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const angleRef = useRef(systemData.initialAngle);
@@ -1007,8 +1003,6 @@ function OrbitingStarSystem({
         onHideTooltip={onHideTooltip}
         isFocused={isFocused}
         currentWallet={currentWallet}
-        starLoaded={starLoaded}
-        planetsStartLoading={planetsStartLoading}
       />
     </group>
   );
@@ -1120,10 +1114,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
   // Ref for tooltip container
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Sequential loading states
-  const [loadedStars, setLoadedStars] = useState<Set<string>>(new Set());
-  const [allStarsLoaded, setAllStarsLoaded] = useState(false);
-
   // Comet management
   const [comets, setComets] = useState<number[]>([]);
   const nextCometIdRef = useRef(0);
@@ -1176,39 +1166,8 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
     );
   }, [validUsers]); // Depend on full validUsers array to catch repository updates
 
-  // Sequential star loading effect
-  useEffect(() => {
-    if (sortedUsers.length === 0) {
-      setLoadedStars(new Set());
-      setAllStarsLoaded(false);
-      return;
-    }
-
-    setLoadedStars(new Set()); // Reset loaded stars
-    setAllStarsLoaded(false);
-
-    sortedUsers.forEach((user, index) => {
-      setTimeout(() => {
-        setLoadedStars(prev => {
-          const newSet = new Set([...Array.from(prev), user.accountAddress]);
-
-          // Check if all stars are loaded
-          if (newSet.size === sortedUsers.length) {
-            setTimeout(() => {
-              setAllStarsLoaded(true);
-            }, 300); // Small delay before starting planet loading
-          }
-
-          return newSet;
-        });
-      }, index * 100); // 100ms delay between each star
-    });
-  }, [sortedUsers]);
-
   // Spawn comets periodically
   useEffect(() => {
-    if (!allStarsLoaded) return; // Only spawn comets after stars are loaded
-
     const spawnComet = () => {
       setComets(prev => [...prev, nextCometIdRef.current++]);
     };
@@ -1228,11 +1187,11 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
-  }, [allStarsLoaded]);
+  }, []);
 
   // Spawn star connections periodically
   useEffect(() => {
-    if (sortedUsers.length < 2 || !allStarsLoaded) return; // Only after stars are loaded
+    if (sortedUsers.length < 2) return;
 
     const spawnConnection = () => {
       // Select two random different stars
@@ -1268,7 +1227,7 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
-  }, [sortedUsers.length, allStarsLoaded]);
+  }, [sortedUsers.length]);
 
   // Clean up completed connections
   useEffect(() => {
@@ -1699,8 +1658,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
         {/* Render star systems with galactic orbit */}
         {sortedUsers.map((user, index) => {
           const systemData = starSystemPositions[index];
-          const isStarLoaded = loadedStars.has(user.accountAddress);
-
           return (
             <OrbitingStarSystem
               key={user.accountAddress}
@@ -1724,8 +1681,6 @@ const UniverseScene: React.FC<UniverseSceneProps> = ({
                   starSystemRefs.current.delete(user.accountAddress);
                 }
               }}
-              starLoaded={isStarLoaded}
-              planetsStartLoading={allStarsLoaded}
             />
           );
         })}

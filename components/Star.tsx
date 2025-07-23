@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useEffect } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -19,7 +19,6 @@ interface StarProps {
   isHovered: boolean;
   isFocused: boolean;
   isCurrentUser?: boolean;
-  isVisible?: boolean;
 }
 
 const Star: React.FC<StarProps> = ({
@@ -29,34 +28,12 @@ const Star: React.FC<StarProps> = ({
   isHovered,
   isFocused,
   isCurrentUser,
-  isVisible = true,
 }) => {
   const starRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const coronaRef = useRef<THREE.Mesh>(null);
   const flareRef = useRef<THREE.Mesh>(null);
   const currentUserIndicatorRef = useRef<THREE.Mesh>(null);
-
-  // Fade in state
-  const [opacity, setOpacity] = useState(isVisible ? 1 : 0);
-
-  // Fade in effect when isVisible becomes true
-  useEffect(() => {
-    if (isVisible) {
-      let currentOpacity = 0;
-      const fadeIn = () => {
-        currentOpacity = Math.min(currentOpacity + 0.04, 1);
-        setOpacity(currentOpacity);
-
-        if (currentOpacity < 1) {
-          requestAnimationFrame(fadeIn);
-        }
-      };
-      fadeIn();
-    } else {
-      setOpacity(0);
-    }
-  }, [isVisible]);
 
   // Create star shape geometry for current user indicator
   const createStarShape = useMemo(() => {
@@ -192,8 +169,8 @@ const Star: React.FC<StarProps> = ({
         <sphereGeometry args={[1, 24, 24]} />
         <meshBasicMaterial
           color={starProperties.baseColor}
-          transparent={true}
-          opacity={opacity * 0.12}
+          transparent
+          opacity={0.12}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -210,8 +187,8 @@ const Star: React.FC<StarProps> = ({
         <sphereGeometry args={[1, 32, 32]} />
         <meshBasicMaterial
           color={starProperties.brightColor}
-          transparent={true}
-          opacity={opacity * 0.25}
+          transparent
+          opacity={0.25}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -228,8 +205,8 @@ const Star: React.FC<StarProps> = ({
         <sphereGeometry args={[1, 32, 32]} />
         <meshBasicMaterial
           color={starProperties.brightColor}
-          transparent={true}
-          opacity={opacity * 0.8}
+          transparent
+          opacity={0.8}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -249,17 +226,13 @@ const Star: React.FC<StarProps> = ({
           emissiveIntensity={2.8}
           roughness={0.05}
           metalness={0.0}
-          transparent={true}
-          opacity={opacity}
         />
       </mesh>
 
       {/* Primary stellar light */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={
-          starProperties.brightness * starProperties.size * 5.0 * opacity
-        }
+        intensity={starProperties.brightness * starProperties.size * 5.0}
         color={starProperties.brightColor}
         distance={starProperties.size * 50}
         decay={1.2}
@@ -269,9 +242,7 @@ const Star: React.FC<StarProps> = ({
       {/* Secondary ambient light */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={
-          starProperties.brightness * starProperties.size * 2.5 * opacity
-        }
+        intensity={starProperties.brightness * starProperties.size * 2.5}
         color={starProperties.baseColor}
         distance={starProperties.size * 80}
         decay={1.8}
@@ -280,7 +251,7 @@ const Star: React.FC<StarProps> = ({
       {/* Stellar wind simulation */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={starProperties.brightness * 1.2 * opacity}
+        intensity={starProperties.brightness * 1.2}
         color={starProperties.brightColor}
         distance={starProperties.size * 120}
         decay={2.2}
@@ -296,8 +267,8 @@ const Star: React.FC<StarProps> = ({
           <primitive object={createStarShape} />
           <meshBasicMaterial
             color="#FFD700"
-            transparent={true}
-            opacity={opacity * 0.9}
+            transparent
+            opacity={0.9}
             side={THREE.DoubleSide}
           />
         </mesh>
@@ -312,8 +283,8 @@ const Star: React.FC<StarProps> = ({
           <primitive object={createStarShape} />
           <meshBasicMaterial
             color="#FFD700"
-            transparent={true}
-            opacity={opacity * 0.3}
+            transparent
+            opacity={0.3}
             side={THREE.DoubleSide}
             blending={THREE.AdditiveBlending}
           />
