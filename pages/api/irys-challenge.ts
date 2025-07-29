@@ -60,7 +60,9 @@ export default async function handler(
     // 캐시 크기 관리 (최대 1000개)
     if (profileCache.size > 1000) {
       const oldestKey = profileCache.keys().next().value;
-      profileCache.delete(oldestKey);
+      if (oldestKey) {
+        profileCache.delete(oldestKey);
+      }
     }
 
     // 프로필이 있으면 1, 없으면 0 반환
