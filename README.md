@@ -56,16 +56,19 @@ Open **http://localhost:3000** in your browser to view the application.
 ## 🛠 Tech Stack
 
 ### Frontend
+
 - **Next.js 14** - React framework
 - **React 18** - UI library
 - **TypeScript** - Type safety
 
 ### Blockchain
+
 - **Solana** - Main blockchain
 - **Solana Wallet Adapter** - Wallet integration
 - **Irys SDK** - Distributed storage access
 
 ### Utilities
+
 - **JSZip** - ZIP file processing
 - **CSS Modules** - Styling
 
@@ -91,17 +94,20 @@ GitHirys/
 ## 🎯 How to Use
 
 ### Step 1: Connect Wallet
+
 1. Access the application
 2. Click **"Connect Solana Wallet"** button
 3. Select desired wallet from wallet modal (Phantom, Solflare, etc.)
 4. Approve connection in wallet
 
 ### Step 2: Explore Repositories
+
 - Repository search starts automatically after wallet connection
 - Only displays repositories uploaded to Irys with that wallet
 - Shows clear guidance message when no repositories exist
 
 ### Step 3: View Repository Details
+
 1. Click repository name
 2. Check CID and file list
 3. Copy clone command for use
@@ -109,17 +115,20 @@ GitHirys/
 ## 📊 Current Status
 
 ### ✅ Completed
+
 - Solana wallet integration complete
 - Irys SDK integration complete
 - Basic UI/UX implementation complete
 - Error handling and logging complete
 
 ### 🚧 In Development
+
 - Complete Irys API implementation
 - Repository upload functionality
 - Advanced search filters
 
 ### 🔮 Planned Features
+
 - CLI tool similar to Git commands
 - Branch and commit history
 - Collaboration features
@@ -133,16 +142,19 @@ GitHirys/
 ## 🔍 Troubleshooting
 
 ### When Wallet Connection Fails
+
 - Check if Solana wallet (Phantom, etc.) is installed
 - Ensure wallet extension is activated in browser
 - Check error messages in browser console (F12)
 
 ### When Repositories Don't Display
+
 - Check if repositories were actually uploaded to Irys with that wallet
 - Verify network settings (currently only mainnet supported)
 - Check API call status in browser console
 
 ### Build Errors
+
 ```bash
 # Reinstall dependencies
 rm -rf node_modules package-lock.json
@@ -155,12 +167,14 @@ npm run lint
 ## 📦 Build and Deploy
 
 ### Development Environment
+
 ```bash
 npm run dev          # Start development server
 npm run lint         # Code inspection
 ```
 
 ### Production Build
+
 ```bash
 npm run build        # Production build
 npm start           # Run production server
@@ -185,4 +199,5 @@ This project is distributed under the MIT License.
 - [Solana Wallet Adapter](https://github.com/solana-labs/wallet-adapter)
 
 ---
- asdzzzzzz123132
+
+asdzzzzzz123132
