@@ -399,8 +399,11 @@ const ProfilePage: NextPage = () => {
                   className={styles.galxeMissionIcon}
                 />
                 <div className={styles.galxeMissionText}>
-                  <h4>🚀 Galxe Mission Available!</h4>
-                  <p>프로필을 생성하면 Galxe 미션이 자동으로 완료됩니다.</p>
+                  <h4>Galxe Mission Available</h4>
+                  <p>
+                    Create a profile and complete the Galxe mission
+                    automatically.
+                  </p>
                 </div>
               </div>
             )}
@@ -411,7 +414,7 @@ const ProfilePage: NextPage = () => {
                 ✅ {successMessage}
                 {!existingProfile && (
                   <p className={styles.galxeCompleteMessage}>
-                    🎉 Galxe 미션이 완료되었습니다! 지갑 주소: {publicKey}
+                    Galxe mission completed!
                   </p>
                 )}
               </div>
