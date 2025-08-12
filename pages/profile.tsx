@@ -390,33 +390,10 @@ const ProfilePage: NextPage = () => {
           </div>
         ) : (
           <div className={styles.profile_main}>
-            {/* 갤럭시 미션 안내 (신규 사용자만) */}
-            {!existingProfile && (
-              <div className={styles.galxeMissionBanner}>
-                <img
-                  src="/galxe.jpeg"
-                  alt="Galxe Mission"
-                  className={styles.galxeMissionIcon}
-                />
-                <div className={styles.galxeMissionText}>
-                  <h4>Galxe Mission Available</h4>
-                  <p>
-                    Create a profile and complete the Galxe mission
-                    automatically.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* 성공 메시지 */}
             {successMessage && (
               <div className={styles.message_top_success}>
                 ✅ {successMessage}
-                {!existingProfile && (
-                  <p className={styles.galxeCompleteMessage}>
-                    Galxe mission completed!
-                  </p>
-                )}
               </div>
             )}
 
@@ -550,13 +527,6 @@ const ProfilePage: NextPage = () => {
                 }
                 className={`${styles.submitButton} ${isSaving ? styles.submitButtonDisabled : styles.submitButtonActive}`}
               >
-                {!existingProfile && (
-                  <img
-                    src="/galxe.jpeg"
-                    alt="Galxe Mission"
-                    className={styles.galxeIcon}
-                  />
-                )}
                 {isSaving
                   ? 'Saving...'
                   : existingProfile

@@ -192,49 +192,6 @@
   cursor: not-allowed;
 }
 
-.galxeIcon {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  object-fit: contain;
-}
-
-.galxeMissionBanner {
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-  border: 2px solid #6366f1;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.galxeMissionIcon {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.galxeMissionText h4 {
-  margin: 0 0 8px 0;
-  color: #4f46e5;
-  font-size: 18px;
-}
-
-.galxeMissionText p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.galxeCompleteMessage {
-  margin-top: 8px;
-  font-size: 14px;
-  color: #059669;
-}
-
 .currentProfileSection {
   padding: 16px;
   background-color: #f9fafb;
