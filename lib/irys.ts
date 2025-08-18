@@ -3,12 +3,8 @@ import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
 import { Connection } from '@solana/web3.js';
 
-// Use Solana public RPC endpoint
-// In browser, we use the proxied endpoint to avoid CORS
-const SOLANA_PUBLIC_RPC =
-  typeof window !== 'undefined'
-    ? `${window.location.origin}/rpc`
-    : 'https://solana.public-rpc.com';
+// Remove explicit RPC configuration and let Irys handle it internally
+// Irys has its own RPC configuration that works in browser environments
 
 // 쿼리 큐 관리를 위한 변수
 let isQueryRunning = false;
@@ -220,29 +216,17 @@ export async function createIrysUploader(wallet?: any) {
       throw new Error('Wallet not connected');
     }
 
-    console.log('[createIrysUploader] Creating Irys uploader...');
+    console.log(
+      '[createIrysUploader] Creating Irys uploader with default configuration'
+    );
 
-    // Create custom connection with solana.public-rpc.com
-    // We'll create a custom implementation that handles the connection properly
-    const customWallet = {
-      ...wallet,
-      // Override the connection to use our RPC
-      connection: new Connection(SOLANA_PUBLIC_RPC, {
-        commitment: 'confirmed',
-        // Disable preflight checks to avoid CORS issues
-        confirmTransactionInitialTimeout: 60000,
-      }),
-    };
-
-    // Create the uploader with custom wallet that includes our connection
+    // Use Irys's default configuration without specifying RPC
+    // Irys will use its own internal RPC endpoints that work in browsers
     const irysUploader = await WebUploader(WebSolana)
-      .withProvider(customWallet)
-      .withRpc(SOLANA_PUBLIC_RPC) // Also set RPC explicitly
+      .withProvider(wallet)
       .mainnet();
 
-    console.log(
-      '[createIrysUploader] Irys uploader created with solana.public-rpc.com'
-    );
+    console.log('[createIrysUploader] Irys uploader created successfully');
     return irysUploader;
   } catch (error) {
     console.error('Error connecting to Irys:', error);

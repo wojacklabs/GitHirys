@@ -17,17 +17,13 @@ interface SolanaProviderProps {
 }
 
 export default function SolanaProvider({ children }: SolanaProviderProps) {
-  // Use proxied endpoint in browser to avoid CORS
-  const endpoint = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/rpc`;
-    }
-    return 'https://solana.public-rpc.com';
-  }, []);
+  // Use Solana's default mainnet endpoint
+  const network = 'mainnet-beta';
+  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
+    [network]
   );
 
   return (
