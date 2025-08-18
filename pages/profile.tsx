@@ -12,6 +12,9 @@ import {
   ProfileUtils,
   UserProfile,
   invalidateProfileCache,
+  getIrysBalance,
+  fundIrysWallet,
+  getIrysUploadPrice,
 } from '../lib/irys';
 import ProfileCard from '../components/ProfileCard';
 import styles from '../styles/ProfilePage.module.css';
@@ -47,10 +50,13 @@ const ProfilePage: NextPage = () => {
 
   // 비용 상태
   const [estimatedCost, setEstimatedCost] = useState<number>(0);
+  const [uploadPrice, setUploadPrice] = useState<string>('0 SOL');
+  const [irysBalance, setIrysBalance] = useState<string>('0 SOL');
 
   // Fund 팝업 상태
   const [showFundPopup, setShowFundPopup] = useState(false);
-  const [fundAmount, setFundAmount] = useState<number>(0);
+  const [fundAmount, setFundAmount] = useState<number>(0.01);
+  const [isFunding, setIsFunding] = useState(false);
 
   // 명함카드 팝업 상태
   const [showProfileCard, setShowProfileCard] = useState(false);
@@ -94,7 +100,9 @@ const ProfilePage: NextPage = () => {
         const newUploader = await createIrysUploader(wallet);
         setUploader(newUploader);
 
-        // Uploader ready
+        // Get initial balance
+        const balanceInfo = await getIrysBalance(newUploader);
+        setIrysBalance(balanceInfo.formatted);
       } catch (error) {
         console.error('Irys 업로더 생성 실패:', error);
         setUploader(null);
@@ -203,28 +211,36 @@ const ProfilePage: NextPage = () => {
       return;
     }
 
-    // 파일 크기 검증 (100KB)
-    if (file.size > 100 * 1024) {
-      setErrors(prev => ({
-        ...prev,
-        image: 'Image should be smaller than 100KB.',
-      }));
-      // 에러가 있어도 기존 프로필 이미지는 유지
-      setProfileImage(null);
-      setPreviewUrl(existingProfile?.profileImageUrl || '');
-      return;
-    }
-
     // No size restriction - any image size is accepted
 
     setProfileImage(file);
     setPreviewUrl(URL.createObjectURL(file));
     setErrors(prev => ({ ...prev, image: '' }));
 
-    // Calculate estimated cost
+    // Calculate estimated cost and check if we need funding
     try {
       const cost = ProfileUtils.estimateUploadCost(file.size);
       setEstimatedCost(cost);
+
+      // Get actual upload price from Irys
+      if (uploader && file.size > 100 * 1024) {
+        const priceInfo = await getIrysUploadPrice(uploader, file.size);
+        setUploadPrice(priceInfo.formatted);
+
+        // Check current balance
+        const balanceInfo = await getIrysBalance(uploader);
+        setIrysBalance(balanceInfo.formatted);
+
+        // Show fund popup if balance is insufficient
+        const priceInLamports = BigInt(priceInfo.price);
+        const balanceInLamports = BigInt(balanceInfo.balance);
+        if (balanceInLamports < priceInLamports) {
+          setShowFundPopup(true);
+          // Suggest funding amount (price + 20% buffer)
+          const suggestedAmount = parseFloat(priceInfo.formatted) * 1.2;
+          setFundAmount(Math.max(0.01, suggestedAmount)); // Minimum 0.01 SOL
+        }
+      }
     } catch (error) {
       console.error('Cost estimation error:', error);
     }
@@ -257,18 +273,36 @@ const ProfilePage: NextPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Show fund instructions
-  const handleFund = () => {
-    // Close fund popup after user sees instructions
-    setShowFundPopup(false);
+  // Irys wallet funding
+  const handleFundWallet = async () => {
+    if (!uploader || fundAmount <= 0) return;
 
-    // Show success message with funding instructions
-    const instruction = `Please fund your account with ${fundAmount.toFixed(4)} SOL to complete the profile upload.\n\nAfter funding, try saving your profile again.`;
-
-    alert(instruction);
-
-    // Reset fund amount
-    setFundAmount(0);
+    setIsFunding(true);
+    try {
+      const result = await fundIrysWallet(uploader, fundAmount);
+      if (result.success) {
+        // Update balance after funding
+        const balanceInfo = await getIrysBalance(uploader);
+        setIrysBalance(balanceInfo.formatted);
+        setShowFundPopup(false);
+        setSuccessMessage(
+          `Successfully funded ${fundAmount} SOL to Irys wallet`
+        );
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          funding: result.error || 'Failed to fund wallet',
+        }));
+      }
+    } catch (error) {
+      console.error('Funding error:', error);
+      setErrors(prev => ({
+        ...prev,
+        funding: 'An error occurred while funding the wallet',
+      }));
+    } finally {
+      setIsFunding(false);
+    }
   };
 
   // 프로필 저장
@@ -400,6 +434,15 @@ const ProfilePage: NextPage = () => {
             {/* 일반 오류 메시지 */}
             {errors.general && (
               <div className={styles.message_top_error}>{errors.general}</div>
+            )}
+
+            {/* Irys Balance Display */}
+            {uploader && (
+              <div className={styles.balanceInfo}>
+                <p>
+                  Irys Balance: <strong>{irysBalance}</strong>
+                </p>
+              </div>
             )}
 
             {/* 프로필 이미지 */}
@@ -574,54 +617,63 @@ const ProfilePage: NextPage = () => {
       {showFundPopup && (
         <div className={styles.fundPopupOverlay}>
           <div className={styles.fundPopup}>
-            <h3 className={styles.fundPopupTitle}>Insufficient Balance</h3>
+            <h3 className={styles.fundPopupTitle}>Insufficient Irys Balance</h3>
             <p className={styles.fundPopupMessage}>
-              Your account doesn't have enough balance to upload the profile.
+              Your Irys wallet doesn't have enough balance to upload this image.
             </p>
             <div className={styles.fundPopupInfo}>
               <p>
-                Required Amount:{' '}
-                <strong>{ProfileUtils.formatCost(estimatedCost)}</strong>
+                Upload Cost: <strong>{uploadPrice}</strong>
+              </p>
+              <p>
+                Current Balance: <strong>{irysBalance}</strong>
               </p>
               <p>
                 Suggested Fund Amount:{' '}
-                <strong>{ProfileUtils.formatCost(fundAmount)}</strong>
+                <strong>{fundAmount.toFixed(6)} SOL</strong>
               </p>
               <p className={styles.fundPopupNote}>
-                (Includes 10% buffer for transaction fees)
+                (Includes 20% buffer for future uploads)
               </p>
             </div>
 
-            <div className={styles.cliInstructions}>
-              <h4 className={styles.cliInstructionsTitle}>
-                Fund Instructions:
-              </h4>
-              <div className={styles.cliCommandList}>
-                <div className={styles.cliCommand}>
-                  <code>
-                    Please fund your account with {fundAmount.toFixed(4)} SOL
-                  </code>
-                </div>
-              </div>
+            {errors.funding && (
+              <div className={styles.fundPopupError}>❌ {errors.funding}</div>
+            )}
+
+            <div className={styles.fundAmountInput}>
+              <label>Fund Amount (SOL):</label>
+              <input
+                type="number"
+                value={fundAmount}
+                onChange={e =>
+                  setFundAmount(
+                    Math.max(0.001, parseFloat(e.target.value) || 0)
+                  )
+                }
+                min="0.001"
+                step="0.001"
+                disabled={isFunding}
+              />
             </div>
 
-            <p className={styles.fundPopupQuestion}>
-              Please run these commands in your terminal to fund your account.
-            </p>
             <div className={styles.fundPopupWarning}>
               <p className={styles.fundPopupWarningText}>
-                ℹ️ After funding, try saving your profile again.
+                ℹ️ This will transfer SOL from your wallet to your Irys storage
+                account.
               </p>
             </div>
             <div className={styles.fundPopupButtons}>
               <button
-                onClick={handleFund}
+                onClick={handleFundWallet}
+                disabled={isFunding}
                 className={`${styles.fundPopupButton} ${styles.fundPopupButtonPrimary}`}
               >
-                Show Instructions
+                {isFunding ? 'Funding...' : 'Fund Wallet'}
               </button>
               <button
                 onClick={() => setShowFundPopup(false)}
+                disabled={isFunding}
                 className={`${styles.fundPopupButton} ${styles.fundPopupButtonSecondary}`}
               >
                 Cancel

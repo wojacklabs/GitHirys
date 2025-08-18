@@ -386,3 +386,69 @@
   border: none;
   font-weight: 500;
 }
+
+/* Fund Amount Input Styles */
+.fundAmountInput {
+  margin: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fundAmountInput label {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.fundAmountInput input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  background-color: #fff;
+  transition: border-color 0.3s ease;
+}
+
+.fundAmountInput input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.fundAmountInput input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+/* Fund Popup Error */
+.fundPopupError {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: #c00;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Balance Info */
+.balanceInfo {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: #f0f4f8;
+  border: 1px solid #d1dce5;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.balanceInfo p {
+  margin: 0;
+  color: #555;
+}
+
+.balanceInfo strong {
+  color: #333;
+  font-weight: 600;
+}

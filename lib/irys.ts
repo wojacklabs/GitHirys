@@ -2,6 +2,9 @@
 import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
 
+// Use Solana public RPC endpoint through our proxy to avoid CORS
+const SOLANA_PUBLIC_RPC = '/api/solana-proxy';
+
 // 쿼리 큐 관리를 위한 변수
 let isQueryRunning = false;
 const queryQueue: (() => Promise<any>)[] = [];
@@ -212,9 +215,22 @@ export async function createIrysUploader(wallet?: any) {
       throw new Error('Wallet not connected');
     }
 
-    // Use the wallet object directly with withProvider as per documentation
-    const irysUploader = await WebUploader(WebSolana).withProvider(wallet);
+    // Get the full URL for the proxy endpoint
+    const proxyUrl =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/api/solana-proxy`
+        : 'http://localhost:3000/api/solana-proxy';
 
+    // Create the uploader with Solana public RPC through proxy
+    const irysUploader = await WebUploader(WebSolana)
+      .withProvider(wallet)
+      .withRpc(proxyUrl)
+      .mainnet(); // Ensure we're on mainnet
+
+    console.log(
+      '[createIrysUploader] Irys uploader created with proxy RPC:',
+      proxyUrl
+    );
     return irysUploader;
   } catch (error) {
     console.error('Error connecting to Irys:', error);
@@ -1357,6 +1373,75 @@ export async function getProfileImageUrl(
   }
 }
 
+// Irys wallet 관련 함수들
+export async function getIrysBalance(
+  uploader: any
+): Promise<{ balance: string; formatted: string }> {
+  try {
+    const balance = await uploader.getLoadedBalance();
+    // atomic units to SOL conversion (1 SOL = 10^9 lamports)
+    const balanceInSol = balance.dividedBy(1e9);
+    return {
+      balance: balance.toString(),
+      formatted: `${balanceInSol.toFixed(9)} SOL`,
+    };
+  } catch (error) {
+    console.error('Error getting Irys balance:', error);
+    return {
+      balance: '0',
+      formatted: '0 SOL',
+    };
+  }
+}
+
+export async function fundIrysWallet(
+  uploader: any,
+  amountInSol: number
+): Promise<{ success: boolean; txId?: string; error?: string }> {
+  try {
+    // SOL to atomic units conversion
+    const amountInLamports = Math.floor(amountInSol * 1e9);
+    console.log(
+      `[fundIrysWallet] Funding with ${amountInSol} SOL (${amountInLamports} lamports)`
+    );
+
+    const fundResult = await uploader.fund(amountInLamports);
+    console.log(`[fundIrysWallet] Fund transaction ID: ${fundResult.id}`);
+
+    return {
+      success: true,
+      txId: fundResult.id,
+    };
+  } catch (error) {
+    console.error('[fundIrysWallet] Funding error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+export async function getIrysUploadPrice(
+  uploader: any,
+  sizeInBytes: number
+): Promise<{ price: string; formatted: string }> {
+  try {
+    const price = await uploader.getPrice(sizeInBytes);
+    // atomic units to SOL conversion
+    const priceInSol = price.dividedBy(1e9);
+    return {
+      price: price.toString(),
+      formatted: `${priceInSol.toFixed(9)} SOL`,
+    };
+  } catch (error) {
+    console.error('Error getting upload price:', error);
+    return {
+      price: '0',
+      formatted: '0 SOL',
+    };
+  }
+}
+
 // 프로필 관련 유틸리티 함수들
 export const ProfileUtils = {
   // 닉네임 유효성 검사 (형식)
@@ -1767,6 +1852,57 @@ export async function uploadProfile(
     // 기존 프로필이 있는 경우 Root-TX 태그 추가
     if (profileData.existingRootTxId) {
       tags.push({ name: 'Root-TX', value: profileData.existingRootTxId });
+    }
+
+    // 100KB 이상의 파일인 경우 잔액 확인 및 충전
+    const uploadSize = uploadData.size || (uploadData as Blob).size;
+    if (uploadSize > 100 * 1024) {
+      console.log(
+        `[uploadProfile] File size ${uploadSize} bytes exceeds 100KB, checking balance...`
+      );
+
+      try {
+        // 업로드 비용 계산
+        const uploadPrice = await uploader.getPrice(uploadSize);
+        console.log(
+          `[uploadProfile] Upload price: ${uploadPrice.toString()} atomic units`
+        );
+
+        // 현재 잔액 확인
+        const balance = await uploader.getLoadedBalance();
+        console.log(
+          `[uploadProfile] Current balance: ${balance.toString()} atomic units`
+        );
+
+        // 잔액이 부족한 경우 충전
+        if (balance.isLessThan(uploadPrice)) {
+          const requiredAmount = uploadPrice.minus(balance);
+          console.log(
+            `[uploadProfile] Insufficient balance. Need to fund: ${requiredAmount.toString()} atomic units`
+          );
+
+          // 충전 금액은 필요한 금액의 1.1배로 설정 (여유분 포함)
+          const fundAmount = requiredAmount.multipliedBy(1.1).integerValue();
+          console.log(
+            `[uploadProfile] Funding with: ${fundAmount.toString()} atomic units`
+          );
+
+          const fundResult = await uploader.fund(fundAmount);
+          console.log(`[uploadProfile] Fund transaction ID: ${fundResult.id}`);
+
+          // 충전 후 잔액 재확인
+          const newBalance = await uploader.getLoadedBalance();
+          console.log(
+            `[uploadProfile] New balance after funding: ${newBalance.toString()} atomic units`
+          );
+        }
+      } catch (fundError) {
+        console.error('[uploadProfile] Funding error:', fundError);
+        return {
+          success: false,
+          error: `Failed to fund wallet: ${fundError instanceof Error ? fundError.message : 'Unknown error'}`,
+        };
+      }
     }
 
     // Irys에 업로드 - File/Blob 객체를 직접 전달
