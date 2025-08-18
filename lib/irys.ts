@@ -216,17 +216,15 @@ export async function createIrysUploader(wallet?: any) {
       throw new Error('Wallet not connected');
     }
 
+    console.log('[createIrysUploader] Creating Irys uploader...');
+
+    // Follow the official documentation pattern - only use withProvider
+    // Let Irys automatically determine the network from the wallet connection
+    const irysUploader = await WebUploader(WebSolana).withProvider(wallet);
+
     console.log(
-      '[createIrysUploader] Creating Irys uploader with default configuration'
+      `[createIrysUploader] Connected to Irys from ${irysUploader.address}`
     );
-
-    // Use Irys's default configuration without specifying RPC
-    // Irys will use its own internal RPC endpoints that work in browsers
-    const irysUploader = await WebUploader(WebSolana)
-      .withProvider(wallet)
-      .mainnet();
-
-    console.log('[createIrysUploader] Irys uploader created successfully');
     return irysUploader;
   } catch (error) {
     console.error('Error connecting to Irys:', error);
