@@ -17,18 +17,14 @@ interface SolanaProviderProps {
 }
 
 export default function SolanaProvider({ children }: SolanaProviderProps) {
-  // Use a browser-friendly RPC endpoint instead of the default one
-  // The default api.mainnet-beta.solana.com returns 403 in browsers
+  // Use Helius RPC with the provided API key
   const endpoint = useMemo(() => {
-    // Options for browser-friendly RPC endpoints:
-    // 1. Helius (free tier available)
-    // return 'https://mainnet.helius-rpc.com/?api-key=<your-key>';
+    // Helius RPC endpoint with API key
+    const heliusRpc =
+      'https://mainnet.helius-rpc.com/?api-key=33ec3a18-f17c-4987-bc8d-488e767a6985';
 
-    // 2. Use wallet's own RPC (Phantom, Solflare provide their own)
-    // This is handled automatically when wallet connects
-
-    // 3. For now, use a public RPC that allows browser access
-    return 'https://solana-mainnet.rpc.extrnode.com';
+    // Use environment variable if provided, otherwise use Helius
+    return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || heliusRpc;
   }, []);
 
   const wallets = useMemo(

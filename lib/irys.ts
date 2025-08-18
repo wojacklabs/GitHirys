@@ -1388,12 +1388,71 @@ export async function getIrysBalance(
   }
 }
 
+// Server-side upload proxy option for production environments
+export async function uploadViaServerProxy(
+  data: Buffer | string,
+  tags: any[],
+  userAddress: string
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    console.log(
+      `[uploadViaServerProxy] Uploading via server for ${userAddress}`
+    );
+
+    // Convert data to base64 if it's a Buffer
+    const base64Data = Buffer.isBuffer(data)
+      ? data.toString('base64')
+      : Buffer.from(data).toString('base64');
+
+    const response = await fetch('/api/irys-upload-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        data: base64Data,
+        tags,
+        userAddress,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.details || error.error || 'Upload request failed');
+    }
+
+    const result = await response.json();
+    console.log(`[uploadViaServerProxy] Upload successful:`, result.id);
+
+    return {
+      success: true,
+      id: result.id,
+    };
+  } catch (error) {
+    console.error('[uploadViaServerProxy] Upload error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
+// Original client-side funding (may face RPC issues)
 export async function fundIrysWallet(
   uploader: any,
   amountInSol: number
 ): Promise<{ success: boolean; txId?: string; error?: string }> {
   try {
-    // SOL to atomic units conversion
+    // Try server-side funding first (if configured)
+    if (process.env.NEXT_PUBLIC_USE_SERVER_FUND === 'true') {
+      // For server-side funding, we would use the uploadViaServerProxy instead
+      // This requires a different approach - not direct funding
+      console.log(
+        '[fundIrysWallet] Server-side funding is enabled but requires upload proxy approach'
+      );
+    }
+
+    // Fall back to client-side funding
     const amountInLamports = Math.floor(amountInSol * 1e9);
     console.log(
       `[fundIrysWallet] Funding with ${amountInSol} SOL (${amountInLamports} lamports)`
