@@ -218,9 +218,10 @@ export async function createIrysUploader(wallet?: any) {
 
     console.log('[createIrysUploader] Creating Irys uploader...');
 
-    // Follow the official documentation pattern - only use withProvider
-    // Let Irys automatically determine the network from the wallet connection
-    const irysUploader = await WebUploader(WebSolana).withProvider(wallet);
+    // Use withProvider and explicitly set the RPC URL
+    const irysUploader = await WebUploader(WebSolana)
+      .withProvider(wallet)
+      .withRpc('https://mainnet.helius-rpc.com/?api-key=33ec3a18-f17c-4987-bc8d-488e767a6985');
 
     console.log(
       `[createIrysUploader] Connected to Irys from ${irysUploader.address}`
