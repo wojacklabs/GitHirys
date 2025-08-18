@@ -2,8 +2,8 @@
 import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
 
-// Use Solana public RPC endpoint through our proxy to avoid CORS
-const SOLANA_PUBLIC_RPC = '/api/solana-proxy';
+// Use Solana public RPC endpoint
+const SOLANA_PUBLIC_RPC = 'https://solana.public-rpc.com';
 
 // 쿼리 큐 관리를 위한 변수
 let isQueryRunning = false;
@@ -215,21 +215,22 @@ export async function createIrysUploader(wallet?: any) {
       throw new Error('Wallet not connected');
     }
 
-    // Get the full URL for the proxy endpoint
+    // Get the proxy URL based on environment
     const proxyUrl =
       typeof window !== 'undefined'
         ? `${window.location.origin}/api/solana-proxy`
         : 'http://localhost:3000/api/solana-proxy';
 
+    console.log('[createIrysUploader] Using proxy URL:', proxyUrl);
+
     // Create the uploader with Solana public RPC through proxy
     const irysUploader = await WebUploader(WebSolana)
       .withProvider(wallet)
       .withRpc(proxyUrl)
-      .mainnet(); // Ensure we're on mainnet
+      .mainnet();
 
     console.log(
-      '[createIrysUploader] Irys uploader created with proxy RPC:',
-      proxyUrl
+      '[createIrysUploader] Irys uploader created with public RPC through proxy'
     );
     return irysUploader;
   } catch (error) {
