@@ -17,8 +17,13 @@ interface SolanaProviderProps {
 }
 
 export default function SolanaProvider({ children }: SolanaProviderProps) {
-  // Always use solana.public-rpc.com
-  const endpoint = useMemo(() => 'https://solana.public-rpc.com', []);
+  // Use proxied endpoint in browser to avoid CORS
+  const endpoint = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/rpc`;
+    }
+    return 'https://solana.public-rpc.com';
+  }, []);
 
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],

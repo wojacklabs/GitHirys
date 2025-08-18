@@ -4,7 +4,11 @@ import { WebSolana } from '@irys/web-upload-solana';
 import { Connection } from '@solana/web3.js';
 
 // Use Solana public RPC endpoint
-const SOLANA_PUBLIC_RPC = 'https://solana.public-rpc.com';
+// In browser, we use the proxied endpoint to avoid CORS
+const SOLANA_PUBLIC_RPC =
+  typeof window !== 'undefined'
+    ? `${window.location.origin}/rpc`
+    : 'https://solana.public-rpc.com';
 
 // 쿼리 큐 관리를 위한 변수
 let isQueryRunning = false;
