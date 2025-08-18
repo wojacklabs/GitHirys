@@ -21,7 +21,10 @@ export default function SolanaProvider({ children }: SolanaProviderProps) {
   const endpoint = useMemo(() => {
     // Use environment variable for RPC endpoint
     // This should be set in .env.local and Vercel environment variables
-    return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+    return (
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+      'https://api.mainnet-beta.solana.com'
+    );
   }, []);
 
   const wallets = useMemo(
