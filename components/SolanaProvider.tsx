@@ -17,13 +17,12 @@ interface SolanaProviderProps {
 }
 
 export default function SolanaProvider({ children }: SolanaProviderProps) {
-  // Choose mainnet or devnet
-  const network = 'mainnet-beta';
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  // Always use solana.public-rpc.com
+  const endpoint = useMemo(() => 'https://solana.public-rpc.com', []);
 
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [network]
+    []
   );
 
   return (

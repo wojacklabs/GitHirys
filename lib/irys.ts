@@ -1,6 +1,7 @@
 // lib/irys.ts
 import { WebUploader } from '@irys/web-upload';
 import { WebSolana } from '@irys/web-upload-solana';
+import { Connection } from '@solana/web3.js';
 
 // Use Solana public RPC endpoint
 const SOLANA_PUBLIC_RPC = 'https://solana.public-rpc.com';
@@ -215,22 +216,28 @@ export async function createIrysUploader(wallet?: any) {
       throw new Error('Wallet not connected');
     }
 
-    // Get the proxy URL based on environment
-    const proxyUrl =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}/api/solana-proxy`
-        : 'http://localhost:3000/api/solana-proxy';
+    console.log('[createIrysUploader] Creating Irys uploader...');
 
-    console.log('[createIrysUploader] Using proxy URL:', proxyUrl);
+    // Create custom connection with solana.public-rpc.com
+    // We'll create a custom implementation that handles the connection properly
+    const customWallet = {
+      ...wallet,
+      // Override the connection to use our RPC
+      connection: new Connection(SOLANA_PUBLIC_RPC, {
+        commitment: 'confirmed',
+        // Disable preflight checks to avoid CORS issues
+        confirmTransactionInitialTimeout: 60000,
+      }),
+    };
 
-    // Create the uploader with Solana public RPC through proxy
+    // Create the uploader with custom wallet that includes our connection
     const irysUploader = await WebUploader(WebSolana)
-      .withProvider(wallet)
-      .withRpc(proxyUrl)
+      .withProvider(customWallet)
+      .withRpc(SOLANA_PUBLIC_RPC) // Also set RPC explicitly
       .mainnet();
 
     console.log(
-      '[createIrysUploader] Irys uploader created with public RPC through proxy'
+      '[createIrysUploader] Irys uploader created with solana.public-rpc.com'
     );
     return irysUploader;
   } catch (error) {
