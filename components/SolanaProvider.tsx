@@ -17,14 +17,11 @@ interface SolanaProviderProps {
 }
 
 export default function SolanaProvider({ children }: SolanaProviderProps) {
-  // Use Helius RPC with the provided API key
+  // Use RPC endpoint from environment variable
   const endpoint = useMemo(() => {
-    // Helius RPC endpoint with API key
-    const heliusRpc =
-      'https://mainnet.helius-rpc.com/?api-key=33ec3a18-f17c-4987-bc8d-488e767a6985';
-
-    // Use environment variable if provided, otherwise use Helius
-    return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || heliusRpc;
+    // Use environment variable for RPC endpoint
+    // This should be set in .env.local and Vercel environment variables
+    return process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
   }, []);
 
   const wallets = useMemo(

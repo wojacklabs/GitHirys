@@ -218,12 +218,12 @@ export async function createIrysUploader(wallet?: any) {
 
     console.log('[createIrysUploader] Creating Irys uploader...');
 
-    // Use withProvider and explicitly set the RPC URL
-    const irysUploader = await WebUploader(WebSolana)
-      .withProvider(wallet)
-      .withRpc(
-        'https://mainnet.helius-rpc.com/?api-key=33ec3a18-f17c-4987-bc8d-488e767a6985'
-      );
+    // Use withProvider and set RPC URL from environment variable if available
+    const irysUploader = process.env.NEXT_PUBLIC_SOLANA_RPC_URL
+      ? await WebUploader(WebSolana)
+          .withProvider(wallet)
+          .withRpc(process.env.NEXT_PUBLIC_SOLANA_RPC_URL)
+      : await WebUploader(WebSolana).withProvider(wallet);
 
     console.log(
       `[createIrysUploader] Connected to Irys from ${irysUploader.address}`

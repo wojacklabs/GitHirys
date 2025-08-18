@@ -1,4 +1,13 @@
-# GitHirys - Irys-based Git-like Service
+# GitHirys
+
+## Environment Variables
+
+Copy `env.example` to `.env.local` and set the following variables:
+
+```bash
+# Get your free API key from https://helius.dev/
+NEXT_PUBLIC_SOLANA_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY_HERE
+``` - Irys-based Git-like Service
 
 A decentralized Git-like repository service utilizing Solana blockchain and Irys network.
 
