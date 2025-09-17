@@ -151,7 +151,16 @@ const Home: NextPage = () => {
   return (
     <>
       <Head>
-        <title>GitHirys</title>
+        <title>GitHirys - 분산형 Git 저장소 호스팅 서비스</title>
+        <meta
+          property="og:title"
+          content="GitHirys - 분산형 Git 저장소 호스팅 서비스"
+        />
+        <meta property="og:url" content="https://githirys.xyz" />
+        <meta
+          name="twitter:title"
+          content="GitHirys - 분산형 Git 저장소 호스팅 서비스"
+        />
       </Head>
 
       {/* 3D Universe Environment */}

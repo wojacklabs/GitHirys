@@ -185,6 +185,20 @@ const UserPage: NextPage<UserPageProps> = ({
       <>
         <Head>
           <title>{pageTitle}</title>
+          <meta property="og:title" content={pageTitle} />
+          <meta
+            property="og:url"
+            content={`https://githirys.xyz/${targetUser}`}
+          />
+          <meta name="twitter:title" content={pageTitle} />
+          <meta
+            name="description"
+            content={`${targetUser}의 GitHirys 프로필 - 분산형 Git 저장소 목록을 확인하세요`}
+          />
+          <meta
+            property="og:description"
+            content={`${targetUser}의 GitHirys 프로필 - 분산형 Git 저장소 목록을 확인하세요`}
+          />
         </Head>
         <div className="container">
           {/* Skeleton Profile Header */}
@@ -241,7 +255,8 @@ const UserPage: NextPage<UserPageProps> = ({
     return (
       <>
         <Head>
-          <title>GitHirys</title>
+          <title>GitHirys - 로딩 중</title>
+          <meta property="og:title" content="GitHirys - 로딩 중" />
         </Head>
         <div className="container">
           <p style={{ marginTop: 40 }}>Fetching Page Data...</p>
@@ -254,6 +269,23 @@ const UserPage: NextPage<UserPageProps> = ({
     <>
       <Head>
         <title>{pageTitle}</title>
+        <meta property="og:title" content={pageTitle} />
+        <meta
+          property="og:url"
+          content={`https://githirys.xyz/${targetUser}`}
+        />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta
+          name="description"
+          content={`${userProfile?.nickname || targetUser}의 GitHirys 프로필 - 분산형 Git 저장소 목록을 확인하세요`}
+        />
+        <meta
+          property="og:description"
+          content={`${userProfile?.nickname || targetUser}의 GitHirys 프로필 - 분산형 Git 저장소 목록을 확인하세요`}
+        />
+        {userProfile?.profileImageUrl && (
+          <meta property="og:image" content={userProfile.profileImageUrl} />
+        )}
       </Head>
       <div className="container">
         {/* 개발 환경 디버깅 패널 */}

@@ -1,0 +1,143 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 4rem;
+  padding: 4rem 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 1rem;
+  color: white;
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  opacity: 0.9;
+}
+
+.section {
+  margin-bottom: 4rem;
+}
+
+.sectionTitle {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.feature {
+  background: #f7f7f7;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.feature:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.feature h3 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: #667eea;
+}
+
+.feature p {
+  color: #666;
+  line-height: 1.6;
+}
+
+.steps {
+  font-size: 1.1rem;
+  line-height: 2;
+  color: #666;
+}
+
+.steps li {
+  margin-bottom: 1rem;
+}
+
+.steps strong {
+  color: #333;
+  display: inline-block;
+  width: 150px;
+}
+
+.techStack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+}
+
+.tech {
+  text-align: center;
+  padding: 2rem;
+  background: #fff;
+  border: 2px solid #eee;
+  border-radius: 0.5rem;
+}
+
+.tech h4 {
+  font-size: 1.5rem;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.tech p {
+  color: #666;
+}
+
+.safety {
+  background: #fef3c7;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fbbf24;
+}
+
+.safety p {
+  margin-bottom: 1rem;
+  line-height: 1.8;
+  color: #78350f;
+}
+
+.safety p:last-child {
+  margin-bottom: 0;
+}
+
+.cta {
+  text-align: center;
+  margin-top: 4rem;
+}
+
+.ctaButton {
+  display: inline-block;
+  padding: 1rem 3rem;
+  background: #667eea;
+  color: white;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.ctaButton:hover {
+  background: #5a67d8;
+}

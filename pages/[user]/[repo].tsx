@@ -165,6 +165,11 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
       <>
         <Head>
           <title>{pageTitle}</title>
+          <meta property="og:title" content={pageTitle} />
+          <meta
+            name="description"
+            content="GitHirys - 프로필 정보를 불러오는 중입니다"
+          />
         </Head>
         <div className="container">
           <p style={{ marginTop: 40 }}>Fetching User Data...</p>
@@ -178,7 +183,8 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
     return (
       <>
         <Head>
-          <title>GitHirys</title>
+          <title>GitHirys - 로딩 중</title>
+          <meta property="og:title" content="GitHirys - 로딩 중" />
         </Head>
         <div className="container">
           <p style={{ marginTop: 40 }}>Fetching Page Data...</p>
@@ -195,6 +201,23 @@ const UserRepoPage: NextPage<UserRepoPageProps> = ({
     <>
       <Head>
         <title>{pageTitle}</title>
+        <meta property="og:title" content={pageTitle} />
+        <meta
+          property="og:url"
+          content={`https://githirys.xyz/${targetUser}/${targetRepo}`}
+        />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta
+          name="description"
+          content={`${targetRepo} - ${userProfile?.nickname || targetUser}의 GitHirys 저장소. 분산형 Git에서 코드를 확인하세요`}
+        />
+        <meta
+          property="og:description"
+          content={`${targetRepo} - ${userProfile?.nickname || targetUser}의 GitHirys 저장소. 분산형 Git에서 코드를 확인하세요`}
+        />
+        {userProfile?.profileImageUrl && (
+          <meta property="og:image" content={userProfile.profileImageUrl} />
+        )}
       </Head>
       <div className="container">
         {/* 저장소 상세 정보 */}

@@ -384,6 +384,13 @@ const Header: React.FC<HeaderProps> = ({ onConnect, showSearch = true }) => {
           <h1>GitHirys</h1>
         </Link>
 
+        {/* 네비게이션 */}
+        <nav className={styles.nav}>
+          <Link href="/about" className={styles.navLink}>
+            소개
+          </Link>
+        </nav>
+
         {/* 검색 섹션 */}
         {showSearch && (
           <div className={styles.searchSection} ref={searchRef}>

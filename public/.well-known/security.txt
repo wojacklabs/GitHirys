@@ -1,0 +1,10 @@
+# GitHirys Security Policy
+# 이 사이트는 정상적인 서비스입니다
+
+Contact: security@githirys.xyz
+Expires: 2025-12-31T23:59:59.000Z
+Preferred-Languages: ko, en
+
+# 사이트 정보
+# GitHirys는 분산형 Git 저장소 호스팅 서비스입니다.
+# Solana 블록체인과 Arweave를 활용하여 코드를 안전하게 보관합니다.

@@ -17,6 +17,10 @@ const SolanaProvider = dynamic(() => import('../components/SolanaProvider'), {
   loading: () => <div>Loading wallet...</div>,
 });
 
+const Footer = dynamic(() => import('../components/Footer'), {
+  ssr: false,
+});
+
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -84,8 +88,19 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         <meta name="theme-color" content="#ffffff" />
       </Head>
       <SolanaProvider>
-        <Header showSearch />
-        <Component {...pageProps} />
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Header showSearch />
+          <main style={{ flex: 1 }}>
+            <Component {...pageProps} />
+          </main>
+          <Footer />
+        </div>
       </SolanaProvider>
     </>
   );
